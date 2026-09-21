@@ -1,0 +1,419 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import RequireAuth from "@/components/RequireAuth";
+import AppHeader from "@/components/AppHeader";
+import ChatMessageItem, { ChatMessage } from "@/components/ChatMessageItem";
+import ChatWelcomeScreen from "@/components/ChatWelcomeScreen";
+import { conversationsApi, Conversation, MessageOut, authApi, UserOut } from "@/lib/api";
+import { streamChat } from "@/lib/chatStream";
+import { 
+  Plus, 
+  MessageSquare, 
+  Trash2, 
+  SendHorizonal, 
+  PanelLeftClose, 
+  PanelLeftOpen, 
+  Sparkles,
+  AlertCircle,
+  FileText,
+  Search
+} from "lucide-react";
+
+function ChatInner() {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [waitingFirstToken, setWaitingFirstToken] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [currentUser, setCurrentUser] = useState<UserOut | null>(null);
+  const [searchFilter, setSearchFilter] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    authApi.me().then(setCurrentUser).catch(() => {});
+    loadConversations();
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, waitingFirstToken]);
+
+  // Ajusta a altura da textarea automaticamente
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
+    }
+  }, [input]);
+
+  async function loadConversations() {
+    try {
+      const list = await conversationsApi.list();
+      setConversations(list);
+    } catch {
+      // silent — sidebar é não-bloqueante
+    }
+  }
+
+  async function openConversation(id: string) {
+    if (sending) return;
+    setConversationId(id);
+    setError(null);
+    try {
+      const msgs: MessageOut[] = await conversationsApi.messages(id);
+      setMessages(
+        msgs.map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          sources: m.sources?.map((s) => s.source_path) ?? undefined,
+          created_at: m.created_at,
+        })),
+      );
+    } catch {
+      setError("Não foi possível carregar as mensagens desta conversa.");
+    }
+  }
+
+  function handleNewConversation() {
+    if (sending) return;
+    setConversationId(null);
+    setMessages([]);
+    setError(null);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }
+
+  async function handleDeleteConversation(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
+    if (deletingId === id) return;
+    setDeletingId(id);
+    try {
+      await conversationsApi.delete(id);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (conversationId === id) {
+        handleNewConversation();
+      }
+    } catch {
+      setError("Não foi possível excluir a conversa.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function handleSend(userPromptText?: string) {
+    const textToSend = (userPromptText || input).trim();
+    if (!textToSend || sending) return;
+
+    setInput("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+    setError(null);
+
+    const nowIso = new Date().toISOString();
+
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: textToSend,
+      created_at: nowIso,
+    };
+
+    const initialAssistantMessage: ChatMessage = {
+      role: "assistant",
+      content: "",
+      created_at: nowIso,
+    };
+
+    setMessages((prev) => [...prev, userMessage, initialAssistantMessage]);
+    setSending(true);
+    setWaitingFirstToken(true);
+
+    let assistantText = "";
+    let sources: string[] = [];
+
+    await streamChat(textToSend, conversationId, {
+      onSources: (s) => {
+        sources = s;
+      },
+      onConversation: (id) => {
+        setConversationId(id);
+      },
+      onToken: (token) => {
+        setWaitingFirstToken(false);
+        assistantText += token;
+        setMessages((prev) => {
+          const next = [...prev];
+          const lastIdx = next.length - 1;
+          if (lastIdx >= 0) {
+            next[lastIdx] = {
+              ...next[lastIdx],
+              role: "assistant",
+              content: assistantText,
+              sources,
+            };
+          }
+          return next;
+        });
+      },
+      onDone: () => {
+        setSending(false);
+        setWaitingFirstToken(false);
+        loadConversations();
+      },
+      onError: (msg) => {
+        setSending(false);
+        setWaitingFirstToken(false);
+        setError(msg || "Ocorreu uma falha na geração da resposta pelo gateway.");
+      },
+    });
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const filteredConversations = conversations.filter((c) =>
+    (c.title || "Nova conversa").toLowerCase().includes(searchFilter.toLowerCase()),
+  );
+
+  const activeConversationTitle = conversations.find((c) => c.id === conversationId)?.title;
+
+  return (
+    <main className="flex h-screen flex-col bg-[#080d1a] text-slate-100 overflow-hidden select-text">
+      {/* Header Corporativo NTT DATA */}
+      <AppHeader />
+
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Sidebar Lateral de Histórico */}
+        <aside
+          className={`flex flex-col border-r border-slate-800/80 bg-slate-950/70 backdrop-blur-md transition-all duration-300 z-20 ${
+            sidebarOpen ? "w-72" : "w-0 -translate-x-full absolute md:relative md:w-0"
+          } overflow-hidden`}
+        >
+          {/* Top Actions na Sidebar */}
+          <div className="p-3 border-b border-slate-800/80 space-y-2">
+            <button
+              onClick={handleNewConversation}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0072BC] to-sky-600 px-3.5 py-2.5 text-xs font-semibold text-white shadow-md shadow-blue-500/20 hover:brightness-110 active:scale-[0.99] transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Nova Conversa</span>
+            </button>
+
+            {/* Campo de Busca no Histórico */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
+              <input
+                type="text"
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                placeholder="Buscar no histórico..."
+                className="w-full rounded-lg border border-slate-800 bg-slate-900/90 pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Lista de Conversas Recentes */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <div className="px-2 py-1 flex items-center justify-between text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+              <span>Conversas Recentes</span>
+              <span className="rounded-full bg-slate-800 px-1.5 py-0.2 text-[10px] text-slate-400">
+                {conversations.length}
+              </span>
+            </div>
+
+            {filteredConversations.length === 0 ? (
+              <div className="p-4 text-center text-xs text-slate-500">
+                {searchFilter ? "Nenhuma conversa encontrada." : "Nenhuma conversa ainda."}
+              </div>
+            ) : (
+              filteredConversations.map((c) => {
+                const isActive = c.id === conversationId;
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => openConversation(c.id)}
+                    className={`group relative flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs cursor-pointer transition-all duration-150 ${
+                      isActive
+                        ? "bg-blue-600/15 border border-blue-500/30 text-white font-medium shadow-sm"
+                        : "text-slate-300 hover:bg-slate-900 hover:text-white border border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <MessageSquare
+                        className={`h-3.5 w-3.5 flex-shrink-0 ${
+                          isActive ? "text-sky-400" : "text-slate-400 group-hover:text-slate-200"
+                        }`}
+                      />
+                      <span className="truncate">{c.title || "Nova conversa"}</span>
+                    </div>
+
+                    {/* Botão de Excluir Conversa */}
+                    <button
+                      onClick={(e) => handleDeleteConversation(e, c.id)}
+                      disabled={deletingId === c.id}
+                      title="Excluir conversa"
+                      className="opacity-0 group-hover:opacity-100 rounded p-1 text-slate-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all flex-shrink-0"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </aside>
+
+        {/* Botão de Toggle da Sidebar Flutuante */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className={`absolute top-3 z-30 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/90 text-slate-400 shadow-md hover:bg-slate-800 hover:text-white transition-all ${
+            sidebarOpen ? "left-60 md:left-64" : "left-3"
+          }`}
+          title={sidebarOpen ? "Recolher barra lateral" : "Expandir barra lateral"}
+        >
+          {sidebarOpen ? (
+            <PanelLeftClose className="h-4 w-4" />
+          ) : (
+            <PanelLeftOpen className="h-4 w-4" />
+          )}
+        </button>
+
+        {/* Área Principal de Chat */}
+        <section className="flex flex-1 flex-col overflow-hidden bg-[#080d1a]">
+          {/* Subheader com Título da Conversa Ativa */}
+          {conversationId && (
+            <div className="flex h-10 items-center justify-between border-b border-slate-800/60 bg-slate-950/40 px-14 py-1 text-xs text-slate-400">
+              <div className="flex items-center gap-2 truncate">
+                <FileText className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
+                <span className="truncate font-medium text-slate-300">
+                  {activeConversationTitle || "Conversa Ativa"}
+                </span>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 text-[11px] text-slate-400">
+                <span>RAG Local Conectado</span>
+              </div>
+            </div>
+          )}
+
+          {/* Mensagens ou Welcome Screen */}
+          <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4">
+            {messages.length === 0 ? (
+              <ChatWelcomeScreen
+                onSelectPrompt={(promptText) => handleSend(promptText)}
+                userName={currentUser?.email ? currentUser.email.split("@")[0] : "Colega"}
+              />
+            ) : (
+              <div className="max-w-4xl mx-auto space-y-4">
+                {messages.map((m, i) => {
+                  const isLastAssistant =
+                    m.role === "assistant" && i === messages.length - 1;
+                  return (
+                    <ChatMessageItem
+                      key={m.id || i}
+                      message={m}
+                      userEmail={currentUser?.email}
+                      isStreaming={isLastAssistant && (sending || waitingFirstToken)}
+                    />
+                  );
+                })}
+                <div ref={bottomRef} className="h-4" />
+              </div>
+            )}
+          </div>
+
+          {/* Banner de Erro Flutuante */}
+          {error && (
+            <div className="max-w-3xl mx-auto px-4 w-full">
+              <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs text-rose-300 animate-in fade-in">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span className="flex-1">{error}</span>
+                <button
+                  onClick={() => setError(null)}
+                  className="text-rose-400 hover:text-white text-xs font-semibold underline"
+                >
+                  Dispensar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Input Box Flutuante Estilo ChatGPT / Claude */}
+          <div className="p-4 md:pb-6 md:pt-2 border-t border-slate-800/80 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent">
+            <div className="max-w-4xl mx-auto">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSend();
+                }}
+                className="relative flex flex-col rounded-2xl border border-slate-700/80 bg-slate-900/90 shadow-2xl focus-within:border-blue-500/80 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all duration-200"
+              >
+                {/* Textarea auto-expansível */}
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Faça uma pergunta sobre sua base de documentos Markdown (ex.: arquitetura, deploy, endpoints)..."
+                  disabled={sending}
+                  rows={1}
+                  className="w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none disabled:opacity-60 max-h-44 min-h-[48px]"
+                />
+
+                {/* Footer do Input Box */}
+                <div className="flex items-center justify-between px-3.5 pb-2.5 pt-1 text-xs text-slate-400">
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="hidden sm:inline-flex items-center gap-1 text-slate-400">
+                      <kbd className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-400 border border-slate-700">Enter</kbd>
+                      para enviar
+                    </span>
+                    <span className="hidden sm:inline-block text-slate-600">•</span>
+                    <span className="hidden sm:inline-flex items-center gap-1 text-slate-400">
+                      <kbd className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-400 border border-slate-700">Shift + Enter</kbd>
+                      nova linha
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 ml-auto">
+                    <button
+                      type="submit"
+                      disabled={sending || !input.trim()}
+                      className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-r from-[#0072BC] to-sky-500 text-white shadow-md shadow-blue-500/20 hover:opacity-90 active:scale-95 disabled:opacity-30 disabled:hover:opacity-30 transition-all"
+                      title="Enviar mensagem"
+                    >
+                      <SendHorizonal className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              <p className="mt-2 text-center text-[11px] text-slate-400 select-none">
+                Respostas geradas a partir de indexação vetorial dos arquivos locais. Consulte as fontes citadas para auditoria.
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <RequireAuth>
+      <ChatInner />
+    </RequireAuth>
+  );
+}

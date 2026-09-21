@@ -1,0 +1,56 @@
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    # Diretório amplo montado no container (read-only). O caminho efetivo de
+    # ingestão é um subcaminho dentro desta raiz, configurável em runtime
+    # pelo painel admin (persistido no Postgres) — ver app/ingestion/sources_settings.py.
+    sources_root: str = "/data/sources_root"
+    # Caminho real, no HOST (fora do container), que foi montado como sources_root.
+    # Usado apenas para traduzir um caminho absoluto colado pelo admin no painel
+    # (ex.: "/Users/joao/Documents/notas") para o caminho relativo equivalente
+    # dentro do container. Não é usado para acessar o disco — é aritmética de string.
+    sources_root_host_path: str = "./data/sources"
+    # Subcaminho padrão (relativo a sources_root) usado até o admin configurar outro.
+    sources_path: str = "."
+
+    qdrant_host: str = "qdrant"
+    qdrant_port: int = 6333
+    qdrant_collection: str = "rag_documents"
+
+    postgres_host: str = "postgres"
+    postgres_port: int = 5432
+    postgres_db: str = "rag_local_reef"
+    postgres_user: str = "rag_user"
+    postgres_password: str = "changeme"
+
+    embedding_mode: str = "local"  # local | api
+    embedding_model_local: str = "BAAI/bge-m3"
+    embedding_api_url: str = ""
+    embedding_api_key: str = ""
+
+    llm_provider: str = "openai"  # openai | anthropic
+    llm_gateway_url: str = "http://localhost:4000"
+    llm_gateway_api_key: str = ""
+    llm_model: str = "gpt-4o-mini"
+
+    jwt_secret: str = "changeme"
+    jwt_access_token_ttl_minutes: int = 15
+    jwt_refresh_token_ttl_days: int = 7
+    bootstrap_admin_email: str = "admin@example.com"
+
+    environment: str = "local"
+    cors_allowed_origins: str = "http://localhost:3001"
+
+    @property
+    def postgres_dsn(self) -> str:
+        return (
+            f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
+
+    class Config:
+        env_file = ".env"
+
+
+settings = Settings()

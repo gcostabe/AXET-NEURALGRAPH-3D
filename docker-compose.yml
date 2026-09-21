@@ -1,0 +1,54 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rag_local_reef}
+      POSTGRES_USER: ${POSTGRES_USER:-rag_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      # SOURCES_ROOT no .env é o caminho do HOST usado só para montar o volume
+      # (ver `volumes:` abaixo). Dentro do container o caminho é sempre
+      # /data/sources_root — sobrescreve aqui para não deixar o valor do .env
+      # (que env_file também injeta) vazar por engano para dentro da app.
+      SOURCES_ROOT: /data/sources_root
+      # Espelha o valor original do .env para que o backend saiba qual caminho
+      # do HOST corresponde a /data/sources_root, e possa traduzir automaticamente
+      # um caminho absoluto colado pelo admin no painel (ver sources_settings.py).
+      SOURCES_ROOT_HOST_PATH: ${SOURCES_ROOT:-./data/sources}
+    depends_on:
+      - qdrant
+      - postgres
+    ports:
+      - "8000:8000"
+    volumes:
+      - ${SOURCES_ROOT:-./data/sources}:/data/sources_root:ro
+
+  frontend:
+    build: ./frontend
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on:
+      - backend
+    ports:
+      # Host 3001 (não 3000) para não conflitar com outros apps locais
+      # (ex.: open-webui) que já usam a porta 3000 na máquina.
+      - "3001:3000"
+
+volumes:
+  qdrant_storage:
+  postgres_data:
