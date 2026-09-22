@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, ApiError } from "@/lib/api";
@@ -14,6 +14,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("expired")) {
+        setSessionExpired(true);
+      }
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +32,8 @@ export default function LoginPage() {
     try {
       const res = await authApi.login(email, password);
       setToken(res.access_token, res.role);
-      router.push(res.role === "admin" ? "/admin" : "/chat");
+      const isAdm = (res.role || "").toLowerCase() === "admin";
+      router.push(isAdm ? "/admin" : "/chat");
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403 && /pending/i.test(err.message)) {
@@ -92,6 +103,12 @@ export default function LoginPage() {
               />
             </div>
           </div>
+
+          {sessionExpired && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+              Sua sessão expirou por segurança. Por favor, entre novamente.
+            </div>
+          )}
 
           {error && (
             <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400">

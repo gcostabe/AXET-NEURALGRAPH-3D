@@ -44,3 +44,32 @@ class AnthropicCompatClient:
                         delta = event.get("delta", {}).get("text")
                         if delta:
                             yield delta
+
+    async def complete(self, messages: list[Message], temperature: float = 0.2) -> str:
+        system_messages = [m["content"] for m in messages if m["role"] == "system"]
+        conversation = [m for m in messages if m["role"] != "system"]
+
+        headers = {
+            "x-api-key": self._api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self._model,
+            "system": "\n".join(system_messages) if system_messages else None,
+            "messages": conversation,
+            "max_tokens": 4096,
+            "temperature": temperature,
+        }
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{self._base_url}/v1/messages",
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+            content_blocks = data.get("content") or []
+            texts = [b.get("text", "") for b in content_blocks if b.get("type") == "text"]
+            return "".join(texts)

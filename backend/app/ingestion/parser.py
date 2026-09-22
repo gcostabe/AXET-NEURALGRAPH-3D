@@ -21,7 +21,7 @@ def parse_markdown_file(file_path: Path, root: Path) -> ParsedDocument:
 
     content_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
     title = post.metadata.get("title") or _first_h1(post.content) or file_path.stem
-    tags = post.metadata.get("tags") or []
+    tags = post.metadata.get("tags") or post.metadata.get("topics") or []
     if isinstance(tags, str):
         tags = [tags]
 

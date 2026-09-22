@@ -29,14 +29,15 @@ services:
       # Espelha o valor original do .env para que o backend saiba qual caminho
       # do HOST corresponde a /data/sources_root, e possa traduzir automaticamente
       # um caminho absoluto colado pelo admin no painel (ver sources_settings.py).
-      SOURCES_ROOT_HOST_PATH: ${SOURCES_ROOT:-./data/sources}
+      SOURCES_ROOT_HOST_PATH: "${SOURCES_ROOT:-./data/sources}"
     depends_on:
       - qdrant
       - postgres
     ports:
       - "8000:8000"
     volumes:
-      - ${SOURCES_ROOT:-./data/sources}:/data/sources_root:ro
+      - "${SOURCES_ROOT:-./data/sources}:/data/sources_root"
+      - "./backend/app:/app/app"
 
   frontend:
     build: ./frontend

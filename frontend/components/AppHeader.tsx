@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { authApi, UserOut, ApiError } from "@/lib/api";
-import { clearToken } from "@/lib/auth";
+import { clearToken, isAdmin as checkIsAdmin } from "@/lib/auth";
 import NttDataLogo from "./NttDataLogo";
 import { 
   ShieldCheck, 
@@ -15,7 +15,8 @@ import {
   ChevronDown, 
   LayoutDashboard,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  Network
 } from "lucide-react";
 
 export default function AppHeader() {
@@ -86,8 +87,9 @@ export default function AppHeader() {
   }
 
   const initial = user?.email?.[0]?.toUpperCase() ?? "U";
-  const isAdmin = user?.role === "admin";
+  const isAdmin = (user?.role || "").toLowerCase() === "admin" || checkIsAdmin();
   const isOnAdminPage = pathname.startsWith("/admin");
+  const isOnGraphPage = pathname.startsWith("/graph");
 
   return (
     <>
@@ -115,16 +117,40 @@ export default function AppHeader() {
         </div>
 
         {/* Right Navigation & User Menu */}
-        <div className="flex items-center gap-3">
-          {/* Admin Navigation shortcut */}
+        <div className="flex items-center gap-2.5">
+          {/* Acesso ao Grafo Neural 3D para Todos os Usuários */}
+          <button
+            onClick={() => router.push(isOnGraphPage ? "/chat" : "/graph")}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all shadow-sm ${
+              isOnGraphPage
+                ? "border-cyan-500/50 bg-cyan-600/15 text-cyan-300 hover:bg-cyan-600/25 shadow-cyan-950/30"
+                : "border-slate-800 bg-slate-900/80 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300 hover:bg-slate-800/90"
+            }`}
+            title={isOnGraphPage ? "Voltar ao Chat" : "Explorar Grafo Neural 3D"}
+          >
+            {isOnGraphPage ? (
+              <>
+                <MessageSquare className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Voltar ao Chat</span>
+              </>
+            ) : (
+              <>
+                <Network className="h-3.5 w-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">Grafo 3D</span>
+              </>
+            )}
+          </button>
+
+          {/* Admin Navigation shortcut — exibido com destaque e garantia de acesso para admins */}
           {isAdmin && (
             <button
               onClick={() => router.push(isOnAdminPage ? "/chat" : "/admin")}
-              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all shadow-sm ${
                 isOnAdminPage
-                  ? "border-blue-500/40 bg-blue-600/10 text-blue-300 hover:bg-blue-600/20"
-                  : "border-slate-700/80 bg-slate-900 text-slate-300 hover:border-slate-600 hover:bg-slate-800"
+                  ? "border-blue-500/50 bg-blue-600/15 text-blue-300 hover:bg-blue-600/25"
+                  : "border-purple-500/50 bg-purple-950/50 text-purple-200 hover:border-purple-400 hover:bg-purple-900/60 shadow-purple-950/40"
               }`}
+              title={isOnAdminPage ? "Voltar ao Chat de IA" : "Acessar Painel Administrativo"}
             >
               {isOnAdminPage ? (
                 <>
@@ -133,7 +159,7 @@ export default function AppHeader() {
                 </>
               ) : (
                 <>
-                  <LayoutDashboard className="h-3.5 w-3.5 text-slate-400" />
+                  <ShieldCheck className="h-3.5 w-3.5 text-purple-400" />
                   <span>Painel Admin</span>
                 </>
               )}

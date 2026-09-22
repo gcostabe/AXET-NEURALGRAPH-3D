@@ -31,12 +31,33 @@ async def get_conversation_messages(
     current_user: User = Depends(get_current_user),
 ):
     conversation = await _get_own_conversation_or_404(db, conversation_id, current_user)
-    messages = await db.scalars(
+    messages = (await db.scalars(
         select(Message)
         .where(Message.conversation_id == conversation.id)
         .order_by(Message.created_at)
-    )
-    return messages.all()
+    )).all()
+
+    msg_ids = [m.id for m in messages]
+    from app.auth.models import MessageFeedback
+    feedbacks = (await db.scalars(
+        select(MessageFeedback)
+        .where(MessageFeedback.message_id.in_(msg_ids), MessageFeedback.user_id == current_user.id)
+    )).all() if msg_ids else []
+    fb_map = {f.message_id: {"rating": f.rating, "reason": f.reason, "comment": f.comment} for f in feedbacks}
+
+    return [
+        {
+            "id": str(m.id),
+            "conversation_id": str(m.conversation_id),
+            "role": m.role,
+            "content": m.content,
+            "sources": m.sources,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+            "feedback": fb_map.get(m.id),
+        }
+        for m in messages
+    ]
+
 
 
 class UpdateConversationRequest(BaseModel):

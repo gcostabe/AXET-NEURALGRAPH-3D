@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
 import AppHeader from "@/components/AppHeader";
 import ChatMessageItem, { ChatMessage } from "@/components/ChatMessageItem";
@@ -17,10 +18,13 @@ import {
   Sparkles,
   AlertCircle,
   FileText,
-  Search
+  Search,
+  Network,
+  ArrowUpRight
 } from "lucide-react";
 
 function ChatInner() {
+  const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -75,6 +79,7 @@ function ChatInner() {
           content: m.content,
           sources: m.sources?.map((s) => s.source_path) ?? undefined,
           created_at: m.created_at,
+          feedback: m.feedback,
         })),
       );
     } catch {
@@ -143,6 +148,17 @@ function ChatInner() {
     await streamChat(textToSend, conversationId, {
       onSources: (s) => {
         sources = s;
+        setMessages((prev) => {
+          const next = [...prev];
+          const lastIdx = next.length - 1;
+          if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+            next[lastIdx] = {
+              ...next[lastIdx],
+              sources: s && s.length > 0 ? s : undefined,
+            };
+          }
+          return next;
+        });
       },
       onConversation: (id) => {
         setConversationId(id);
@@ -158,7 +174,20 @@ function ChatInner() {
               ...next[lastIdx],
               role: "assistant",
               content: assistantText,
-              sources,
+              sources: sources && sources.length > 0 ? sources : undefined,
+            };
+          }
+          return next;
+        });
+      },
+      onMessageId: (mid) => {
+        setMessages((prev) => {
+          const next = [...prev];
+          const lastIdx = next.length - 1;
+          if (lastIdx >= 0) {
+            next[lastIdx] = {
+              ...next[lastIdx],
+              id: mid,
             };
           }
           return next;
@@ -167,6 +196,17 @@ function ChatInner() {
       onDone: () => {
         setSending(false);
         setWaitingFirstToken(false);
+        setMessages((prev) => {
+          const next = [...prev];
+          const lastIdx = next.length - 1;
+          if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+            next[lastIdx] = {
+              ...next[lastIdx],
+              sources: sources && sources.length > 0 ? sources : undefined,
+            };
+          }
+          return next;
+        });
         loadConversations();
       },
       onError: (msg) => {
@@ -273,6 +313,31 @@ function ChatInner() {
                 );
               })
             )}
+          </div>
+
+          {/* Acesso Visual ao Grafo Neural 3D para Todos os Usuários */}
+          <div className="p-2.5 border-t border-slate-800/80 bg-slate-950/40">
+            <button
+              onClick={() => router.push("/graph")}
+              className="flex w-full items-center justify-between rounded-xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/40 via-slate-900 to-slate-950 p-2.5 text-xs font-medium text-cyan-300 shadow-md shadow-cyan-950/30 hover:border-cyan-400 hover:text-cyan-200 transition-all group"
+              title="Explorar visualmente o Grafo Neural 3D de documentos"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 group-hover:scale-110 transition-transform shrink-0">
+                  <Network className="h-4 w-4" />
+                </div>
+                <div className="text-left truncate">
+                  <div className="font-semibold text-slate-100 flex items-center gap-1.5 text-[11px]">
+                    Grafo Neural 3D
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-mono truncate">
+                    Exploração Cognitiva
+                  </div>
+                </div>
+              </div>
+              <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-cyan-300 transition-colors shrink-0" />
+            </button>
           </div>
         </aside>
 

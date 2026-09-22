@@ -35,12 +35,19 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o-mini"
 
     jwt_secret: str = "changeme"
-    jwt_access_token_ttl_minutes: int = 15
+    jwt_access_token_ttl_minutes: int = 1440  # 24 horas para conveniência local
     jwt_refresh_token_ttl_days: int = 7
     bootstrap_admin_email: str = "admin@example.com"
 
     environment: str = "local"
     cors_allowed_origins: str = "http://localhost:3001"
+
+    # Monitor de arquivos em tempo real (watchdog)
+    watchdog_enabled: bool = True
+    watchdog_debounce_seconds: float = 2.0
+
+    # Enriquecimento cognitivo de documentos (auto-resumo, tópicos, grafo e conflitos)
+    cognitive_analysis_enabled: bool = True
 
     @property
     def postgres_dsn(self) -> str:

@@ -20,7 +20,7 @@ export default function RequireAuth({
       router.replace("/login");
       return;
     }
-    if (role === "admin" && getRole() !== "admin") {
+    if (role === "admin" && (getRole() || "").toLowerCase() !== "admin") {
       router.replace("/chat");
       return;
     }

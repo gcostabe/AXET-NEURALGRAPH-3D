@@ -12,30 +12,32 @@ Sistema RAG local implementado e operacional com Docker Compose, autenticação 
 
 ## System Summary
 
-Projeto **RAG-LOCAL-REEF**: sistema RAG local (preparado para deploy online futuro) que indexa arquivos `.md` de múltiplas fontes, com chat de IA sobre esse conteúdo em streaming SSE, autenticação com aprovação de ADM, isolamento total de histórico por usuário e painel administrativo de gestão/reindexação de fontes.
+Projeto **RAG-LOCAL-REEF**: sistema RAG local (preparado para deploy online futuro) que indexa arquivos `.md` de múltiplas fontes de forma contínua e autônoma, com monitor em tempo real (watchdog), extração cognitiva de auto-resumos/tópicos, Grafo de Conhecimento relacional (GraphRAG), detecção de conflitos/obsolescências normativas, chat de IA sobre esse conteúdo em streaming SSE com injeção de contexto relacional, autenticação com aprovação de ADM e painel administrativo moderno NTT DATA.
 
 ---
 
 ## Current Architecture
 
-- Backend: FastAPI (Python 3.11, SQLAlchemy, asyncpg/psycopg2, Pydantic, Passlib/Bcrypt, PyJWT, httpx)
+- Backend: FastAPI (Python 3.11, SQLAlchemy, asyncpg, Pydantic, Passlib/Bcrypt, PyJWT, httpx, watchdog)
 - Vector DB: Qdrant
-- Banco relacional: PostgreSQL 16 (usuários, conversas, mensagens, auditoria, configurações)
+- Banco relacional: PostgreSQL 16 (usuários, conversas, mensagens, auditoria, configurações, nós de conhecimento, arestas do grafo e conflitos)
 - Embeddings: Modo dual (Local BGE-m3 ou API via Local AI Gateway)
-- LLM: Adapters OpenAI-compatible (`/codex/v1`) e Anthropic-compatible (`/v1/messages`)
-- Frontend: Next.js 14 (React, TypeScript, Tailwind CSS, Lucide icons, SSE stream) com identidade visual NTT DATA
+- LLM: Adapters OpenAI-compatible (`/codex/v1`) e Anthropic-compatible (`/v1/messages`) com suporte a streaming e chamadas estruturadas para modelos reasoning
+- Frontend: Next.js 14 (React, TypeScript, Tailwind CSS, Lucide icons, SSE stream) com identidade visual NTT DATA e abas de Fontes, Usuários e Grafo/Cognição
 - Orquestração: Docker Compose (`qdrant`, `postgres`, `backend`, `frontend`)
 
 ---
 
 ## Relevant Components
 
-- `backend/app/ingestion/`: Chunker, embedder, parser de Markdown e vector store Qdrant.
+- `backend/app/ingestion/`: Chunker, embedder, parser de Markdown, vector store Qdrant e serviço de File Watcher com debounce (`watcher.py`).
+- `backend/app/knowledge/`: Modelos de dados (`models.py`) e analisador cognitivo por LLM (`analyzer.py`) para resumos executivos, tópicos, arestas GraphRAG e conflitos.
+- `backend/app/retrieval/`: Motor de busca vetorial e enriquecimento de contexto relacional com alertas de obsolescência (`search.py`).
 - `backend/app/auth/`: Modelos SQLAlchemy, schemas Pydantic, rotas de autenticação, hashing seguro e tokens JWT.
-- `backend/app/llm/`: Adapters e factory de provedores LLM.
-- `backend/app/api/`: Endpoints de `/chat`, `/conversations`, `/auth`, `/admin` e `/health`.
+- `backend/app/llm/`: Adapters e factory de provedores LLM (streaming e completion).
+- `backend/app/api/`: Endpoints de `/chat`, `/conversations`, `/auth`, `/admin` (incluindo `/admin/knowledge` e fontes) e `/health`.
 - `frontend/app/`: Rotas de `/chat`, `/login`, `/register`, `/pending` e `/admin`.
-- `frontend/components/`: Componentes de chat assíncrono, logo NTT DATA, avatar, painel de fontes e guarda de autenticação.
+- `frontend/components/`: Componentes de chat assíncrono, logo NTT DATA, avatar, painel de fontes, painel cognitivo (`KnowledgePanel.tsx`) e guarda de autenticação.
 - `docker-compose.yml`: Serviços conteinerizados e redes internas.
 - `.gitignore`: Proteção robusta contra vazamento de segredos, dependências e volumes.
 

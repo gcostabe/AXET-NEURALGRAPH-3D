@@ -39,3 +39,27 @@ class OpenAICompatClient:
                     delta = choices[0].get("delta", {}).get("content")
                     if delta:
                         yield delta
+
+    async def complete(self, messages: list[Message], temperature: float | None = None) -> str:
+        headers = {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
+        payload: dict = {
+            "model": self._model,
+            "messages": messages,
+            "stream": False,
+        }
+        is_reasoning = any(x in (self._model or "").lower() for x in ["terra", "luna", "o1", "o3", "reasoning", "gpt-5"])
+        if not is_reasoning and temperature is not None and temperature != 1.0:
+            payload["temperature"] = temperature
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{self._base_url}/v1/chat/completions",
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+            choices = data.get("choices") or []
+            if not choices:
+                return ""
+            return choices[0].get("message", {}).get("content", "") or ""

@@ -106,3 +106,24 @@ class AuditLog(Base):
     target_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MessageFeedback(Base):
+    __tablename__ = "message_feedbacks"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("messages.id"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    rating: Mapped[str] = mapped_column(String(10), nullable=False)  # 'like' | 'dislike'
+    reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    curation_status: Mapped[str] = mapped_column(String(30), default="PENDING")  # PENDING, ANALYZED, RESOLVED, GOLD_ANSWER_CREATED
+    ai_diagnosis: Mapped[str | None] = mapped_column(Text, nullable=True)
+    curator_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolved_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    message: Mapped["Message"] = relationship()
+    user: Mapped["User"] = relationship()
+

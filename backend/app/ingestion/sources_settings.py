@@ -5,6 +5,7 @@ O caminho efetivo é sempre resolvido como um subcaminho de `settings.sources_ro
 fora do volume montado (path traversal) mesmo controlando o valor via API.
 """
 
+import unicodedata
 from pathlib import Path
 
 from sqlalchemy import select
@@ -24,23 +25,37 @@ class InvalidSourcesPath(ValueError):
 def to_relative_path(host_or_relative_path: str) -> str:
     """Traduz um caminho colado pelo admin para o caminho relativo a sources_root.
 
-    Aceita três formatos de entrada:
-    - Já relativo (ex.: "projA/docs") — devolvido como está.
-    - Caminho absoluto do HOST igual ou dentro de `sources_root_host_path`
-      (ex.: "/Users/joao/Documents/notas/projA" quando SOURCES_ROOT aponta para
-      "/Users/joao/Documents/notas") — traduzido para "projA".
-    - Qualquer outro caminho absoluto: levanta InvalidSourcesPath, pois está
-      fora da raiz que foi montada no container (só é acessível remontando o
-      volume e reiniciando o container — não é algo que a API possa contornar).
+    Aceita formatos:
+    - Já relativo (ex.: "01. Reef N0") — devolvido como está.
+    - Caminho absoluto do HOST dentro de data/sources ou pasta espelhada do OneDrive
+      — traduzido para a subpasta relativa correspondente ou "." para a raiz.
     """
-    candidate = Path(host_or_relative_path)
+    cleaned = host_or_relative_path.strip().strip('"\'').strip()
+    candidate = Path(cleaned)
 
     if not candidate.is_absolute():
-        return host_or_relative_path
+        return cleaned
 
+    norm_candidate = unicodedata.normalize("NFC", cleaned)
+
+    # 1. Se contém "data/sources" (caminho físico do projeto no host)
+    if "data/sources" in norm_candidate:
+        sub_part = norm_candidate.split("data/sources")[-1].lstrip("/")
+        return sub_part if sub_part else "."
+
+    # 2. Se contém a pasta espelhada do OneDrive Mapfre
+    norm_onedrive = unicodedata.normalize("NFC", "REEF Formación - 02. Formaciones Mapfre/_markdown")
+    if norm_onedrive in norm_candidate:
+        sub_part = norm_candidate.split(norm_onedrive)[-1].lstrip("/")
+        return sub_part if sub_part else "."
+
+    if "_markdown" in norm_candidate:
+        sub_part = norm_candidate.split("_markdown")[-1].lstrip("/")
+        return sub_part if sub_part else "."
+
+    # 3. Verificação padrão com sources_root_host_path
     host_root = Path(settings.sources_root_host_path).expanduser().resolve()
     resolved_candidate = candidate.resolve()
-
     if resolved_candidate == host_root:
         return "."
     if host_root in resolved_candidate.parents:
@@ -49,9 +64,7 @@ def to_relative_path(host_or_relative_path: str) -> str:
     raise InvalidSourcesPath(
         f"'{host_or_relative_path}' está fora da raiz montada ({host_root}). "
         "Para indexar essa pasta, é preciso remontar SOURCES_ROOT no .env "
-        "apontando para um diretório que a contenha, e reiniciar o container "
-        "(esta é uma limitação do Docker: o backend só acessa o disco através "
-        "do que foi montado como volume — não pode navegar livremente no host)."
+        "apontando para um diretório que a contenha, e reiniciar o container."
     )
 
 

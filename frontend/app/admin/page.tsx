@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
 import AppHeader from "@/components/AppHeader";
 import SourcesPanel from "@/components/SourcesPanel";
+import { KnowledgePanel } from "@/components/KnowledgePanel";
+import FeedbackAuditPanel from "@/components/FeedbackAuditPanel";
 import {
   adminApi,
   UserOut,
@@ -23,6 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 function AdminInner() {
   const router = useRouter();
+  const [adminTab, setAdminTab] = useState<"knowledge" | "quality" | "sources" | "users">("knowledge");
   const [users, setUsers] = useState<UserOut[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
@@ -69,9 +72,7 @@ function AdminInner() {
       await adminApi.changeRole(userId, role);
       loadUsers();
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Erro ao alterar permissão.",
-      );
+      setError(err instanceof ApiError ? err.message : "Erro ao alterar role.");
     }
   }
 
@@ -104,17 +105,22 @@ function AdminInner() {
       <AppHeader />
       <div className="mx-auto max-w-5xl space-y-6 p-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Painel Admin</h1>
+          <div>
+            <h1 className="text-2xl font-semibold">Painel Administrativo</h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Gestão de fontes, telemetria de conhecimento evolutivo e controle de acessos
+            </p>
+          </div>
           <div className="space-x-3">
             <button
               onClick={loadAuditLog}
-              className="rounded border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800"
+              className="rounded border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800 transition"
             >
               Ver auditoria
             </button>
             <button
               onClick={() => router.push("/chat")}
-              className="rounded border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800"
+              className="rounded border border-slate-700 px-3 py-1.5 text-sm hover:bg-slate-800 transition"
             >
               Ir para chat
             </button>
@@ -123,76 +129,128 @@ function AdminInner() {
 
         {error && <p className="text-sm text-red-400">{error}</p>}
 
-        <SourcesPanel />
-
-        <div className="flex gap-2">
-          {["", "pending", "approved", "blocked"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`rounded px-3 py-1 text-sm ${
-                statusFilter === s
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-800 text-slate-300"
-              }`}
-            >
-              {s === "" ? "Todos" : STATUS_LABEL[s]}
-            </button>
-          ))}
+        {/* Abas Administrativas */}
+        <div className="flex border-b border-slate-800 gap-2">
+          <button
+            onClick={() => setAdminTab("knowledge")}
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+              adminTab === "knowledge"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>🧠 Grafo & Cognição (Watchdog)</span>
+          </button>
+          <button
+            onClick={() => setAdminTab("quality")}
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+              adminTab === "quality"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>🎯 Qualidade & Auditoria</span>
+          </button>
+          <button
+            onClick={() => setAdminTab("sources")}
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+              adminTab === "sources"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>📁 Fontes & Ingestão</span>
+          </button>
+          <button
+            onClick={() => setAdminTab("users")}
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+              adminTab === "users"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>👥 Usuários ({users.length})</span>
+          </button>
         </div>
 
-        <table className="w-full overflow-hidden rounded-lg bg-slate-900 text-sm">
-          <thead className="bg-slate-800 text-left text-slate-300">
-            <tr>
-              <th className="p-3">Email</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Role</th>
-              <th className="p-3">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="border-t border-slate-800">
-                <td className="p-3">
-                  <button
-                    onClick={() => handleInspect(u)}
-                    className="text-blue-400 hover:underline"
-                  >
-                    {u.email}
-                  </button>
-                </td>
-                <td className="p-3">{STATUS_LABEL[u.status] ?? u.status}</td>
-                <td className="p-3">{u.role}</td>
-                <td className="space-x-2 p-3">
-                  {u.status !== "approved" && (
-                    <button
-                      onClick={() => handleApprove(u.id)}
-                      className="rounded bg-green-600 px-2 py-1 text-xs hover:bg-green-500"
-                    >
-                      Aprovar
-                    </button>
-                  )}
-                  {u.status !== "blocked" && (
-                    <button
-                      onClick={() => handleBlock(u.id)}
-                      className="rounded bg-red-600 px-2 py-1 text-xs hover:bg-red-500"
-                    >
-                      Bloquear
-                    </button>
-                  )}
-                  <button
-                    onClick={() =>
-                      handleRoleChange(u.id, u.role === "admin" ? "user" : "admin")
-                    }
-                    className="rounded bg-slate-700 px-2 py-1 text-xs hover:bg-slate-600"
-                  >
-                    {u.role === "admin" ? "Tornar usuário" : "Tornar admin"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {adminTab === "knowledge" && <KnowledgePanel />}
+
+        {adminTab === "quality" && <FeedbackAuditPanel />}
+
+        {adminTab === "sources" && <SourcesPanel />}
+
+        {adminTab === "users" && (
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              {["", "pending", "approved", "blocked"].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={`rounded px-3 py-1 text-sm ${
+                    statusFilter === s
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-800 text-slate-300"
+                  }`}
+                >
+                  {s === "" ? "Todos" : STATUS_LABEL[s]}
+                </button>
+              ))}
+            </div>
+
+            <table className="w-full overflow-hidden rounded-lg bg-slate-900 text-sm">
+              <thead className="bg-slate-800 text-left text-slate-300">
+                <tr>
+                  <th className="p-3">Email</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Role</th>
+                  <th className="p-3">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id} className="border-t border-slate-800">
+                    <td className="p-3">
+                      <button
+                        onClick={() => handleInspect(u)}
+                        className="text-blue-400 hover:underline"
+                      >
+                        {u.email}
+                      </button>
+                    </td>
+                    <td className="p-3">{STATUS_LABEL[u.status] ?? u.status}</td>
+                    <td className="p-3">{u.role}</td>
+                    <td className="space-x-2 p-3">
+                      {u.status !== "approved" && (
+                        <button
+                          onClick={() => handleApprove(u.id)}
+                          className="rounded bg-green-600 px-2 py-1 text-xs hover:bg-green-500"
+                        >
+                          Aprovar
+                        </button>
+                      )}
+                      {u.status !== "blocked" && (
+                        <button
+                          onClick={() => handleBlock(u.id)}
+                          className="rounded bg-red-600 px-2 py-1 text-xs hover:bg-red-500"
+                        >
+                          Bloquear
+                        </button>
+                      )}
+                      <button
+                        onClick={() =>
+                          handleRoleChange(u.id, (u.role || "").toLowerCase() === "admin" ? "user" : "admin")
+                        }
+                        className="rounded bg-slate-700 px-2 py-1 text-xs hover:bg-slate-600"
+                      >
+                        {(u.role || "").toLowerCase() === "admin" ? "Tornar usuário" : "Tornar admin"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {inspecting && (
           <div className="rounded-lg bg-slate-900 p-4">
