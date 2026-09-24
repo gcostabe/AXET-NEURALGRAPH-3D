@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI):
         watcher_service.stop()
 
 
-app = FastAPI(title="RAG Local Reef", lifespan=lifespan)
+app = FastAPI(title="AXET-NEURALGRAPH-3D", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

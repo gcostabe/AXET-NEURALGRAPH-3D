@@ -2351,6 +2351,37 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
   3. `git push origin main` executado com sucesso: `1958679..1c6d809 main -> main`.
 - **Status do Repositório**: Working tree clean e sincronizado com o remote GitHub.
 
+### CHECKPOINT-071 (2026-09-23 23:10 - Renomeação da Aplicação para AXET-NEURALGRAPH-3D)
+- **Tarefa**: `TASK-20260923-2310-RENAME-TO-AXET-NEURALGRAPH-3D`
+- **Estado**: WRITE_AHEAD
+- **Ação Planejada**:
+  - Atualizar o nome da aplicação para **AXET-NEURALGRAPH-3D** em todos os pontos-chave do frontend e backend:
+    1. `frontend/app/layout.tsx`: title e description dos metadados.
+    2. `frontend/components/AppHeader.tsx`: logo header, branding e badges.
+    3. `frontend/app/login/page.tsx` & `register/page.tsx`: títulos das telas de autenticação e rodapé.
+    4. `frontend/app/chat/page.tsx`: botão de navegação para a visualização neural.
+    5. `frontend/components/NeuralGraph3D.tsx`: badge principal do HUD do Grafo 3D.
+    6. `frontend/package.json`: chave `name`.
+    7. `backend/app/main.py`: título da instância FastAPI.
+  - Testar build (`npm run build`) e reconstruir container Docker.
+- **Próxima Ação Segura**: Aplicar as edições nos arquivos.
+
+### CHECKPOINT-072 (2026-09-23 23:18 - Validação e Deploy da Aplicação com Nome AXET-NEURALGRAPH-3D)
+- **Tarefa**: `TASK-20260923-2310-RENAME-TO-AXET-NEURALGRAPH-3D`
+- **Estado**: POST_ACTION / COMPLETED
+- **Implementações Concluídas**:
+  1. `frontend/app/layout.tsx`: Atualizado título HTML para `NTT DATA — AXET-NEURALGRAPH-3D`.
+  2. `frontend/components/AppHeader.tsx`: Atualizado logo branding e subtítulo para `AXET-NEURALGRAPH-3D: Cognição Neural 3D & Conhecimento Corporativo`.
+  3. `frontend/app/login/page.tsx` e `register/page.tsx`: Cabeçalhos e rodapé ajustados para `AXET-NEURALGRAPH-3D`.
+  4. `frontend/app/chat/page.tsx`: Botão de acesso ao grafo renomeado para `AXET-NEURALGRAPH-3D`.
+  5. `frontend/components/NeuralGraph3D.tsx`: Badge do HUD 3D atualizado para `AXET-NEURALGRAPH-3D`.
+  6. `frontend/package.json`: Chave `name` atualizada para `axet-neuralgraph-3d`.
+  7. `backend/app/main.py`: Título da instância FastAPI atualizado para `AXET-NEURALGRAPH-3D`.
+  8. Build Next.js (`npm run build`) compilado com sucesso e containers `rag-local-reef-frontend-1` e `rag-local-reef-backend-1` reconstruídos e ativos no Docker.
+- **Próxima Ação Segura**: Apresentar ao usuário as alterações e confirmar no navegador.
+
+
+
 
 
 

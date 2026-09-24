@@ -339,7 +339,7 @@ function ChatInner() {
                 </div>
                 <div className="text-left truncate">
                   <div className="font-semibold text-slate-100 flex items-center gap-1.5 text-[11px]">
-                    Grafo Neural 3D
+                    AXET-NEURALGRAPH-3D
                     <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
                   </div>
                   <div className="text-[10px] text-slate-400 font-mono truncate">

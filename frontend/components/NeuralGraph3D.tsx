@@ -1587,7 +1587,7 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold tracking-wide text-cyan-300 uppercase">
-                {is10kBenchmark ? "Grafo 10.000 Nós (Stress Test)" : "Grafo Neural 3D"}
+                {is10kBenchmark ? "AXET 10.000 Nós (Stress Test)" : "AXET-NEURALGRAPH-3D"}
               </span>
               <span className="rounded bg-purple-500/20 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-purple-300 border border-purple-500/30">
                 {layoutMode === "brain" ? "🧠 Cérebro 3D" : "🌐 Esférico"}

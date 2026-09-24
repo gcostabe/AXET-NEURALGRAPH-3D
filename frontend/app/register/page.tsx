@@ -44,7 +44,7 @@ export default function RegisterPage() {
             Criar Nova Conta
           </h1>
           <p className="text-xs text-slate-400">
-            Solicite acesso ao RAG Local Reef
+            Solicite acesso ao AXET-NEURALGRAPH-3D
           </p>
         </div>
 

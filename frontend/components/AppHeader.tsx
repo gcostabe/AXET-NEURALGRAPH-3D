@@ -112,14 +112,14 @@ export default function AppHeader() {
             <NttDataLogo size="md" />
             <div className="hidden md:flex flex-col border-l border-slate-800 pl-3">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
-                RAG Local Reef
+                AXET-NEURALGRAPH-3D
                 <span className="inline-flex items-center rounded bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400 border border-emerald-500/20">
                   <span className="mr-1 h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   ONLINE
                 </span>
               </span>
               <span className="text-[11px] text-slate-400">
-                Assistente de IA & Base de Documentos
+                Cognição Neural 3D & Conhecimento Corporativo
               </span>
             </div>
           </button>

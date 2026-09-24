@@ -66,10 +66,10 @@ export default function LoginPage() {
             <NttDataLogo size="lg" />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-white">
-            RAG Local Reef
+            AXET-NEURALGRAPH-3D
           </h1>
           <p className="text-xs text-slate-400">
-            Acesso à base de conhecimento corporativa com IA
+            Plataforma Neural 3D e RAG Corporativo de Conhecimento
           </p>
         </div>
 
@@ -166,7 +166,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-[11px] text-slate-500">
-          Ambiente corporativo seguro • RAG Local Reef
+          Ambiente corporativo seguro • AXET-NEURALGRAPH-3D
         </p>
       </div>
 

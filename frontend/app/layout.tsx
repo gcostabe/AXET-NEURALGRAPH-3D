@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NTT DATA — RAG Local Reef",
-  description: "Assistente de IA corporativo com RAG sobre documentações locais",
+  title: "NTT DATA — AXET-NEURALGRAPH-3D",
+  description: "Plataforma Neural 3D e RAG Corporativo de Conhecimento Interconectado",
   icons: {
     icon: [
       { url: "/favicon.png", type: "image/png" },

@@ -33,9 +33,9 @@ Resume Authorization: NO
 
 Phase: VERIFICATION_COMPLETED
 
-Current Step: Calota e expansão lateral do Lobo Parietal remodeladas em calculateBrainNodePosition, build de produção validado e container Docker rag-local-reef-frontend-1 ativo na porta 3001.
+Current Step: Renomeação completa para AXET-NEURALGRAPH-3D no frontend (AppHeader, layout, login, register, chat, HUD 3D, package.json) e backend FastAPI, build de produção validado e containers Docker rag-local-reef-frontend-1 e backend atualizados.
 
-Last Safe Checkpoint: CHECKPOINT-069.
+Last Safe Checkpoint: CHECKPOINT-072.
 
 ---
 
