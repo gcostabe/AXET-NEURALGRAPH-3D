@@ -2521,4 +2521,25 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
      - Garantias criptográficas de integridade SHA-256 e isolamento 100% localhost (zero vazamento de dados).
 - **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push simultâneo para os 2 repositórios remotos (`origin` e `axet`).
 
+### CHECKPOINT-082 (2026-09-24 10:25 - Correção Troca de Conversa Chat, Busca no Canto Inferior Esquerdo e Zoom Calibrado no Cérebro 3D)
+- **Tarefa**: `TASK-20260924-1015-CHAT-CONV-SWITCH-SEARCHBAR-ZOOM`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. **Correção do Bug de Troca de Conversa ao Finalizar Resposta no Chat (`frontend/app/chat/page.tsx`)**:
+     - Causa raiz: `loadConversations()` lia a query string da URL (`?c=UUID`). Quando o streaming da nova conversa terminava em `onDone`, ele chamava `loadConversations()`, que relia o parâmetro `?c=` prévio (vindo do card de saudação da tela 3D), forçando a chamada `openConversation(oldId)` e abandonando a nova conversa ativa.
+     - Solução: Adicionado `initialCheckDoneRef` para garantir que `?c=` seja avaliado estritamente uma única vez no carregamento inicial da página; atualizado `handleNewConversation` para limpar a query string da URL via `window.history.replaceState(null, "", "/chat")`; e atualizado `onConversation` no streaming para registrar transparentemente o novo ID via `replaceState`.
+  2. **Reposicionamento da Barra de Busca de Nós 3D para o Canto Inferior Esquerdo (`frontend/components/NeuralGraph3D.tsx`)**:
+     - Removida a barra de busca "Localizar nó no espaço..." do cabeçalho superior (Top HUD).
+     - Movida para a pilha de controles do canto inferior esquerdo, posicionada diretamente acima do botão colapsável `[ ⚙️ Opções de Visualização ⌃ ]`.
+     - Ajustado o dropdown de auto-completar para expandir para cima (`bottom-full mb-1.5`) com elevação `z-30`, garantindo que os resultados fiquem sempre visíveis e não cortem na borda da tela.
+  3. **Calibração de Zoom e Enquadramento da Câmera no Cérebro 3D (`frontend/components/NeuralGraph3D.tsx`)**:
+     - Reduzida a distância da câmera `fitDistance` de `Math.max(boundingDist * 1.35, 180)` para `Math.max(boundingDist * 0.92, 120)`.
+     - Ajustada a posição inicial isométrica da câmera 3/4 para `(fitDistance * 0.32, fitDistance * 0.34, fitDistance * 0.78)` no modo cérebro, fazendo com que a casca cortical bioluminescente e a nuvem de nós preencham o centro da tela com o zoom exato da imagem de referência.
+  4. **Compilação e Deploy Local**:
+     - Executado `npm run build` com sucesso (0 erros de lint/tipagem).
+     - Container Docker `rag-local-reef-frontend-1` reconstruído com sucesso via `docker compose build frontend && docker compose up -d frontend`.
+     - Em cumprimento estrito à instrução do usuário ("nao teste autonomamente me passe pra testar"), nenhum teste automatizado com subagente de browser foi executado.
+- **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push dual.
+
+
 

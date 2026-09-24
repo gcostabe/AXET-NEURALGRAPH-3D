@@ -1,10 +1,10 @@
 # CURRENT TASK
 
-Task ID: TASK-20260924-0740-LOCAL-SNAPSHOT-SYNC-OPTION1
+Task ID: TASK-20260924-1015-CHAT-CONV-SWITCH-SEARCHBAR-ZOOM
 
-Created: 2026-09-24 07:40
+Created: 2026-09-24 10:18
 
-Last Updated: 2026-09-24 07:40
+Last Updated: 2026-09-24 10:25
 
 Status: COMPLETED
 
@@ -14,45 +14,36 @@ Resume Authorization: NO
 
 ## User Request
 
-"contrua a opção 1 atualizando toda info no readme.md"
+"1 - ao iniciar uma nova conversa no chat ele responde mas ao terminar de escrever sai da conversa ativa e ponteira sozinho na conversa anterior.
+2 - Mova o campo de pesquisa do graph 3d para o canto inferior esquerdo como esta na imagem
+3 - Atualize a tela neuralGraph 3d com este zoom na area do cerebro e nodes que esta na imagem."
+E em seguida: "nao teste autonomamente me passe pra testar"
 
 ---
 
 ## Objective
 
-1. **Infraestrutura Docker (`docker-compose.yml`)**:
-   - Mapear volume persistente `./data/snapshots:/qdrant/snapshots` no serviço `qdrant`.
-   - Mapear volume compartilhado `./data/snapshots:/data/snapshots` no serviço `backend`.
-   - Garantir diretório `data/snapshots` criado no host.
+1. **Correção do Fluxo de Nova Conversa no Chat (`frontend/app/chat/page.tsx`)**:
+   - Evitar que o parâmetro de query da URL `?c=UUID` antigo cause reabertura da conversa anterior ao término da escrita em `onDone`.
+   - Adicionar controle de carga inicial para que `?c=` só seja lido na montagem da tela.
+   - Limpar a URL ao clicar em "Nova Conversa".
+   - Atualizar a URL com o novo ID de conversa recebido em `onConversation` via `window.history.replaceState`.
 
-2. **Backend de Snapshots (`backend/app/api/snapshots.py`)**:
-   - `POST /admin/snapshots/export`: Gera snapshot no Qdrant com timeout estendido, calcula hash SHA-256 e gera manifesto com metadados.
-   - `GET /admin/snapshots`: Lista snapshots disponíveis com nome, data, tamanho e checksum.
-   - `GET /admin/snapshots/{filename}/download`: Download em stream do arquivo `.snapshot`.
-   - `DELETE /admin/snapshots/{filename}`: Exclusão de snapshots antigos.
-   - `POST /snapshots/import`: Endpoint para upload e restauração atômica de snapshots no Qdrant com validação de checksum SHA-256.
-   - `GET /snapshots/status`: Métricas e status da base vetorial local.
-   - Registrar rotas em `backend/app/main.py`.
+2. **Reposicionamento do Campo de Busca no Grafo 3D (`frontend/components/NeuralGraph3D.tsx`)**:
+   - Remover a barra de busca "Localizar nó no espaço..." do HUD superior.
+   - Posicionar no canto inferior esquerdo, diretamente acima do botão colapsável de opções de visualização (`!showVisualControls`), conforme marcado na imagem pelo usuário.
+   - Configurar o dropdown de resultados para abrir para cima (`bottom-full mb-1.5`) para não ultrapassar a borda inferior.
 
-3. **Frontend**:
-   - Tipos e métodos em `frontend/lib/api.ts`.
-   - Componente `KnowledgeSnapshotModal.tsx` com drag-and-drop, indicador de checksum e feedback de restauração.
-   - Integrar no `AppHeader.tsx` para acesso fácil do usuário.
-   - Adicionar seção de gerenciamento e exportação de Snapshots no painel Admin (`frontend/app/admin/page.tsx`).
+3. **Ajuste de Zoom e Enquadramento do Cérebro 3D (`frontend/components/NeuralGraph3D.tsx`)**:
+   - Reduzir o recuo da câmera em `fitDistance` de `boundingDist * 1.35` para `boundingDist * 0.92`.
+   - Ajustar o vetor de câmera inicial para `new THREE.Vector3(fitDistance * 0.32, fitDistance * 0.34, fitDistance * 0.78)` para replicar o ângulo e a proximidade da imagem.
+   - Atualizar a referência de posição padrão da câmera (`defaultCameraPosRef`).
 
-4. **Scripts de Automação**:
-   - Criar `atualizar_base.sh` e `atualizar_base.bat` para restauração one-click de snapshots colocados em `data/snapshots/`.
-   - Atualizar `iniciar_mac.command` e `iniciar_windows.bat` com detecção automática.
-
-5. **Documentação Exaustiva no `README.md`**:
-   - Detalhar arquitetura da Opção 1, isolamento de rede `localhost`, garantia contra vazamento de informações (Air-Gapped/Local-Only).
-   - Passo a passo para o Administrador (indexar `.md`, exportar snapshot, assinar e distribuir).
-   - Passo a passo para os Usuários (importar via interface ou via script).
-
-6. **Compilação, Testes e Sincronização Git Dual-Remote**:
-   - Rebuild dos containers Docker.
-   - Validação da geração, download e restauração de snapshots.
-   - Commit e push simultâneo para `origin` e `axet`.
+4. **Compilação e Deploy no Docker**:
+   - Validar build local com `npm run build` (0 erros).
+   - Reconstruir e subir o container Docker do frontend (`docker compose build frontend && docker compose up -d frontend`).
+   - Respeitar estritamente a instrução do usuário ("nao teste autonomamente me passe pra testar"), transferindo a validação diretamente para o usuário.
+   - Registrar CHECKPOINT-082 no journal, comitar e enviar push simultâneo para `origin` e `axet`.
 
 ---
 
@@ -60,23 +51,18 @@ Resume Authorization: NO
 
 Phase: COMPLETED
 
-Current Step: Option 1 fully implemented, validated, and ready for dual git push.
+Current Step: Handover to user for testing.
 
-Last Safe Checkpoint: CHECKPOINT-081.
+Last Safe Checkpoint: CHECKPOINT-082.
 
 ---
 
 ## Planned Steps
 
-- [x] Criar diretório `data/snapshots` no host e atualizar volumes em `docker-compose.yml`.
-- [x] Implementar `backend/app/api/snapshots.py` e registrar em `backend/app/main.py`.
-- [x] Atualizar `frontend/lib/api.ts` com métodos de snapshot.
-- [x] Criar `frontend/components/KnowledgeSnapshotModal.tsx` e integrar em `AppHeader.tsx`.
-- [x] Adicionar seção de Snapshots no Painel Admin (`frontend/app/admin/page.tsx`).
-- [x] Criar scripts `atualizar_base.sh` e `atualizar_base.bat`.
-- [x] Atualizar `iniciar_mac.command` e `iniciar_windows.bat`.
-- [x] Atualizar exaustivamente o `README.md` com a Opção 1 e guias operacionais.
-- [x] Rebuild e reinicialização dos containers (`backend` e `frontend`).
-- [x] Validar fluxos de exportação e restauração via API e Browser.
-- [x] Registrar CHECKPOINT-081 em `.agent/execution_journal.md`, comitar e enviar push dual.
+- [x] Corrigir lifecycle de nova conversa e parâmetro `?c=` em `frontend/app/chat/page.tsx`.
+- [x] Mover campo de busca para o canto inferior esquerdo em `frontend/components/NeuralGraph3D.tsx`.
+- [x] Calibrar zoom da câmera e ângulo 3D em `frontend/components/NeuralGraph3D.tsx`.
+- [x] Compilar frontend (`npm run build`) e reconstruir container Docker (`docker compose build frontend && docker compose up -d frontend`).
+- [x] Respeitar instrução "nao teste autonomamente me passe pra testar" (subagente de browser suspenso).
+- [x] Registrar CHECKPOINT-082 em `.agent/execution_journal.md`, comitar e enviar push dual.
 

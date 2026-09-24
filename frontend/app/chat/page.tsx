@@ -39,6 +39,7 @@ function ChatInner() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const initialCheckDoneRef = useRef(false);
 
   useEffect(() => {
     authApi.me().then(setCurrentUser).catch(() => {});
@@ -61,7 +62,8 @@ function ChatInner() {
     try {
       const list = await conversationsApi.list();
       setConversations(list);
-      if (typeof window !== "undefined") {
+      if (!initialCheckDoneRef.current && typeof window !== "undefined") {
+        initialCheckDoneRef.current = true;
         const targetId = new URLSearchParams(window.location.search).get("c");
         if (targetId && list.some((c) => c.id === targetId)) {
           openConversation(targetId);
@@ -76,6 +78,9 @@ function ChatInner() {
     if (sending) return;
     setConversationId(id);
     setError(null);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `/chat?c=${id}`);
+    }
     try {
       const msgs: MessageOut[] = await conversationsApi.messages(id);
       setMessages(
@@ -98,6 +103,9 @@ function ChatInner() {
     setConversationId(null);
     setMessages([]);
     setError(null);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", "/chat");
+    }
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
@@ -168,6 +176,9 @@ function ChatInner() {
       },
       onConversation: (id) => {
         setConversationId(id);
+        if (typeof window !== "undefined") {
+          window.history.replaceState(null, "", `/chat?c=${id}`);
+        }
       },
       onToken: (token) => {
         setWaitingFirstToken(false);

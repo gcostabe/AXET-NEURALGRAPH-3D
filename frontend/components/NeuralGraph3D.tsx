@@ -1084,12 +1084,12 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
     const distH = maxClusterRadius / Math.sin(hFovRad / 2);
     const boundingDist = Math.max(distV, distH);
 
-    // Margem de segurança de 35% (zoom menor) para garantir respiro visual completo, halos e rótulos
-    const fitDistance = Math.max(boundingDist * 1.35, 180);
+    // Zoom calibrado e próximo: preenche a visão com o cérebro neural em destaque frontal/isométrico
+    const fitDistance = Math.max(boundingDist * 0.92, 120);
 
     // Posicionamento inicial da câmera: para o modo cérebro, ângulo 3/4 ligeiramente elevado valoriza os 2 hemisférios
     const initialCamPos = layoutMode === "brain"
-      ? new THREE.Vector3(fitDistance * 0.35, fitDistance * 0.42, fitDistance * 0.85)
+      ? new THREE.Vector3(fitDistance * 0.32, fitDistance * 0.34, fitDistance * 0.78)
       : new THREE.Vector3(0, fitDistance * 0.15, fitDistance);
     camera.position.copy(initialCamPos);
     camera.lookAt(0, 0, 0);
@@ -1625,48 +1625,7 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
           </div>
         </div>
 
-        {/* Barra de Busca de Nós */}
-        <div className="pointer-events-auto relative min-w-[240px] max-w-sm flex-1 sm:max-w-xs">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Localizar nó no espaço..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-xl border border-slate-700/80 bg-slate-900/80 py-1.5 pl-8 pr-3 text-xs text-slate-200 placeholder-slate-400 backdrop-blur-md outline-none transition focus:border-cyan-400/80 focus:ring-1 focus:ring-cyan-400/50"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm("")}
-                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-200"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
 
-          {/* Autocomplete Dropdown */}
-          {searchResults.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-xl border border-slate-700/80 bg-slate-900/95 p-1.5 shadow-2xl backdrop-blur-md z-30">
-              {searchResults.map((node) => (
-                <button
-                  key={node.source_path}
-                  onClick={() => {
-                    focusOnNode(node.source_path);
-                    setSearchTerm("");
-                  }}
-                  className="flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left text-xs text-slate-300 transition hover:bg-cyan-500/20 hover:text-cyan-200"
-                >
-                  <span className="font-medium truncate">{node.title}</span>
-                  <span className="font-mono text-[10px] text-slate-400 truncate">
-                    {node.source_path}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Card de Saudação Dinâmica e Ultra-Humanizada do Copiloto no Topo Direito */}
         {greetingData && (
@@ -2004,8 +1963,52 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
       {/* Bottom HUD: Legenda de Navegação e Controles de Visualização Colapsáveis */}
       <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex flex-col gap-2.5 z-20">
         <div className="flex items-end justify-between gap-3">
-          {/* Item Colapsável: Opções de Visualização no Canto Inferior Esquerdo */}
-          <div className="pointer-events-auto">
+          {/* Canto Inferior Esquerdo: Busca de Nós + Opções de Visualização Colapsáveis */}
+          <div className="pointer-events-auto flex flex-col items-start gap-2 max-w-xs sm:max-w-sm w-full">
+            {/* Barra de Busca de Nós */}
+            <div className="relative w-full">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Localizar nó no espaço..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700/80 bg-slate-900/90 py-1.5 pl-8 pr-7 text-xs text-slate-200 placeholder-slate-400 backdrop-blur-md outline-none transition focus:border-cyan-400/80 focus:ring-1 focus:ring-cyan-400/50 shadow-xl"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-200"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Autocomplete Dropdown - Abre para CIMA para não ser cortado na borda da tela */}
+              {searchResults.length > 0 && (
+                <div className="absolute left-0 right-0 bottom-full mb-1.5 max-h-56 overflow-y-auto rounded-xl border border-slate-700/80 bg-slate-900/95 p-1.5 shadow-2xl backdrop-blur-md z-30">
+                  {searchResults.map((node) => (
+                    <button
+                      key={node.source_path}
+                      onClick={() => {
+                        focusOnNode(node.source_path);
+                        setSearchTerm("");
+                      }}
+                      className="flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left text-xs text-slate-300 transition hover:bg-cyan-500/20 hover:text-cyan-200"
+                    >
+                      <span className="font-medium truncate">{node.title}</span>
+                      <span className="font-mono text-[10px] text-slate-400 truncate">
+                        {node.source_path}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Item Colapsável: Opções de Visualização */}
             {!showVisualControls ? (
               <button
                 onClick={() => setShowVisualControls(true)}
