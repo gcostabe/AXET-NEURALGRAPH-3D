@@ -51,6 +51,8 @@ def upsert_chunks(
 
 def get_indexed_hashes(client: QdrantClient) -> dict[str, str]:
     """Returns {source_path: content_hash} for all points currently indexed."""
+    if not client.collection_exists(settings.qdrant_collection):
+        return {}
     result: dict[str, str] = {}
     offset = None
     while True:

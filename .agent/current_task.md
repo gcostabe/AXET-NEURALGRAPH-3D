@@ -1,10 +1,10 @@
 # CURRENT TASK
 
-Task ID: TASK-20260924-1512-ELIMINATE-CMD-PARENTHESES-BLOCKS
+Task ID: TASK-20260924-1707-DEBUG-SSO-FAILED-TO-FETCH
 
-Created: 2026-09-24 15:12
+Created: 2026-09-24 17:07
 
-Last Updated: 2026-09-24 15:14
+Last Updated: 2026-09-24 17:15
 
 Status: COMPLETED
 
@@ -14,31 +14,35 @@ Resume Authorization: YES
 
 ## User Request
 
-"o .bat continua abrindo e fechando e nao gerando no final o atalho"
+"Veja a imagem, ao tentar fazer o SSO deu este problema, analise" (Modal OneNTT SSO com erro "Failed to fetch")
 
 ---
 
-## Root Cause Analysis
+## Root Cause Analysis & Solution
 
-1. **Bug Crítico de Parênteses no Lexer do `cmd.exe`**:
-   O interpretador nativo do Prompt de Comando do Windows (`cmd.exe`) possui um analisador léxico primitivo baseado em contagem de parênteses para blocos compostos (`if (...)`).
-   Dentro de blocos `if (...)`, linhas com textos contendo parênteses simples como:
-   - `(versao 2004+)` na linha 19
-   - `(Se o Windows solicitar confirmacao de Administrador, clique em SIM/Permitir)` na linha 37
-   faziam o `cmd.exe` interpretar o caractere `)` do texto como o fechamento prematuro do bloco `if`. Ao encontrar a linha com o fechamento real do bloco `)` mais abaixo, o Windows disparava o erro fatal `) was unexpected at this time.` em tempo de análise estática antes de rodar o script, fechando a janela instantaneamente.
+1. **Subsolo WSL2 Inativo (Timeout de Sessão)**:
+   - O `iniciar_windows.bat` executava `docker compose up -d`, abria o navegador e imediatamente saía (`exit /b 0`).
+   - Sem nenhuma janela de console do Windows vinculada ao WSL2, o subsistema encerrava a distribuição Ubuntu após alguns segundos de inatividade.
+   - Quando o usuário clicava em "Login Corporativo NTT DATA" no navegador, a chamada `fetch("http://localhost:8000/auth/okta/start")` encontrava a porta inacessível (conexão recusada), resultando no erro padrão do navegador: `TypeError: Failed to fetch`.
+   - **Solução**: Ajustado o [iniciar_windows.bat](file:///c:/Branchs/Berbert/AXET-NEURALGRAPH-3D-main/iniciar_windows.bat) para manter a sessão ativa via `tail -f /dev/null` enquanto a janela permanecer aberta/minimizada, garantindo que o WSL2 e os 5 containers permaneçam operacionais ininterruptamente.
 
-2. **Detecção do Desktop via Registro do Windows**:
-   Em máquinas com OneDrive ou OneDrive corporativo (ex: NTT DATA), a Área de Trabalho não fica em `%USERPROFILE%\Desktop`, mas sim sob a pasta redirecionada pelo Explorer. Consultar a chave do registro `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders /v Desktop` garante 100% de precisão para identificar onde a Área de Trabalho real do usuário está alocada.
+2. **CORS e Binding de Redes**:
+   - Ajustado `CORS_ALLOWED_ORIGINS` no `.env` e em `app/config.py` para incluir explicitamente tanto `http://localhost:3001` quanto `http://127.0.0.1:3001`, `localhost:3000` e `127.0.0.1:3000`.
+
+3. **Validação do Endpoint `/auth/okta/start`**:
+   - Testado o endpoint com sucesso: retornou HTTP 200 OK com `device_code`, `user_code` e a URL completa de ativação do Okta (`https://onentt.okta.com/activate?user_code=...`).
+
+4. **Script de Encerramento Limpo**:
+   - Criado [parar_windows.bat](file:///c:/Branchs/Berbert/AXET-NEURALGRAPH-3D-main/parar_windows.bat) para parar os containers e desligar o WSL de forma limpa quando desejado.
 
 ---
 
 ## Objective
 
-1. Reformular o fluxo de controle de `instalar_windows.bat` eliminando completamente blocos de parênteses multinível, utilizando labels e `goto` lineares padrão de batch scripting.
-2. Implementar consulta ao Registro do Windows para obter o caminho real do Desktop em qualquer configuração de OneDrive ou idioma.
-3. Garantir que todas as saídas de erro e término terminem em `pause` obrigatório.
-4. Gravar com quebras de linha Windows CRLF (`\r\n`).
-5. Comitar e fazer push para `origin` e `axet`.
+1. Analisar a causa raiz da mensagem "Failed to fetch" no modal de SSO.
+2. Corrigir o problema de encerramento do WSL2 e políticas de CORS.
+3. Testar a requisição de SSO diretamente no backend.
+4. Garantir persistência dos serviços.
 
 ---
 
@@ -46,17 +50,17 @@ Resume Authorization: YES
 
 Phase: COMPLETED
 
-Current Step: Controle de fluxo linear sem blocos aninhados implementado, validado e sincronizado no Git.
+Current Step: SSO Okta testado com sucesso (HTTP 200), keepalive ativo e scripts consolidados.
 
-Last Safe Checkpoint: CHECKPOINT-092.
+Last Safe Checkpoint: CHECKPOINT-094.
 
 ---
 
 ## Planned Steps
 
-- [x] Detectar causa do erro sintático fatal no cmd.exe (parênteses dentro de blocos if).
-- [x] Reescrever `instalar_windows.bat` com arquitetura de labels e goto.
-- [x] Implementar detecção do Desktop via registro do Windows.
-- [x] Validar que o depth de parênteses no arquivo é estritamente 0 ao término de cada linha.
-- [x] Registrar CHECKPOINT-092 em `execution_journal.md`.
-- [x] Comitar e fazer push para `origin` e `axet`.
+- [x] Verificar estado do WSL e distribuições instaladas via PowerShell.
+- [x] Testar comandos internos de `instalar_windows.bat` e executar o script.
+- [x] Identificar falhas/erros reportados na execução.
+- [x] Ajustar `instalar_windows.bat`, `setup_wsl_internal.sh`, `docker-compose.yml` e `iniciar_windows.bat`.
+- [x] Validar a execução completa com sucesso.
+- [x] Registrar checkpoint e atualizar persistent memory.

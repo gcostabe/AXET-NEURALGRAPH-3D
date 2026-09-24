@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     gateway_host_url: str = "http://gateway:8766"
 
     environment: str = "local"
-    cors_allowed_origins: str = "http://localhost:3001"
+    cors_allowed_origins: str = "http://localhost:3001,http://127.0.0.1:3001,http://localhost:3000,http://127.0.0.1:3000"
 
     # Monitor de arquivos em tempo real (watchdog)
     watchdog_enabled: bool = True

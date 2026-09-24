@@ -28,6 +28,13 @@ start https://learn.microsoft.com/pt-br/windows/wsl/install
 goto ERROR_EXIT
 
 :WSL_AVAILABLE
+:: 1.1 Garantir persistencia de servicos no WSL2 (desativar timeout de inatividade)
+findstr /i "vmIdleTimeout" "%USERPROFILE%\.wslconfig" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [wsl2]>> "%USERPROFILE%\.wslconfig"
+    echo vmIdleTimeout=-1>> "%USERPROFILE%\.wslconfig"
+)
+
 :: 2. Verificar se o Ubuntu esta instalado no WSL
 echo [2/5] Verificando distribuicao Ubuntu no WSL...
 wsl -d Ubuntu -e true >nul 2>&1
@@ -56,7 +63,8 @@ echo Ubuntu instalado com sucesso!
 :: 3. Converter o caminho do projeto para o formato do Linux (/mnt/c/...)
 echo [3/5] Identificando diretorio do projeto no subsistema Linux...
 set "WSL_PROJECT_DIR="
-for /f "tokens=*" %%a in ('wsl wslpath -u "%SCRIPT_DIR%"') do set "WSL_PROJECT_DIR=%%a"
+for /f "tokens=*" %%a in ('wsl -d Ubuntu wslpath -u "%SCRIPT_DIR%" 2^>nul ^|^| wsl wslpath -u "%SCRIPT_DIR%" 2^>nul') do set "WSL_PROJECT_DIR=%%a"
+set "WSL_PROJECT_DIR=%WSL_PROJECT_DIR:/mnt/host/=/mnt/%"
 
 if not "%WSL_PROJECT_DIR%"=="" goto PATH_CONVERTED
 
@@ -130,7 +138,8 @@ echo [1] Sim, iniciar e abrir o navegador em http://localhost:3001/ (Padrao)
 echo [2] Nao, iniciar mais tarde pelo atalho na Area de Trabalho
 echo.
 set "OPT=1"
-set /p "OPT=Escolha uma opcao (1 ou 2, ou pressione Enter para 1): "
+if not "%~1"=="" set "OPT=%~1"
+if "%~1"=="" set /p "OPT=Escolha uma opcao (1 ou 2, ou pressione Enter para 1): "
 
 if "%OPT%"=="2" goto DO_NOT_START
 
@@ -151,11 +160,13 @@ echo ===========================================================================
 echo   [FALHA] A execucao encontrou um erro. Leia as informacoes acima.
 echo ===============================================================================
 echo.
-pause
+if "%~1"=="" pause
 exit /b 1
 
 :END_SCRIPT
+if not "%~1"=="" goto SKIP_END_PAUSE
 echo.
 echo Pressione qualquer tecla para fechar esta janela...
 pause >nul
+:SKIP_END_PAUSE
 exit /b 0

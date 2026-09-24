@@ -15,7 +15,7 @@ echo "===================================================================="
 
 # 1. Atualizar repositórios de pacotes do Ubuntu
 echo ">>> [1/5] Atualizando repositórios APT do Ubuntu..."
-apt-get update -y
+apt-get update -y || apt-get update --fix-missing -y || true
 
 # 2. Instalar utilitários essenciais
 echo ">>> [2/5] Instalando utilitários essenciais (curl, git, certificates)..."
@@ -23,22 +23,23 @@ apt-get install -y ca-certificates curl gnupg lsb-release git build-essential op
 
 # 3. Garantir instalação do Docker Engine e Compose Plugin
 echo ">>> [3/5] Verificando Docker e Docker Compose no WSL2..."
-if ! command -v docker >/dev/null 2>&1; then
-    echo "    Docker não detectado. Instalando Docker Engine oficial..."
+if ! [ -x /usr/bin/docker ] || ! docker --version >/dev/null 2>&1 || [[ "$(which docker 2>/dev/null)" == /mnt/* ]]; then
+    echo "    Docker nativo não detectado no Linux. Instalando Docker Engine oficial..."
     install -m 0755 -d /etc/apt/keyrings
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes
     chmod a+r /etc/apt/keyrings/docker.gpg
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
-    apt-get update -y
+    apt-get update -y || true
     apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 fi
 
 # Inicializar o serviço do Docker se estiver parado
-service docker start || true
+service docker start || systemctl start docker || true
 
 # Conceder permissão ao usuário padrão do WSL
-if [ -n "${SUDO_USER:-}" ]; then
-    usermod -aG docker "$SUDO_USER" || true
+DEFAULT_USER=$(id -nu 1000 2>/dev/null || echo "${SUDO_USER:-}")
+if [ -n "$DEFAULT_USER" ]; then
+    usermod -aG docker "$DEFAULT_USER" || true
 fi
 
 # 4. Configurar .env a partir de .env.example

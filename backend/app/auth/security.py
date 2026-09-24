@@ -43,6 +43,7 @@ def decode_token(token: str) -> dict:
 AUTHORIZED_ADMIN_EMAILS = {
     "gcostabe@emeal.nttdata.com",
     "gustavo.costa.berbert@nttdata.com",
+    "marcio11.ferreiramiguel@nttdata.com",
 }
 
 

@@ -6,6 +6,7 @@ services:
     volumes:
       - qdrant_storage:/qdrant/storage
       - ./data/snapshots:/qdrant/snapshots
+    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine
@@ -17,6 +18,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
 
   gateway:
     build:
@@ -57,6 +59,7 @@ services:
       - "${SOURCES_ROOT:-./data/sources}:/data/sources_root"
       - "./data/snapshots:/data/snapshots"
       - "./backend/app:/app/app"
+    restart: unless-stopped
 
   frontend:
     build: ./frontend
@@ -68,6 +71,7 @@ services:
       # Host 3001 (não 3000) para não conflitar com outros apps locais
       # (ex.: open-webui) que já usam a porta 3000 na máquina.
       - "3001:3000"
+    restart: unless-stopped
 
 volumes:
   qdrant_storage:
