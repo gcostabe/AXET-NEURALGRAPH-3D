@@ -2393,6 +2393,16 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
   5. Validado com `git push origin main` retornando `Everything up-to-date` para ambos os destinos.
 - **Resultado**: Qualquer comando `git push` ou `git push origin main` agora atualiza automaticamente os 2 repositórios ao mesmo tempo.
 
+### CHECKPOINT-074 (2026-09-23 23:37 - Criação do README.md com Guia Azure Cloud e Push Dual)
+- **Tarefa**: `TASK-20260923-2335-AZURE-CLOUD-README-GUIDE`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. Criado `README.md` exaustivo com arquitetura Mermaid, matriz de tecnologias e dependências (Next.js 14, Three.js, FastAPI, Qdrant, Postgres 16, Faster-Whisper, FFmpeg).
+  2. Guia passo a passo completo para provisionamento e deploy no Microsoft Azure (Azure CLI, Ubuntu 22.04 LTS, Docker, Nginx Reverse Proxy com SSL HTTPS Let's Encrypt).
+  3. Recomendações de SKUs Azure (`Standard_D4s_v5` e GPU `Standard_NC4as_T4_v3`), segurança de rede (NSG), variáveis de ambiente e rotinas de backup.
+  4. Sincronização e push simultâneo para os dois repositórios remotos (`origin` e `axet`).
+
+
 
 
 
