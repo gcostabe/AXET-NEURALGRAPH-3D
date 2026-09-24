@@ -2724,6 +2724,43 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
      - Todos os 19 testes das 4 suítes (`test_cognitive.py`, `test_multihop.py`, `test_entities.py`, `test_graph_embeddings.py`) executados e aprovados 100% no container Docker backend.
      - Validação live do motor topológico conectando ao banco de dados com métricas reais do grafo.
      - Endpoint `/health` verificado com HTTP 200 `{"status":"ok"}`.
-- **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push dual para `origin` e `axet`.
+- **Próxima Ação Segura**: Iniciar ajuste de sobreposição entre cards em `frontend/components/NeuralGraph3D.tsx`.
+
+### CHECKPOINT-088-PRE (2026-09-24 14:26 - Write-ahead: Eliminar Sobreposição entre Painel de Filtros e Card de Lobo Ativo)
+- **Tarefa**: `TASK-20260924-1425-FIX-ACTIVE-LOBE-CARD-OVERLAP`
+- **Estado**: PRE_ACTION
+- **Ação Pretendida**:
+  1. No `frontend/components/NeuralGraph3D.tsx`:
+     - Implementar cálculo dinâmico de `max-h` para o Card Informativo de Lobo Ativo considerando `showFilterControls` (filtros superiores) e `showVisualControls` (opções inferiores).
+     - Quando `showFilterControls === true`, limitar a altura máxima com `max-h-[min(210px,calc(100vh-380px))]`, deixando >70px de margem livre contra a base do painel de filtros superiores mesmo em resoluções verticais baixas (~582px).
+     - Compactar o padding e a tipografia interna do card (`p-2.5 sm:p-3`, ícone `h-6 w-6`, tags compactas) com rolagem interna suave (`overflow-y-auto [scrollbar-width:thin]`).
+     - Compactar botões dos filtros superiores para economizar ~35px adicionais de altura.
+  2. Compilar Next.js via `npm run build` e reiniciar container `rag-local-reef-frontend-1`.
+- **Arquivos Relevantes**:
+  - `frontend/components/NeuralGraph3D.tsx`
+- **Motivo**: O topo do Card de Lobo Ativo no canto inferior esquerdo estava sobrepondo a última linha de sinapses do painel de filtros quando ambos estavam expandidos simultaneamente em telas com altura vertical reduzida.
+- **Estado Atual**: Card de Lobo possui classe estática `max-h-[min(380px,45vh)]` que colide com o painel de filtros superior em viewports <= 650px.
+- **Próxima Ação Segura**: Modificar `frontend/components/NeuralGraph3D.tsx`.
+
+### CHECKPOINT-088 (2026-09-24 14:27 - Conclusão da Correção de Sobreposição entre Painel de Filtros e Card de Lobo Ativo)
+- **Tarefa**: `TASK-20260924-1425-FIX-ACTIVE-LOBE-CARD-OVERLAP`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. **Clamp Dinâmico e Prevenção de Colisão (`frontend/components/NeuralGraph3D.tsx`)**:
+     - Implementado cálculo dinâmico de `maxCardHeight` no Card Informativo de Lobo Ativo (`activeLobe`):
+       - Quando filtros superiores estão expandidos (`showFilterControls === true`): limite defensivo `max-h-[min(205px,calc(100vh-370px))]`, deixando mais de 70px a 90px de respiro livre em relação à base do painel de filtros superiores na resolução de 582px do usuário.
+       - Quando filtros superiores estão recolhidos (`showFilterControls === false`): expansão confortável `max-h-[min(380px,calc(100vh-220px))]`.
+       - Considerada a expansão de `showVisualControls` (`max-h-[min(150px,calc(100vh-450px))]`), garantindo isolamento absoluto de bounding boxes em qualquer combinação de menus abertos.
+  2. **Compactação de Layout e Otimização Visual**:
+     - Painel superior de Filtros de Lobos & Sinapses: botões ajustados para `px-1.5 py-0.5 text-[10px]` e paddings reduzidos, economizando cerca de 35px de altura vertical e prevenindo quebras indesejadas de linha.
+     - Card de Lobo Ativo: paddings refinados para `p-3`, ícone do setor `h-7 w-7`, tipografia `text-[10.5px]`, pílulas de tags semânticas compactadas com rolagem interna elegante (`[scrollbar-width:thin]`).
+     - Gap da pilha de controles do canto inferior esquerdo calibrado para `gap-1.5`.
+  3. **Compilação e Deploy no Docker**:
+     - Executado `npm run build` com sucesso absoluto (código 0, 11 páginas estáticas geradas).
+     - Imagem Docker `rag-local-reef-frontend` reconstruída e container `rag-local-reef-frontend-1` reiniciado com sucesso.
+     - Endpoint `/graph` validado com HTTP 200 OK.
+     - Respeitada a diretriz do usuário ("nao execute os testes , me peça pra validar") sem disparo de subagente de browser.
+- **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push simultâneo para os 2 repositórios remotos (`origin` e `axet`).
+
 
 
