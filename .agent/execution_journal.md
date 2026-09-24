@@ -2764,3 +2764,24 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
 
 
 
+
+### CHECKPOINT-089 (2026-09-24 14:41 - Correcao de Quebra de Linha CRLF e Sanitizacao dos Scripts Batch do Windows)
+- **Tarefa**: TASK-20260924-1438-FIX-WINDOWS-BAT-CRLF-PARSING
+- **Estado**: POST_ACTION / COMPLETED
+- **Causa Raiz Identificada**:
+  - Os scripts .bat (instalar_windows.bat, iniciar_windows.bat, atualizar_base.bat) continham quebras de linha Unix (LF, 
+) e caracteres multibyte (emojis 🧠, travessoes —).
+  - No Windows cmd.exe, o interpretador de lotes le o arquivo do disco calculando offsets de bytes com expectativa de 
+ (2 bytes). Quando encontra 
+ (1 byte) e caracteres multibyte, os ponteiros de leitura sofrem drift cumulativo a cada linha, fazendo o cmd saltar para posicoes arbitrarias no meio do texto e tentar executar pedacos de strings como comandos (-3D, iente, SL2, neq, o, Windows, quer, etc.).
+- **Acoes Concluidas**:
+  1. **Conversao Estrita para CRLF**:
+     - instalar_windows.bat, iniciar_windows.bat e atualizar_base.bat convertidos com 100% de quebras de linha Windows CRLF (
+), com zero bytes LF isolados.
+  2. **Sanitizacao de Caracteres**:
+     - Removidos caracteres multibyte e emojis dos scripts batch para evitar descompassos de decodificacao de codepage no cmd.exe.
+  3. **Robustez de Atalho e Caminhos**:
+     - Adicionada deteccao inteligente de Desktop no Windows, suportando tanto o padrao (%USERPROFILE%\Desktop) quanto o caminho gerenciado pelo OneDrive (%USERPROFILE%\OneDrive\Desktop).
+  4. **Adicao de .gitattributes**:
+     - Criado arquivo .gitattributes forcando *.bat text eol=crlf e *.cmd text eol=crlf para prevenir regressoes em clones e checkouts futuros no Git.
+- **Proxima Acao Segura**: Finalizar current_task.md, realizar commit das alteracoes e push dual para origin e axet.
