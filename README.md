@@ -7,19 +7,20 @@
 
 ## 📋 Sumário
 1. [Visão Geral](#-visão-geral)
-2. [Arquitetura da Solução](#-arquitetura-da-solução)
-3. [Matriz de Tecnologias & Dependências](#-matriz-de-tecnologias--dependências)
-4. [Dimensionamento Recomendado no Azure Cloud](#-dimensionamento-recomendado-no-azure-cloud)
-5. [Guia de Instalação Passo a Passo no Azure](#-guia-de-instalação-passo-a-passo-no-azure)
+2. [Instalação e Execução Local Rápida (Windows & Mac)](#-instalação-e-execução-local-rápida)
+3. [Arquitetura da Solução](#-arquitetura-da-solução)
+4. [Matriz de Tecnologias & Dependências](#-matriz-de-tecnologias--dependências)
+5. [Dimensionamento Recomendado no Azure Cloud](#-dimensionamento-recomendado-no-azure-cloud)
+6. [Guia de Instalação Passo a Passo no Azure](#-guia-de-instalação-passo-a-passo-no-azure)
    - [Fase 1: Provisionamento da Máquina Virtual (Azure CLI)](#fase-1-provisionamento-da-máquina-virtual-azure-cli)
    - [Fase 2: Instalação das Ferramentas Base (Docker, Compose, Git)](#fase-2-instalação-das-ferramentas-base-docker-compose-git)
    - [Fase 3: Clonagem e Configuração do Repositório](#fase-3-clonagem-e-configuração-do-repositório)
    - [Fase 4: Configuração de Variáveis de Ambiente (.env)](#fase-4-configuração-de-variáveis-de-ambiente-env)
    - [Fase 5: Inicialização e Subida dos Containers](#fase-5-inicialização-e-subida-dos-containers)
    - [Fase 6: Proxy Reverso Nginx & Certificado SSL HTTPS Gratuito](#fase-6-proxy-reverso-nginx--certificado-ssl-https-gratuito)
-6. [Primeiro Acesso & Validação do Sistema](#-primeiro-acesso--validação-do-sistema)
-7. [Rotinas de Operação, Logs & Backup](#-rotinas-de-operação-logs--backup)
-8. [Estratégia de Sincronização Dual Git](#-estratégia-de-sincronização-dual-git)
+7. [Primeiro Acesso & Validação do Sistema](#-primeiro-acesso--validação-do-sistema)
+8. [Rotinas de Operação, Logs & Backup](#-rotinas-de-operação-logs--backup)
+9. [Estratégia de Sincronização Dual Git](#-estratégia-de-sincronização-dual-git)
 
 ---
 
@@ -32,6 +33,45 @@ O **AXET-NEURALGRAPH-3D** é uma plataforma corporativa completa desenvolvida pa
 - **🎥 Processamento Multimodal de Vídeos**: Pipeline automatizado que extrai áudio via `FFmpeg`, transcreve offline via `faster-whisper`, amostra frames visuais de tela e gera documentação estruturada com OCR analítico.
 - **⚖️ Matriz Regulatória & Glossário De ➔ Para**: Módulo administrativo de gestão de leis por país, thesaurus semântico e equivalências conceituais do mercado segurador.
 - **🔐 Autenticação Corporativa Híbrida**: Suporte nativo a JWT, gestão de sessões, auditoria administrativa e integração via Okta SSO (Device Flow OneNTT).
+
+---
+
+## 🚀 Instalação e Execução Local Rápida
+
+### 🪟 No Windows (Instalador One-Click via WSL2)
+O Windows 10/11 roda o pipeline com aceleração total de hardware via WSL2 sem exigir comandos manuais de Linux:
+
+1. **Clone o repositório ou baixe o ZIP:**
+   ```bash
+   git clone https://github.com/gcostabe/AXET-NEURALGRAPH-3D.git
+   cd AXET-NEURALGRAPH-3D
+   ```
+2. **Dê duplo clique no arquivo `instalar_windows.bat`:**
+   - Detecta e habilita o subsistema WSL2 e Ubuntu automaticamente;
+   - Instala Docker Engine, Compose e dependências essenciais em segundo plano;
+   - Compila e inicializa os 5 containers da solução (`frontend`, `backend`, `gateway`, `postgres`, `qdrant`);
+   - Cria um atalho **`Iniciar AXET-NEURALGRAPH-3D.bat`** na sua **Área de Trabalho (Desktop)**.
+3. **Uso diário**: Dê duplo clique no atalho da Área de Trabalho. Ele inicia o pipeline e abre o navegador automaticamente em **`http://localhost:3001/`**.
+
+---
+
+### 🍏 No macOS (Instalador One-Click)
+O macOS executa a solução de forma nativa e conteinerizada:
+
+1. **Clone o repositório:**
+   ```bash
+   git clone https://github.com/gcostabe/AXET-NEURALGRAPH-3D.git
+   cd AXET-NEURALGRAPH-3D
+   ```
+2. **Execute o script de configuração inicial:**
+   ```bash
+   ./setup_mac.sh
+   ```
+   - Valida Docker Desktop, Colima e utilitários via Homebrew;
+   - Configura as variáveis de ambiente `.env` e gera chaves criptográficas de segurança;
+   - Inicializa os 5 containers via Docker Compose;
+   - Cria o atalho clicável **`Iniciar AXET-NEURALGRAPH-3D.command`** na sua **Mesa (Desktop)**.
+3. **Uso diário**: Dê duplo clique no atalho da Mesa ou execute `./iniciar_mac.command`. Ele conecta os serviços e abre o navegador em **`http://localhost:3001/`**.
 
 ---
 

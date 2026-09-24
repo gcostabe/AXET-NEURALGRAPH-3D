@@ -1,10 +1,10 @@
 # CURRENT TASK
 
-Task ID: TASK-20260923-2345-EMBED-GATEWAY-STACK
+Task ID: TASK-20260924-0440-ONE-CLICK-LOCAL-INSTALLERS
 
-Created: 2026-09-23 23:45
+Created: 2026-09-24 04:40
 
-Last Updated: 2026-09-23 23:58
+Last Updated: 2026-09-24 04:40
 
 Status: COMPLETED
 
@@ -14,18 +14,24 @@ Resume Authorization: NO
 
 ## User Request
 
-"HOJE este app usa uma api gateway para se conectar no axet com token do okta para usar LLMs , contudo o codigo da applicaçao da api nao esta dentro deste rep, ou seja, se outra pessoa for usar nao vai funcionar, precisamos embedar esta api aqui na instalação da solução"
+"preciso que tambem disponibilize um processo de instalação em maquinas local windowns e mac seguindo o padrao abaixo que usamos para outro app
+
+🚀 Instalação e Execução Local Rápida
+🪟 No Windows (Instalador One-Click via WSL2)
+...
+🍏 No macOS (Instalador One-Click)
+..."
 
 ---
 
 ## Objective
 
-1. Integrar o código do Gateway aXet / Okta (OpenAI & Anthropic Proxy) diretamente dentro deste repositório em `gateway/`.
-2. Criar Dockerfile dedicado e incluir o serviço `gateway` no `docker-compose.yml` (porta 8766).
-3. Conectar o serviço `backend` ao `gateway` através da rede interna do Docker (`http://gateway:8766`).
-4. Blindar segredos locais (`tokens.json`, `user_identity.json`, etc.) com `.gitignore` e fornecer `.example.json`.
-5. Validar a subida dos containers, healthcheck do gateway e comunicação do backend/LLM.
-6. Atualizar a documentação arquitetural no `README.md` refletindo os 5 serviços (Frontend, Backend, Gateway, Qdrant, Postgres) e sincronizar via git push nos 2 repositórios remotos (`RAG-LOCAL-REEF` e `AXET-NEURALGRAPH-3D`).
+1. Criar `instalar_windows.bat` para instalação automatizada no Windows via WSL2 (Ubuntu), detecção/habilitação de WSL2, Docker e criação do atalho `Iniciar AXET-NEURALGRAPH-3D.bat` na Área de Trabalho (Desktop).
+2. Criar `scripts/setup_wsl_internal.sh` para provisionamento interno silencioso no Ubuntu WSL2 (Docker Engine / Compose, utilitários, permissões e subida do stack).
+3. Criar `iniciar_windows.bat` para iniciar o stack no Windows via WSL2, aguardar a porta 3001 e abrir o navegador automaticamente em `http://localhost:3001/`.
+4. Criar `setup_mac.sh` para validação e setup no macOS, verificação de Docker/Colima/Homebrew, criação do atalho `Iniciar AXET-NEURALGRAPH-3D.command` na Mesa (Desktop) e geração automática de `.env`.
+5. Criar `iniciar_mac.command` para inicialização com duplo clique no macOS, checagem do daemon Docker, subida dos 5 containers e abertura automática do navegador em `http://localhost:3001/`.
+6. Atualizar o `README.md` com a seção "🚀 Instalação e Execução Local Rápida" (Windows WSL2 e macOS One-Click) e sincronizar nos 2 repositórios remotos.
 
 ---
 
@@ -33,19 +39,20 @@ Resume Authorization: NO
 
 Phase: COMPLETED
 
-Current Step: All 5 containers verified and running; LLM completions verified end-to-end; README updated and git dual-pushed.
+Current Step: One-click scripts created and tested; README updated and pushed to both remotes.
 
-Last Safe Checkpoint: CHECKPOINT-076.
+Last Safe Checkpoint: CHECKPOINT-077.
 
 ---
 
 ## Planned Steps
 
-- [x] Copiar código-fonte do gateway para `gateway/` sem carregar segredos em staging.
-- [x] Criar `gateway/Dockerfile` e adaptar `local_ai_gateway.py` para bind em `0.0.0.0` e variáveis de ambiente.
-- [x] Adicionar o serviço `gateway` no `docker-compose.yml` e ajustar o `backend` para apontar para `gateway:8766`.
-- [x] Configurar `.gitignore` e templates de exemplo.
-- [x] Reconstruir e subir os containers (`docker compose up -d gateway backend`).
-- [x] Validar healthcheck e endpoints do gateway (`/auth/status`, `/codex/v1/models`, `/codex/v1/chat/completions`).
-- [x] Atualizar `README.md` com arquitetura atualizada de 5 containers e deploy no Azure.
-- [x] Realizar commit e git push para ambos os repositórios remotos.
+- [x] Criar `scripts/setup_wsl_internal.sh` para provisionamento no WSL2 Ubuntu.
+- [x] Criar `instalar_windows.bat` (one-click installer para Windows).
+- [x] Criar `iniciar_windows.bat` (one-click launcher para Windows).
+- [x] Criar `setup_mac.sh` (one-click installer para macOS).
+- [x] Criar `iniciar_mac.command` (one-click launcher para macOS).
+- [x] Testar `setup_mac.sh` e `iniciar_mac.command` localmente no macOS.
+- [x] Atualizar `README.md` com o sumário e o guia completo de instalação local rápida.
+- [x] Registrar checkpoint no `execution_journal.md`.
+- [x] Realizar commit e push simultâneo para ambos os repositórios remotos (`origin` e `axet`).

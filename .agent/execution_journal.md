@@ -2427,3 +2427,15 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
   6. `README.md` atualizado com arquitetura visual Mermaid de 5 containers, matriz técnica e procedimentos de deploy no Azure.
   7. `.gitignore` auditado garantindo que credenciais locais de sessão e arquivos transitórios permaneçam estritamente locais.
 - **Próxima Ação Segura**: Git commit e push simultâneo para os dois repositórios remotos (`origin` e `axet`).
+
+### CHECKPOINT-077 (2026-09-24 04:40 - Criação dos Instaladores Locais One-Click para Windows WSL2 e macOS)
+- **Tarefa**: `TASK-20260924-0440-ONE-CLICK-LOCAL-INSTALLERS`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. Criado `instalar_windows.bat`: Instalador one-click para Windows 10/11 que detecta/habilita o WSL2, instala Ubuntu se necessário, executa o script interno de provisionamento e cria o atalho `Iniciar AXET-NEURALGRAPH-3D.bat` na Área de Trabalho (Desktop).
+  2. Criado `scripts/setup_wsl_internal.sh`: Script de provisionamento silencioso dentro do WSL2 Ubuntu (atualização apt, instalação de utilitários, instalação do Docker Engine e Compose Plugin, inicialização do daemon Docker, geração do `.env` com segredo JWT criptográfico e build/up dos 5 containers).
+  3. Criado `iniciar_windows.bat`: Lançador rápido para Windows que inicia o Docker no WSL2 se necessário, sobe os containers via Docker Compose, monitora a porta 3001 e abre o navegador automaticamente em `http://localhost:3001/`.
+  4. Criado `setup_mac.sh`: Instalador one-click para macOS que valida Docker Desktop/Colima/Homebrew, gera o `.env` com chave criptográfica, cria o atalho `Iniciar AXET-NEURALGRAPH-3D.command` na Mesa (Desktop) e executa o build dos containers.
+  5. Criado `iniciar_mac.command`: Lançador com duplo clique para macOS (Finder) com checagem de status, subida do compose e abertura do navegador em `http://localhost:3001/`. Validado e testado com sucesso localmente.
+  6. Atualizado `README.md` com a seção "🚀 Instalação e Execução Local Rápida" em destaque logo após a Visão Geral, com passos claros para Windows (WSL2) e macOS.
+- **Próxima Ação Segura**: Commit e push simultâneo nos dois repositórios remotos (`origin` e `axet`).
