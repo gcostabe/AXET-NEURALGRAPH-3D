@@ -1,4 +1,6 @@
 @echo off
+cd /d "%~dp0"
+set "SCRIPT_DIR=%CD%"
 chcp 65001 >nul
 title NTT DATA - AXET-NEURALGRAPH-3D (:3001)
 
@@ -8,12 +10,9 @@ echo   Iniciando a Plataforma Neural 3D e Sistema RAG Local...
 echo ===============================================================================
 echo.
 
-set "SCRIPT_DIR=%~dp0"
-if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
-
 :: 1. Converter caminho para o formato WSL
 set "WSL_PROJECT_DIR="
-for /f "tokens=*" %%a in ('wsl wslpath -u "%SCRIPT_DIR%" 2^>nul') do set "WSL_PROJECT_DIR=%%a"
+for /f "tokens=*" %%a in ('wsl wslpath -u "%SCRIPT_DIR%"') do set "WSL_PROJECT_DIR=%%a"
 
 if "%WSL_PROJECT_DIR%"=="" (
     echo [ERRO] Nao foi possivel comunicar com o WSL2.
@@ -23,12 +22,12 @@ if "%WSL_PROJECT_DIR%"=="" (
 )
 
 :: 2. Testar se o Frontend ja esta rodando na porta 3001
-powershell -Command "$client = New-Object System.Net.Sockets.TcpClient; try { $client.Connect('127.0.0.1', 3001); exit 0 } catch { exit 1 }" >nul 2>&1
+powershell -Command "$c = New-Object System.Net.Sockets.TcpClient; try { $c.Connect('127.0.0.1', 3001); exit 0 } catch { exit 1 }" >nul 2>&1
 if %errorlevel% equ 0 (
     echo [OK] O aplicativo ja esta ativo e respondendo na porta 3001!
     echo Abrindo o navegador...
     start http://localhost:3001/
-    timeout /t 2 /nobreak >nul
+    timeout /t 3 /nobreak >nul
     exit /b 0
 )
 
@@ -65,7 +64,7 @@ set /a ATTEMPTS=0
 timeout /t 1 /nobreak >nul
 set /a ATTEMPTS+=1
 
-powershell -Command "$client = New-Object System.Net.Sockets.TcpClient; try { $client.Connect('127.0.0.1', 3001); exit 0 } catch { exit 1 }" >nul 2>&1
+powershell -Command "$c = New-Object System.Net.Sockets.TcpClient; try { $c.Connect('127.0.0.1', 3001); exit 0 } catch { exit 1 }" >nul 2>&1
 if %errorlevel% equ 0 (
     goto OPEN_BROWSER
 )

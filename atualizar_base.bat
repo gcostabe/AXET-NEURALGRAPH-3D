@@ -1,4 +1,6 @@
 @echo off
+cd /d "%~dp0"
+set "SCRIPT_DIR=%CD%"
 chcp 65001 >nul
 title NTT DATA - AXET-NEURALGRAPH-3D (Atualizar Base de Conhecimento)
 
@@ -8,12 +10,9 @@ echo   Atualizacao Segura de Base de Conhecimento Local (Opcao 1 - Snapshots)
 echo ===============================================================================
 echo.
 
-set "SCRIPT_DIR=%~dp0"
-if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
-
 :: 1. Converter caminho para o formato WSL
 set "WSL_PROJECT_DIR="
-for /f "tokens=*" %%a in ('wsl wslpath -u "%SCRIPT_DIR%" 2^>nul') do set "WSL_PROJECT_DIR=%%a"
+for /f "tokens=*" %%a in ('wsl wslpath -u "%SCRIPT_DIR%"') do set "WSL_PROJECT_DIR=%%a"
 
 if "%WSL_PROJECT_DIR%"=="" (
     echo [ERRO] Nao foi possivel comunicar com o WSL2.
@@ -26,7 +25,7 @@ if "%WSL_PROJECT_DIR%"=="" (
 set "TARGET_ARG=%~1"
 set "WSL_TARGET_ARG="
 if not "%TARGET_ARG%"=="" (
-    for /f "tokens=*" %%b in ('wsl wslpath -u "%TARGET_ARG%" 2^>nul') do set "WSL_TARGET_ARG=%%b"
+    for /f "tokens=*" %%b in ('wsl wslpath -u "%TARGET_ARG%"') do set "WSL_TARGET_ARG=%%b"
 )
 
 echo [INFO] Executando processo de restauracao segura no WSL2...

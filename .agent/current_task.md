@@ -1,10 +1,10 @@
 # CURRENT TASK
 
-Task ID: TASK-20260924-1438-FIX-WINDOWS-BAT-CRLF-PARSING
+Task ID: TASK-20260924-1448-FIX-BAT-SYNTAX-PREVENT-FAST-EXIT
 
-Created: 2026-09-24 14:38
+Created: 2026-09-24 14:48
 
-Last Updated: 2026-09-24 14:41
+Last Updated: 2026-09-24 14:51
 
 Status: COMPLETED
 
@@ -14,58 +14,29 @@ Resume Authorization: YES
 
 ## User Request
 
-"ao tentar instalar no windows clicando no instalar_windowns.bat" acompanhado de captura de tela mostrando erros de execução no Windows Terminal / Prompt de Comando do Windows:
-- `'-3D' não é reconhecido como um comando interno ou externo...`
-- `'iente' não é reconhecido como um comando interno...`
-- `A sintaxe do nome do arquivo, do nome do diretório ou do rótulo do volume está incorreta.`
-- `'á' não é reconhecido como um comando interno...`
-- `'SL2' não é reconhecido como um comando interno...`
-- `'neq' não é reconhecido como um comando interno...`
-- `'o' não é reconhecido como um comando interno...`
-- `'Windows' não é reconhecido como um comando interno...`
-- `'quer' não é reconhecido como um comando interno...`
+"o bat esta abrindo e fechando muito rapido e naos esta criando o atalho na area de trabalho"
 
 ---
 
 ## Root Cause Analysis
 
-1. **Quebras de Linha Unix (LF em vez de CRLF)**:
-   Os scripts batch (`instalar_windows.bat`, `iniciar_windows.bat`, `atualizar_base.bat`) estavam salvos com quebras de linha Unix `\n` (LF) em vez de `\r\n` (CRLF do Windows).
-   No Windows `cmd.exe`, o interpretador de lotes lê arquivos diretamente do disco com buffers que esperam 2 bytes (`\r\n`) por quebra de linha. Quando encontra `\n` (1 byte), o ponteiro de arquivo sofre drift progressivo de bytes a cada linha.
-   Consequentemente, o interpretador salta para o meio das palavras e tenta executar pedaços de texto como comandos:
-   - `-3D` (da palavra `AXET-NEURALGRAPH-3D` na linha 3/6)
-   - `iente` (da palavra `Ambiente` na linha 7)
-   - `á` (da palavra `está` na linha 14)
-   - `SL2` (da palavra `WSL2` na linha 15)
-   - `neq` (do operador `neq 0` na linha 17)
-   - `o` (da palavra `O comando` na linha 18)
-   - `Windows` (da palavra `Windows` na linha 19)
-   - `quer` (da palavra `qualquer` na linha 21)
-
-2. **Caracteres Especiais / Emojis Multibyte em Arquivos Batch**:
-   Caracteres UTF-8 multibyte (como o emoji `🧠` de 4 bytes e travessão `—` de 3 bytes) agravavam o descompasso de leitura de bytes no interpretador nativo do `cmd.exe`.
-   Foram simplificados banners para ASCII / caracteres limpos e compatíveis com qualquer console Windows.
-
-3. **Resolução de Diretório do Desktop (OneDrive vs Padrão)**:
-   No Windows 10/11 com OneDrive ativo, a Área de Trabalho pode estar em `%USERPROFILE%\OneDrive\Desktop`. Foi adicionada detecção com fallback automático para garantir a criação do atalho.
-
-4. **Regras de Git (.gitattributes)**:
-   Criado `.gitattributes` com `*.bat text eol=crlf` e `*.cmd text eol=crlf` para blindar checkouts e pulls futuros em qualquer sistema operacional.
+1. **Erro de Sintaxe de Bloco / Parênteses Vazios no `cmd.exe`**:
+   No script batch, uma tentativa anterior de comando continha parênteses aninhados com redirecionamento de saída ou tokens vazios (`for /f ... in ()`), o que é interpretado pelo `cmd.exe` como erro de sintaxe fatal antes mesmo de executar o script. No Windows Explorer, quando ocorre erro de sintaxe ao dar duplo clique, o Prompt de Comando fecha instantaneamente em menos de 0.1 segundo.
+2. **Manipulação de `SCRIPT_DIR`**:
+   O uso de `cd /d "%~dp0"` e `set "SCRIPT_DIR=%CD%"` é infinitamente superior ao fatiamento de strings (`%SCRIPT_DIR:~0,-1%`), pois garante o diretório correto sem barra invertida final e trata caminhos com espaços de forma nativa e sem escapes.
+3. **Ausência de Pausas Preventivas**:
+   Adicionada pausa defensiva no final de cada branch de erro e ao término de `instalar_windows.bat`, além de pré-selecionar a opção padrão `1` caso o usuário apenas pressione Enter.
+4. **Criação Direta do Atalho**:
+   A gravação do atalho agora é feita linha a linha (`echo ...> file` e `echo ...>> file`), eliminando completamente o bloco de parênteses aninhados e garantindo a criação sem riscos de colisão com caracteres de redirecionamento.
 
 ---
 
 ## Objective
 
-1. **Corrigir Formatação e Quebra de Linha CRLF**:
-   - `instalar_windows.bat`, `iniciar_windows.bat` e `atualizar_base.bat` convertidos explicitamente para `CRLF` (`\r\n`).
-2. **Sanitizar Caracteres em Scripts Batch**:
-   - Removidos caracteres multibyte e emojis para compatibilidade total com o `cmd.exe`.
-3. **Robustecer Detecção de Diretório e Desktop**:
-   - Suporte transparente para Desktop padrão e OneDrive Desktop.
-4. **Adicionar `.gitattributes`**:
-   - Garantir preservação perene de `CRLF` para `.bat` e `.cmd`.
-5. **Comitar e Sincronizar**:
-   - Subir correção para os remotes `origin` e `axet`.
+1. Reescrever `instalar_windows.bat`, `iniciar_windows.bat` e `atualizar_base.bat` com sintaxe cmd.exe limpa, linear e imune a erros de parse.
+2. Garantir criação confiável do atalho `.bat` na Área de Trabalho com suporte tanto a Desktop local quanto OneDrive Desktop.
+3. Garantir 100% de quebras de linha Windows CRLF (`\r\n`).
+4. Comitar e enviar para `origin` e `axet`.
 
 ---
 
@@ -73,18 +44,17 @@ Resume Authorization: YES
 
 Phase: COMPLETED
 
-Current Step: Scripts batch corrigidos, convertidos para CRLF, verificados e sincronizados via Git.
+Current Step: Scripts atualizados, validados com CRLF e sincronizados com os dois remotos Git.
 
-Last Safe Checkpoint: CHECKPOINT-089.
+Last Safe Checkpoint: CHECKPOINT-090.
 
 ---
 
 ## Planned Steps
 
-- [x] Identificar e diagnosticar a causa raiz dos erros exibidos no print.
-- [x] Criar `.gitattributes` com política de final de linha CRLF para `.bat`/`.cmd`.
-- [x] Reformular e sanitizar `instalar_windows.bat`, `iniciar_windows.bat` e `atualizar_base.bat` com CRLF e sintaxe blindada.
-- [x] Verificar integridade e codificação binária dos 3 arquivos .bat (0 LF isolados, 100% CRLF).
-- [x] Registrar CHECKPOINT-089 em `execution_journal.md`.
-- [x] Git commit e push para `origin` e `axet`.
-- [x] Fornecer explicação clara ao usuário sobre a causa do erro e como reexecutar.
+- [x] Identificar a causa do fechamento prematuro (erro de sintaxe no parse do cmd.exe).
+- [x] Refatorar `instalar_windows.bat` com sintaxe direta, sem blocos aninhados.
+- [x] Refatorar `iniciar_windows.bat` e `atualizar_base.bat` com `cd /d "%~dp0"` e detecção robusta.
+- [x] Garantir quebras de linha estritamente em CRLF nos 3 arquivos `.bat`.
+- [x] Registrar CHECKPOINT-090 em `execution_journal.md`.
+- [x] Comitar e fazer push para `origin` e `axet`.

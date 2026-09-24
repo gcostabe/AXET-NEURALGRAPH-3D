@@ -2785,3 +2785,20 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
   4. **Adicao de .gitattributes**:
      - Criado arquivo .gitattributes forcando *.bat text eol=crlf e *.cmd text eol=crlf para prevenir regressoes em clones e checkouts futuros no Git.
 - **Proxima Acao Segura**: Finalizar current_task.md, realizar commit das alteracoes e push dual para origin e axet.
+
+### CHECKPOINT-090 (2026-09-24 14:51 - Correcao de Sintaxe e Prevencao de Fechamento Prematuro nos Scripts Windows)
+- **Tarefa**: TASK-20260924-1448-FIX-BAT-SYNTAX-PREVENT-FAST-EXIT
+- **Estado**: POST_ACTION / COMPLETED
+- **Causa Raiz Identificada**:
+  - O script instalar_windows.bat apresentava erro de sintaxe durante o parse do interpretador cmd.exe decorrente de bloco de redirecionamento aninhado com parenteses na criacao do atalho da Area de Trabalho, fazendo o processo do Prompt de Comando fechar instantaneamente ao ser aberto com duplo clique.
+- **Acoes Concluidas**:
+  1. **Simplificacao Linear na Gravacao do Atalho**:
+     - Gravacao do atalho .bat alterada para linhas diretas (echo @echo off> e echo ...>>), eliminando parenteses aninhados e riscos de decodificacao de caracteres de escape.
+  2. **Robustez de Diretorio de Execucao**:
+     - Substituido fatiamento manual de caminhos por 'cd /d "%~dp0"' e 'set "SCRIPT_DIR=%CD%"', garantindo caminho correto sem barra invertida residual em qualquer cenario.
+  3. **Pausas Defensivas e Defaults**:
+     - Adicionado 'pause' explicito em todos os pontos de erro e ao termino de instalar_windows.bat, impedindo que a janela feche sem que o usuario possa ler a saida.
+     - Definida opcao padrao 1 no prompt final (basta teclar Enter).
+  4. **Verificacao CRLF**:
+     - Os 3 arquivos .bat foram regravados com 100% CRLF e 0 LFs isolados.
+- **Proxima Acao Segura**: Comitar alteracoes e realizar push para origin e axet.
