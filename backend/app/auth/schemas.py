@@ -41,3 +41,35 @@ class ChangeRoleRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+class OktaDeviceAuthStartResponse(BaseModel):
+    device_code: str
+    user_code: str
+    verification_uri: str
+    verification_uri_complete: str
+    expires_in: int
+    interval: int = 5
+
+
+class OktaPollRequest(BaseModel):
+    device_code: str
+
+
+class OktaPollResponse(BaseModel):
+    status: str  # "pending", "slow_down", "expired", "success", "error"
+    detail: str | None = None
+    access_token: str | None = None
+    token_type: str = "bearer"
+    role: UserRole | None = None
+    user_status: UserStatus | None = None
+    email: str | None = None
+    user_name: str | None = None
+
+
+class GatewayAuthStatusResponse(BaseModel):
+    status: str
+    authenticated: bool
+    expires_at: int
+    remaining_seconds: int
+    email: str | None = None

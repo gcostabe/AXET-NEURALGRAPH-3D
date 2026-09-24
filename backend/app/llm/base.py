@@ -1,9 +1,10 @@
-from typing import AsyncIterator, Protocol, TypedDict
+from typing import Any, AsyncIterator, Protocol, TypedDict
 
 
 class Message(TypedDict):
     role: str  # "system" | "user" | "assistant"
-    content: str
+    content: str | list[Any] | Any
+
 
 
 class LLMClient(Protocol):

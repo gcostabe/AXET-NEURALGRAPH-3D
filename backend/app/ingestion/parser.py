@@ -37,11 +37,56 @@ def parse_markdown_file(file_path: Path, root: Path) -> ParsedDocument:
     )
 
 
+GENERIC_TITLE_PATTERNS = (
+    "relatório de análise",
+    "relatório de ingestão",
+    "página de erro",
+    "documentação não encontrada",
+    "backstage techdocs",
+)
+
+ANALYSIS_PREFIXES = (
+    "análise estruturada da transcrição —",
+    "análise funcional e técnica —",
+    "análise estruturada —",
+    "análise da transcrição —",
+    "análise técnica —",
+    "análise funcional —",
+    "análise estruturada:",
+    "relatório de análise:",
+    "análise da transcrição:",
+    "análise sobre ",
+    "análise da ",
+    "análise de ",
+    "análise do ",
+    "análise dos ",
+    "análise das ",
+)
+
+
+def _clean_heading(heading: str) -> str:
+    cleaned = heading.strip()
+    lower = cleaned.lower()
+    for prefix in ANALYSIS_PREFIXES:
+        if lower.startswith(prefix):
+            cleaned = cleaned[len(prefix):].strip()
+            lower = cleaned.lower()
+    if cleaned and cleaned[0].islower():
+        cleaned = cleaned[0].upper() + cleaned[1:]
+    return cleaned
+
+
 def _first_h1(body: str) -> str | None:
     for line in body.splitlines():
         stripped = line.strip()
         if stripped.startswith("# "):
-            return stripped[2:].strip()
+            candidate = stripped[2:].strip()
+            candidate_lower = candidate.lower()
+            if any(pat in candidate_lower for pat in GENERIC_TITLE_PATTERNS):
+                continue
+            cleaned = _clean_heading(candidate)
+            if cleaned:
+                return cleaned
     return None
 
 

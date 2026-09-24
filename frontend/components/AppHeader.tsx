@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { authApi, UserOut, ApiError } from "@/lib/api";
+import { authApi, UserOut, ApiError, GatewayAuthStatusResponse } from "@/lib/api";
 import { clearToken, isAdmin as checkIsAdmin } from "@/lib/auth";
 import NttDataLogo from "./NttDataLogo";
+import OktaSsoModal from "./OktaSsoModal";
 import { 
   ShieldCheck, 
   User as UserIcon, 
@@ -23,6 +24,8 @@ export default function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<UserOut | null>(null);
+  const [oktaStatus, setOktaStatus] = useState<GatewayAuthStatusResponse | null>(null);
+  const [showOktaModal, setShowOktaModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -35,6 +38,12 @@ export default function AppHeader() {
 
   useEffect(() => {
     authApi.me().then(setUser).catch(() => {});
+    authApi.oktaStatus().then(setOktaStatus).catch(() => {});
+
+    const interval = setInterval(() => {
+      authApi.oktaStatus().then(setOktaStatus).catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -118,6 +127,37 @@ export default function AppHeader() {
 
         {/* Right Navigation & User Menu */}
         <div className="flex items-center gap-2.5">
+          {/* Okta SSO Gateway Status Pill */}
+          <button
+            onClick={() => setShowOktaModal(true)}
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all shadow-sm ${
+              oktaStatus?.authenticated
+                ? ((oktaStatus.remaining_seconds || 0) > 600
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                    : "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 animate-pulse")
+                : "border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20"
+            }`}
+            title={
+              oktaStatus?.authenticated
+                ? `Okta SSO Conectado • ${Math.round((oktaStatus.remaining_seconds || 0) / 60)} min restantes • Clique para renovar`
+                : "Okta SSO Desconectado • Clique para autenticar"
+            }
+          >
+            <span
+              className={`h-2 w-2 rounded-full ${
+                oktaStatus?.authenticated
+                  ? ((oktaStatus.remaining_seconds || 0) > 600
+                      ? "bg-emerald-400 shadow-sm shadow-emerald-400/50"
+                      : "bg-amber-400")
+                  : "bg-rose-400"
+              }`}
+            />
+            <span className="hidden md:inline text-[11px] font-semibold">
+              {oktaStatus?.authenticated
+                ? ((oktaStatus.remaining_seconds || 0) > 600 ? "Okta SSO" : "Renovar SSO")
+                : "Conectar Okta"}
+            </span>
+          </button>
           {/* Acesso ao Grafo Neural 3D para Todos os Usuários */}
           <button
             onClick={() => router.push(isOnGraphPage ? "/chat" : "/graph")}
@@ -343,6 +383,17 @@ export default function AppHeader() {
           </div>
         </div>
       )}
+
+      {/* Okta SSO Renewal Modal */}
+      <OktaSsoModal
+        isOpen={showOktaModal}
+        onClose={() => setShowOktaModal(false)}
+        onSuccess={() => {
+          setShowOktaModal(false);
+          authApi.oktaStatus().then(setOktaStatus);
+        }}
+        isRenewal={true}
+      />
     </>
   );
 }

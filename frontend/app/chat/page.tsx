@@ -212,6 +212,17 @@ function ChatInner() {
       onError: (msg) => {
         setSending(false);
         setWaitingFirstToken(false);
+        setMessages((prev) => {
+          const next = [...prev];
+          const lastIdx = next.length - 1;
+          if (lastIdx >= 0 && next[lastIdx].role === "assistant" && !next[lastIdx].content) {
+            next[lastIdx] = {
+              ...next[lastIdx],
+              content: `⚠️ **Falha na comunicação**: ${msg || "O Gateway de IA local não respondeu. Verifique se o serviço local está ativo e com a sessão corporativa válida."}`,
+            };
+          }
+          return next;
+        });
         setError(msg || "Ocorreu uma falha na geração da resposta pelo gateway.");
       },
     });

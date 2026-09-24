@@ -23,6 +23,10 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE knowledge_conflicts ADD COLUMN IF NOT EXISTS resolution_details TEXT;",
             "ALTER TABLE knowledge_conflicts ADD COLUMN IF NOT EXISTS resolved_by_user_id UUID;",
             "ALTER TABLE knowledge_conflicts ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP WITH TIME ZONE;",
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER DEFAULT 0;",
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS completion_tokens INTEGER DEFAULT 0;",
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS total_tokens INTEGER DEFAULT 0;",
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS model VARCHAR(100);",
         ]:
             await conn.execute(text(sql))
 

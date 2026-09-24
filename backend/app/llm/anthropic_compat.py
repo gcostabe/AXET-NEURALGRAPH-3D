@@ -1,9 +1,13 @@
+import asyncio
 import json
+import logging
 from typing import AsyncIterator
 
 import httpx
 
 from app.llm.base import Message
+
+logger = logging.getLogger(__name__)
 
 
 class AnthropicCompatClient:
@@ -28,22 +32,39 @@ class AnthropicCompatClient:
             "stream": True,
         }
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            async with client.stream(
-                "POST",
-                f"{self._base_url}/v1/messages",
-                headers=headers,
-                json=payload,
-            ) as response:
-                response.raise_for_status()
-                async for line in response.aiter_lines():
-                    if not line.startswith("data: "):
-                        continue
-                    event = json.loads(line[len("data: "):])
-                    if event.get("type") == "content_block_delta":
-                        delta = event.get("delta", {}).get("text")
-                        if delta:
-                            yield delta
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    async with client.stream(
+                        "POST",
+                        f"{self._base_url}/v1/messages",
+                        headers=headers,
+                        json=payload,
+                    ) as response:
+                        response.raise_for_status()
+                        async for line in response.aiter_lines():
+                            if not line.startswith("data: "):
+                                continue
+                            event = json.loads(line[len("data: "):])
+                            if event.get("type") == "content_block_delta":
+                                delta = event.get("delta", {}).get("text")
+                                if delta:
+                                    yield delta
+                return
+            except (httpx.HTTPStatusError, httpx.RequestError) as exc:
+                is_retryable = (
+                    (isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (401, 502, 503, 504))
+                    or isinstance(exc, httpx.RequestError)
+                )
+                if is_retryable and attempt < max_retries - 1:
+                    logger.warning(
+                        f"[AnthropicCompatClient] Erro no stream ({exc}). "
+                        f"Aguardando auto-refresh e retentando ({attempt + 2}/{max_retries})..."
+                    )
+                    await asyncio.sleep(2.0)
+                    continue
+                raise
 
     async def complete(self, messages: list[Message], temperature: float = 0.2) -> str:
         system_messages = [m["content"] for m in messages if m["role"] == "system"]
@@ -62,14 +83,30 @@ class AnthropicCompatClient:
             "temperature": temperature,
         }
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                f"{self._base_url}/v1/messages",
-                headers=headers,
-                json=payload,
-            )
-            response.raise_for_status()
-            data = response.json()
-            content_blocks = data.get("content") or []
-            texts = [b.get("text", "") for b in content_blocks if b.get("type") == "text"]
-            return "".join(texts)
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    response = await client.post(
+                        f"{self._base_url}/v1/messages",
+                        headers=headers,
+                        json=payload,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    content_blocks = data.get("content") or []
+                    texts = [b.get("text", "") for b in content_blocks if b.get("type") == "text"]
+                    return "".join(texts)
+            except (httpx.HTTPStatusError, httpx.RequestError) as exc:
+                is_retryable = (
+                    (isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (401, 502, 503, 504))
+                    or isinstance(exc, httpx.RequestError)
+                )
+                if is_retryable and attempt < max_retries - 1:
+                    logger.warning(
+                        f"[AnthropicCompatClient] Erro em complete ({exc}). "
+                        f"Aguardando auto-refresh e retentando ({attempt + 2}/{max_retries})..."
+                    )
+                    await asyncio.sleep(2.0)
+                    continue
+                raise

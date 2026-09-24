@@ -1,4 +1,6 @@
 import json
+import logging
+import random
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -10,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.database import get_db
 from app.auth.dependencies import get_current_user
 from app.auth.models import Conversation, Message, MessageFeedback, User
+from app.config import settings
 from app.llm.base import Message as LLMMessage
 from app.llm.factory import get_llm_client
 from app.retrieval.search import (
@@ -18,6 +21,8 @@ from app.retrieval.search import (
     get_graph_context_for_sources,
     search,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -85,7 +90,12 @@ async def chat(
 
     history = await _load_history(db, conversation.id)
 
-    chunks = search(request.message, top_k=request.top_k)
+    try:
+        chunks = search(request.message, top_k=request.top_k)
+    except Exception as exc:
+        logger.error(f"[chat] Falha no serviço de busca/embeddings: {exc}")
+        chunks = []
+
     unique_paths = list({c.source_path for c in chunks if c.source_path})
     edges, conflicts = await get_graph_context_for_sources(db, unique_paths)
     doc_summaries = await get_document_summaries_for_sources(db, unique_paths, query=request.message)
@@ -117,7 +127,14 @@ async def chat(
         {"role": "user", "content": request.message},
     ]
 
-    user_message = Message(conversation_id=conversation.id, role="user", content=request.message)
+    user_prompt_tokens = max(1, len(request.message) // 4)
+    user_message = Message(
+        conversation_id=conversation.id,
+        role="user",
+        content=request.message,
+        prompt_tokens=user_prompt_tokens,
+        total_tokens=user_prompt_tokens,
+    )
     db.add(user_message)
     await db.commit()
 
@@ -127,9 +144,19 @@ async def chat(
         collected = []
         candidate_sources = sources if has_relevant_docs else []
         yield f"event: conversation\ndata: {json.dumps({'conversation_id': str(conversation.id)})}\n\n"
-        async for token in llm.chat_stream(messages):
-            collected.append(token)
-            yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
+        try:
+            async for token in llm.chat_stream(messages):
+                collected.append(token)
+                yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
+        except Exception as exc:
+            logger.error(f"[chat] Erro durante streaming do LLM: {exc}")
+            err_text = (
+                "\n\n⚠️ **Falha de Comunicação com o Gateway de IA local**:\n"
+                "Não foi possível obter a resposta do modelo. O Gateway local (porta 8766) está temporariamente inacessível ou com a sessão de autenticação expirada.\n\n"
+                "👉 *Por favor, renove a sessão corporativa no aXet / VS Code e tente novamente.*"
+            )
+            collected.append(err_text)
+            yield f"event: token\ndata: {json.dumps({'text': err_text})}\n\n"
 
         full_response = "".join(collected)
 
@@ -144,6 +171,12 @@ async def chat(
         # Emite sources definitivas para o frontend após a conclusão da resposta
         yield f"event: sources\ndata: {json.dumps(final_sources)}\n\n"
 
+        # Cálculo de tokens consumidos
+        prompt_tokens = sum(max(1, len(str(m.get("content", ""))) // 4) for m in messages)
+        completion_tokens = max(1, len(full_response) // 4)
+        total_tokens = prompt_tokens + completion_tokens
+        model_name = getattr(llm, "_model", settings.llm_model)
+
         assistant_msg_id = uuid.uuid4()
         async with db.begin():
             db.add(
@@ -153,9 +186,14 @@ async def chat(
                     role="assistant",
                     content=full_response,
                     sources=final_sources,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    model=model_name,
                 )
             )
 
+        yield f"event: usage\ndata: {json.dumps({'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens, 'total_tokens': total_tokens, 'model': model_name})}\n\n"
         yield f"event: message_id\ndata: {json.dumps({'message_id': str(assistant_msg_id)})}\n\n"
         yield "event: done\ndata: {}\n\n"
 
@@ -229,121 +267,264 @@ class SuggestionOut(BaseModel):
     icon: str  # 'building' | 'globe' | 'calendar' | 'quality' | 'layers' | 'map' | 'shield'
 
 
+DOMAIN_CONFIG = {
+    "emissao": {
+        "icon": "layers",
+        "default_topic": "Emissão & Contratos",
+        "keywords": [
+            "emiss", "emisio", "apólice", "poliza", "suplemento", "cotiza",
+            "ramo", "cobertura", "tarifa", "plan de pago", "plano de pagamento",
+        ],
+    },
+    "sinistros": {
+        "icon": "shield",
+        "default_topic": "Gestão de Sinistros",
+        "keywords": [
+            "sinistro", "siniestro", "liquidaci", "liquidaç", "expediente",
+            "tramitador", "recobro", "perita", "reserva", "salvamento",
+        ],
+    },
+    "terceiros": {
+        "icon": "building",
+        "default_topic": "Terceiros & Entidades",
+        "keywords": [
+            "terceiro", "tercero", "proveedor", "fornecedor", "agente",
+            "entidade banc", "companhia", "cliente", "mediador",
+        ],
+    },
+    "controles": {
+        "icon": "quality",
+        "default_topic": "Controles & Qualidade",
+        "keywords": [
+            "control", "validaç", "validac", "antifraude", "platea",
+            "iqrf", "harmonizad", "regras harmonizadas", "regras de negócio",
+        ],
+    },
+    "financeiro": {
+        "icon": "calendar",
+        "default_topic": "Financeiro & Câmbio",
+        "keywords": [
+            "moeda", "moneda", "câmbio", "cambio", "tesouraria",
+            "tesoreria", "contabil", "fatur", "factur", "rating", "cobrança",
+        ],
+    },
+    "estrutura": {
+        "icon": "globe",
+        "default_topic": "Estrutura & Parâmetros",
+        "keywords": [
+            "geogr", "calendário", "calendario", "festiv", "inábil",
+            "inabil", "idioma", "canal", "estrutura comercial",
+        ],
+    },
+}
+
+QUESTION_TEMPLATES = [
+    lambda t1, t2, title: f"Como funciona a parametrização de {t1} e quais são suas regras operacionais?" if t1 else f"Como funciona a parametrização e operação de {title}?",
+    lambda t1, t2, title: f"Quais são os critérios e diretrizes técnicas para {t1} e {t2}?" if t1 and t2 else f"Quais são as diretrizes técnicas para {t1 or title}?",
+    lambda t1, t2, title: f"Quais são os procedimentos operacionais e validações aplicados a {t1 or title}?",
+    lambda t1, t2, title: f"Como é estruturada a integração técnica e o fluxo de {t1 or title} no Reef.core?",
+    lambda t1, t2, title: f"Explique as regras de negócio e restrições associadas a {t1 or title}.",
+    lambda t1, t2, title: f"Quais os requisitos e impactos de {t1} no processo de {t2}?" if t1 and t2 else f"Quais os impactos e requisitos operacionais de {t1 or title}?",
+]
+
+GENERIC_TOPIC_WORDS = {
+    "reef", "reef.core", "sistema", "documento", "documentação",
+    "geral", "visão geral", "modulo", "módulo", "qualidade da transcrição",
+    "transcrição", "vídeo", "video",
+}
+
+GENERIC_TITLE_PATTERNS = (
+    "relatório de análise",
+    "relatório de ingestão",
+    "página de erro",
+    "conteúdo insuficiente",
+    "análise da transcrição",
+    "análise estruturada da transcrição",
+    "análise estruturada",
+    "análise funcional e técnica",
+    "análise de transcrição",
+    "transcrição degradada",
+    "transcrição fornecida",
+    "transcrição",
+    "404",
+)
+
+
+def _sanitize_title(title: str, topics: list[str], source_path: str) -> str:
+    cleaned = (title or "").strip()
+    lower = cleaned.lower()
+
+    if not cleaned or any(p in lower for p in GENERIC_TITLE_PATTERNS):
+        for t in topics:
+            if t.lower() not in GENERIC_TOPIC_WORDS and len(t) > 3:
+                return t[:55]
+        parts = [p for p in source_path.split("/") if p]
+        if len(parts) >= 2:
+            return parts[-2].replace("-", " ").strip()[:55]
+        return "Documentação Técnica Reef"
+
+    prefixes = (
+        "análise estruturada da transcrição —",
+        "análise funcional e técnica —",
+        "análise estruturada —",
+        "análise da transcrição —",
+        "análise técnica —",
+        "análise funcional —",
+        "análise da transcrição:",
+        "análise estruturada:",
+        "análise sobre ",
+        "análise da ",
+        "análise de ",
+        "análise do ",
+        "análise dos ",
+        "análise das ",
+    )
+    for p in prefixes:
+        if lower.startswith(p):
+            cleaned = cleaned[len(p):].strip()
+            lower = cleaned.lower()
+
+    if len(cleaned) <= 3 or cleaned.lower() in ("análise", "transcrição", "documento", "reunião", "treinamento"):
+        for t in topics:
+            if t.lower() not in GENERIC_TOPIC_WORDS and len(t) > 3:
+                return t[:55]
+        parts = [p for p in source_path.split("/") if p]
+        if len(parts) >= 2:
+            return parts[-2].replace("-", " ").strip()[:55]
+        return "Documentação Técnica Reef"
+
+    if cleaned and cleaned[0].islower():
+        cleaned = cleaned[0].upper() + cleaned[1:]
+
+    return cleaned[:55]
+
+
+def _extract_best_topics(doc) -> tuple[str, str]:
+    raw_topics = [t.strip() for t in (doc.topics or []) if t and t.strip().lower() not in GENERIC_TOPIC_WORDS]
+    t1 = raw_topics[0] if raw_topics else ""
+    t2 = raw_topics[1] if len(raw_topics) > 1 else ""
+    return t1, t2
+
+
+def _classify_doc_domain(doc, clean_title: str) -> str:
+    text = f"{clean_title} {' '.join(doc.topics or [])} {doc.source_path}".lower()
+    for dom, conf in DOMAIN_CONFIG.items():
+        if any(kw in text for kw in conf["keywords"]):
+            return dom
+    return "emissao"
+
+
 @router.get("/chat/suggestions", response_model=list[SuggestionOut])
 async def get_chat_suggestions(
+    refresh: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Retorna sugestões de perguntas dinâmicas geradas a partir do contexto real dos documentos indexados."""
+    """Retorna sugestões de perguntas dinâmicas e diversificadas a partir do contexto real dos documentos indexados."""
     from app.knowledge.models import KnowledgeDocument
 
     docs = (
         await db.scalars(
-            select(KnowledgeDocument).order_by(KnowledgeDocument.updated_at.desc())
+            select(KnowledgeDocument).order_by(KnowledgeDocument.updated_at.desc()).limit(400)
         )
     ).all()
 
-    # Filtra páginas de erro e documentos vazios
+    # Filtra páginas de erro, documentos vazios ou sem qualidade suficiente
     valid_docs = [
         d for d in docs
-        if "404" not in (d.title or "")
+        if not any(pat in (d.title or "").lower() for pat in GENERIC_TITLE_PATTERNS)
         and "erro" not in (d.title or "").lower()
+        and len(d.title or "") > 5
     ]
 
+    # Agrupa documentos válidos por domínio temático
+    domain_buckets: dict[str, list[KnowledgeDocument]] = {k: [] for k in DOMAIN_CONFIG}
+    for doc in valid_docs:
+        clean_title = _sanitize_title(doc.title or "", doc.topics or [], doc.source_path)
+        dom = _classify_doc_domain(doc, clean_title)
+        domain_buckets.setdefault(dom, []).append(doc)
+
+    # Escolhe até 4 domínios distintos com documentos disponíveis
+    active_domains = [d for d, items in domain_buckets.items() if items]
+    random.shuffle(active_domains)
+    chosen_domains = active_domains[:4]
+
+    # Prepara templates de perguntas embaralhados para garantir estilos linguísticos variados
+    templates = QUESTION_TEMPLATES[:]
+    random.shuffle(templates)
+
     suggestions: list[SuggestionOut] = []
-    seen_themes: set[str] = set()
+    seen_titles: set[str] = set()
 
-    for idx, doc in enumerate(valid_docs):
-        title = doc.title or "Documento"
-        topics = doc.topics or []
+    for idx, dom in enumerate(chosen_domains):
+        bucket = domain_buckets[dom]
+        random.shuffle(bucket)
 
-        # Limpeza de títulos de ingestão automatizada
-        if "Relatório de Ingestão" in title or "Página de Erro" in title:
-            if topics and len(topics) >= 2:
-                clean_title = f"{topics[0]} — {topics[1]}"
-            elif topics:
-                clean_title = topics[0]
-            else:
-                parts = doc.source_path.split("/")
-                clean_title = parts[-2] if len(parts) > 1 else doc.source_path
-        else:
-            clean_title = title
+        # Encontra o primeiro documento que não repita título
+        chosen_doc = None
+        chosen_title = ""
+        for cand in bucket:
+            cand_title = _sanitize_title(cand.title or "", cand.topics or [], cand.source_path)
+            if cand_title.lower() not in seen_titles:
+                chosen_doc = cand
+                chosen_title = cand_title
+                break
 
-        # Agrupamento para diversidade de temas
-        lower_title = clean_title.lower()
-        top_topic = (topics[0] if topics else "").lower()
+        if not chosen_doc:
+            chosen_doc = bucket[0]
+            chosen_title = _sanitize_title(chosen_doc.title or "", chosen_doc.topics or [], chosen_doc.source_path)
 
-        if "iqrf" in lower_title or "iqrf" in top_topic:
-            theme_key = "iqrf"
-            icon = "quality"
-            desc = "Como funciona a classificação, severidade e gestão de IQRF no Reef.core?"
-            clean_title = "Gestão de IQRF no Reef.core"
-            topic_label = "Gestão da Qualidade"
-        elif "companhia" in lower_title or "entidade" in lower_title or "companhia" in top_topic:
-            theme_key = "companhia"
-            icon = "building"
-            desc = "Quais são as propriedades gerais e operativas na parametrização de companhias?"
-            clean_title = "Parametrização de Companhias e Entidades"
-            topic_label = "Governança Corporativa"
-        elif "idioma" in lower_title or "idioma" in top_topic or "iso 639" in top_topic:
-            theme_key = "idioma"
-            icon = "globe"
-            desc = "Quais normas e padrões ISO regulam o catálogo de idiomas multiidioma?"
-            clean_title = "Sistema Multiidioma e Catálogo de Idiomas"
-            topic_label = "Internacionalização"
-        elif "geográfi" in lower_title or "geográfi" in top_topic or "iso 3166" in top_topic:
-            theme_key = "geografia"
-            icon = "map"
-            desc = "Como é estruturada a divisão por níveis territoriais e códigos geográficos?"
-            clean_title = "Estrutura Geográfica e Âmbitos"
-            topic_label = "Estrutura Territorial"
-        elif "calendário" in lower_title or "festiv" in lower_title or "inábeis" in top_topic:
-            theme_key = "calendario"
-            icon = "calendar"
-            desc = "Como funciona o registro de dias inábeis e festividades no calendário oficial?"
-            clean_title = "Calendário Laboral Oficial"
-            topic_label = "Calendário & Festividades"
-        elif "regras harmonizadas" in doc.source_path.lower() or "faq" in lower_title:
-            theme_key = "harmonizacao"
-            icon = "shield"
-            desc = f"Quais diretrizes oficiais foram pacificadas para: {clean_title}?"
-            topic_label = "Regras Harmonizadas"
-        else:
-            theme_key = top_topic or lower_title[:15]
-            icon = "layers"
-            if topics and len(topics) >= 2:
-                desc = f"Quais são as diretrizes e regras relativas a {topics[0]} e {topics[1]}?"
-            elif topics:
-                desc = f"Quais são as regras e procedimentos especificados para {topics[0]}?"
-            else:
-                desc = f"Explique as especificações e regras detalhadas em {clean_title}."
-            topic_label = topics[0] if topics else "Documentação Técnica"
+        seen_titles.add(chosen_title.lower())
+        t1, t2 = _extract_best_topics(chosen_doc)
 
-        if theme_key in seen_themes:
-            continue
-        seen_themes.add(theme_key)
+        template_fn = templates[idx % len(templates)]
+        desc = template_fn(t1, t2, chosen_title)
+
+        topic_label = t1 if t1 else DOMAIN_CONFIG[dom]["default_topic"]
+        icon = DOMAIN_CONFIG[dom]["icon"]
 
         suggestions.append(
             SuggestionOut(
                 id=str(idx + 1),
-                title=clean_title[:55],
+                title=chosen_title[:55],
                 desc=desc,
-                topic=topic_label,
-                source_path=doc.source_path,
+                topic=topic_label[:30],
+                source_path=chosen_doc.source_path,
                 icon=icon,
             )
         )
 
-        if len(suggestions) >= 4:
-            break
+    # Preenche até 4 caso haja menos domínios ativos
+    if len(suggestions) < 4 and valid_docs:
+        shuffled_valid = valid_docs[:]
+        random.shuffle(shuffled_valid)
+        for cand in shuffled_valid:
+            cand_title = _sanitize_title(cand.title or "", cand.topics or [], cand.source_path)
+            if cand_title.lower() not in seen_titles:
+                seen_titles.add(cand_title.lower())
+                t1, t2 = _extract_best_topics(cand)
+                template_fn = templates[len(suggestions) % len(templates)]
+                dom = _classify_doc_domain(cand, cand_title)
+                suggestions.append(
+                    SuggestionOut(
+                        id=str(len(suggestions) + 1),
+                        title=cand_title[:55],
+                        desc=template_fn(t1, t2, cand_title),
+                        topic=(t1 or DOMAIN_CONFIG[dom]["default_topic"])[:30],
+                        source_path=cand.source_path,
+                        icon=DOMAIN_CONFIG[dom]["icon"],
+                    )
+                )
+                if len(suggestions) >= 4:
+                    break
 
-    # Fallback seguro caso a base esteja vazia
+    # Fallback seguro caso a base esteja totalmente vazia
     if not suggestions:
         suggestions = [
             SuggestionOut(
                 id="1",
                 title="Visão Geral do Repositório",
-                desc="Quais documentos e regras corporativas estão indexados na base de conhecimento?",
+                desc="Como funciona a organização dos módulos do ecossistema Reef.core?",
                 topic="Exploração",
                 source_path="",
                 icon="layers",
@@ -351,7 +532,7 @@ async def get_chat_suggestions(
             SuggestionOut(
                 id="2",
                 title="Políticas e Normas Ativas",
-                desc="Quais são as políticas e diretrizes operacionais vigentes no sistema?",
+                desc="Quais são as diretrizes de governança e regras operacionais vigentes?",
                 topic="Governança",
                 source_path="",
                 icon="shield",
@@ -359,7 +540,7 @@ async def get_chat_suggestions(
             SuggestionOut(
                 id="3",
                 title="Arquitetura e Integrações",
-                desc="Como os módulos e serviços do sistema se integram?",
+                desc="Como é estruturada a integração técnica entre os subsistemas e APIs?",
                 topic="Arquitetura",
                 source_path="",
                 icon="building",
@@ -367,7 +548,7 @@ async def get_chat_suggestions(
             SuggestionOut(
                 id="4",
                 title="Procedimentos e Catálogos",
-                desc="Como funcionam os fluxos e catálogos operacionais definidos nas especificações?",
+                desc="Quais são os procedimentos operacionais e catálogos definidos nas especificações?",
                 topic="Operação",
                 source_path="",
                 icon="globe",

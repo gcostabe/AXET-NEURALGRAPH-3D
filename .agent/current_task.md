@@ -1,64 +1,49 @@
 # CURRENT TASK
 
-Task ID: TASK-20260922-1010-HIDE-SOURCES-WHEN-NOT-FOUND
+Task ID: TASK-20260923-1830-TRANSLUCENT-BRAIN-SHELL-3D
 
-Created: 2026-09-22 10:10
+Created: 2026-09-23 18:30
 
-Last Updated: 2026-09-22 10:10
+Last Updated: 2026-09-23 18:30
 
 Status: COMPLETED
 
-NONE | ACTIVE | SUSPENDED | COMPLETED | CANCELLED
-
 Resume Authorization: NO
-
-YES | NO
 
 ---
 
 ## User Request
 
-"a resposta esta correta mas nao deveria trazer docs de referencia se o sistema nao encontrou referencia , os docs deveriam ser informados somente se as informações foram encontradas."
+"é possivel colocar uma imagem translucida 3d de um cerebro encapsulando o grupo de graphos 3d?" -> "tem como fazer um rollback rapido caso nao fique bom?" -> "entao execute"
 
 ---
 
 ## Objective
 
-Garantir que documentos de referência e consultados **NUNCA** sejam exibidos, transmitidos ou gravados quando o sistema não encontrar referências factuais ou quando a resposta for de recusa de escopo fechado ("Esta informação não consta na base..."):
-1. **Backend (`backend/app/api/chat.py`)**:
-   - Reforçar detecção de recusa e ausência de informações no texto gerado (`is_refusal_or_not_found`).
-   - Não emitir lista de documentos provisórios no início da stream SSE antes de saber se o LLM encontrou a informação.
-   - Emitir `event: sources` somente após a resposta completa, garantindo `sources = []` caso haja recusa ou ausência de dados.
-   - Salvar `sources = []` no banco de dados para mensagens de recusa.
-2. **Frontend (`frontend/app/chat/page.tsx` & `frontend/components/ChatMessageItem.tsx`)**:
-   - Atualizar reativamente a mensagem no state quando `onSources` for chamado e no `onDone`.
-   - Adicionar defesa em profundidade no `ChatMessageItem.tsx` com `isRefusalOrNotFound(message.content)` para ocultar a lista de fontes mesmo em mensagens históricas carregadas do banco.
-3. **Limpeza do Banco de Dados**:
-   - Atualizar mensagens de recusa existentes no PostgreSQL para zerar o campo `sources` (`[]`).
-4. **Build & Deploy**:
-   - Recompilar frontend e reiniciar serviços no Docker Compose.
-5. **Aguardar Validação**:
-   - Solicitar ao usuário que faça o teste diretamente na interface.
+1. Criar cópia de segurança de rollback local em `frontend/components/NeuralGraph3D.tsx.bak`.
+2. Desenvolver a geometria anatômica procedural e material translúcido/holográfico de encéfalo 3D (dois hemisférios com fissura sagital central, sulcos corticais modulados, cerebelo e tronco) em Three.js encapsulando o cluster de nós do grafo.
+3. Garantir `depthWrite: false` e transparência ajustável para que os nós internos, halos bioluminescentes e conexões sinápticas continuem 100% nítidos e visíveis dentro do cérebro.
+4. Garantir que o Raycasting de seleção/foco de nós ignore a casca do cérebro, mantendo a interatividade intacta.
+5. Adicionar botão interativo Toggle de Liga/Desliga (`🧠 Casca: ON/OFF`) e seletor de opacidade no painel de ferramentas do grafo para controle em tempo de execução.
+6. Validar a renderização a 60 FPS, sem regressões de build e atualizar container no Docker Compose (porta 3001).
 
 ---
 
 ## Execution Cursor
 
-Phase: VERIFICATION
+Phase: VERIFICATION_COMPLETED
 
-Current Step: Correções aplicadas no backend, frontend e banco de dados. Containers reconstruídos e ativos (HTTP 200). Aguardando validação do usuário.
+Current Step: Calota e expansão lateral do Lobo Parietal remodeladas em calculateBrainNodePosition, build de produção validado e container Docker rag-local-reef-frontend-1 ativo na porta 3001.
 
-Last Safe Checkpoint: CHECKPOINT-055.
+Last Safe Checkpoint: CHECKPOINT-069.
 
 ---
 
-## Completed
+## Planned Steps
 
-- [x] Classificação de intenção: NEW_TASK → ACTIVE → COMPLETED
-- [x] Diagnóstico da causa raiz (SSE emitia sources no início; frontend não limpava state; mensagens antigas no Postgres continham sources gravadas; ausência de trava defensiva no componente visual)
-- [x] Atualização do backend `backend/app/api/chat.py` (fontes emitidas apenas no fim e zeradas em recusas)
-- [x] Atualização do frontend `frontend/app/chat/page.tsx` e `frontend/components/ChatMessageItem.tsx` (sincronização de estado e trava visual)
-- [x] Limpeza das mensagens de recusa no Postgres (`UPDATE 5`)
-- [x] Rebuild e reinicialização dos containers (`rag-local-reef-frontend-1` e `rag-local-reef-backend-1`)
-- [x] Registro do CHECKPOINT-055
-- [ ] Validação pelo usuário no Chat
+- [x] Criar backup `frontend/components/NeuralGraph3D.tsx.bak`.
+- [x] Implementar a casca procedural translúcida de cérebro 3D em `frontend/components/NeuralGraph3D.tsx` com shader Fresnel/holográfico.
+- [x] Adicionar botão toggle na barra de ferramentas e estado React `showBrainShell` com slider/ajuste de opacidade.
+- [x] Validar compatibilidade do Raycasting e renderização com nós internos.
+- [x] Testar build do frontend com `npm run build`.
+- [x] Reconstruir e subir o container Docker do frontend (`rag-local-reef-frontend-1` na porta 3001).

@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -79,6 +79,10 @@ class Message(Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False)  # user | assistant
     content: Mapped[str] = mapped_column(Text, nullable=False)
     sources: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    prompt_tokens: Mapped[int | None] = mapped_column(Integer, default=0, nullable=True)
+    completion_tokens: Mapped[int | None] = mapped_column(Integer, default=0, nullable=True)
+    total_tokens: Mapped[int | None] = mapped_column(Integer, default=0, nullable=True)
+    model: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")

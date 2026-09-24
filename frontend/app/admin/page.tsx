@@ -7,6 +7,7 @@ import AppHeader from "@/components/AppHeader";
 import SourcesPanel from "@/components/SourcesPanel";
 import { KnowledgePanel } from "@/components/KnowledgePanel";
 import FeedbackAuditPanel from "@/components/FeedbackAuditPanel";
+import TokenUsagePanel from "@/components/TokenUsagePanel";
 import {
   adminApi,
   UserOut,
@@ -25,7 +26,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 function AdminInner() {
   const router = useRouter();
-  const [adminTab, setAdminTab] = useState<"knowledge" | "quality" | "sources" | "users">("knowledge");
+  const [adminTab, setAdminTab] = useState<"knowledge" | "quality" | "sources" | "tokens" | "users">("knowledge");
   const [users, setUsers] = useState<UserOut[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
@@ -130,20 +131,20 @@ function AdminInner() {
         {error && <p className="text-sm text-red-400">{error}</p>}
 
         {/* Abas Administrativas */}
-        <div className="flex border-b border-slate-800 gap-2">
+        <div className="flex border-b border-slate-800 gap-2 overflow-x-auto">
           <button
             onClick={() => setAdminTab("knowledge")}
-            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
               adminTab === "knowledge"
                 ? "border-blue-500 text-blue-400"
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span>🧠 Grafo & Cognição (Watchdog)</span>
+            <span>🧠 Grafo & Cognição</span>
           </button>
           <button
             onClick={() => setAdminTab("quality")}
-            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
               adminTab === "quality"
                 ? "border-blue-500 text-blue-400"
                 : "border-transparent text-slate-400 hover:text-slate-200"
@@ -153,7 +154,7 @@ function AdminInner() {
           </button>
           <button
             onClick={() => setAdminTab("sources")}
-            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
               adminTab === "sources"
                 ? "border-blue-500 text-blue-400"
                 : "border-transparent text-slate-400 hover:text-slate-200"
@@ -162,8 +163,18 @@ function AdminInner() {
             <span>📁 Fontes & Ingestão</span>
           </button>
           <button
+            onClick={() => setAdminTab("tokens")}
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+              adminTab === "tokens"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>⚡ Telemetria de Tokens</span>
+          </button>
+          <button
             onClick={() => setAdminTab("users")}
-            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
               adminTab === "users"
                 ? "border-blue-500 text-blue-400"
                 : "border-transparent text-slate-400 hover:text-slate-200"
@@ -178,6 +189,8 @@ function AdminInner() {
         {adminTab === "quality" && <FeedbackAuditPanel />}
 
         {adminTab === "sources" && <SourcesPanel />}
+
+        {adminTab === "tokens" && <TokenUsagePanel />}
 
         {adminTab === "users" && (
           <div className="space-y-4">

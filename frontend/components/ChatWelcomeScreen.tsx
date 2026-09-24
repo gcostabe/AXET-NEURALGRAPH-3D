@@ -62,13 +62,13 @@ export default function ChatWelcomeScreen({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadSuggestions();
+    loadSuggestions(false);
   }, []);
 
-  async function loadSuggestions() {
+  async function loadSuggestions(isRefresh = false) {
     setLoading(true);
     try {
-      const data = await chatApi.getSuggestions();
+      const data = await chatApi.getSuggestions(isRefresh);
       setSuggestions(data);
     } catch {
       // Fallback
@@ -108,7 +108,7 @@ export default function ChatWelcomeScreen({
           <span>Perguntas Sugeridas com Base no Contexto Indexado:</span>
         </div>
         <button
-          onClick={loadSuggestions}
+          onClick={() => loadSuggestions(true)}
           disabled={loading}
           className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-blue-300 transition"
           title="Atualizar sugestões"

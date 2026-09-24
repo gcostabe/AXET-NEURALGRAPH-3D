@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   adminApi,
   FeedbackItem,
@@ -52,7 +52,7 @@ const DIAGNOSIS_BADGES: Record<string, { label: string; color: string }> = {
 };
 
 export default function FeedbackAuditPanel() {
-  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
+  const [allFeedbacks, setAllFeedbacks] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterRating, setFilterRating] = useState<string>("dislike");
   const [filterStatus, setFilterStatus] = useState<string>("");
@@ -69,18 +69,14 @@ export default function FeedbackAuditPanel() {
 
   useEffect(() => {
     loadFeedbacks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterRating, filterStatus]);
+  }, []);
 
   async function loadFeedbacks() {
     setLoading(true);
     setError(null);
     try {
-      const data = await adminApi.getFeedbacks(
-        filterRating || undefined,
-        filterStatus || undefined,
-      );
-      setFeedbacks(data);
+      const data = await adminApi.getFeedbacks();
+      setAllFeedbacks(data);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro ao carregar auditoria de feedbacks.");
     } finally {
@@ -88,10 +84,18 @@ export default function FeedbackAuditPanel() {
     }
   }
 
-  const totalCount = feedbacks.length;
-  const likesCount = feedbacks.filter((f) => f.rating === "like").length;
-  const dislikesCount = feedbacks.filter((f) => f.rating === "dislike").length;
-  const goldCount = feedbacks.filter((f) => f.curation_status === "GOLD_ANSWER_CREATED").length;
+  const totalCount = allFeedbacks.length;
+  const likesCount = allFeedbacks.filter((f) => f.rating === "like").length;
+  const dislikesCount = allFeedbacks.filter((f) => f.rating === "dislike").length;
+  const goldCount = allFeedbacks.filter((f) => f.curation_status === "GOLD_ANSWER_CREATED").length;
+
+  const displayedFeedbacks = useMemo(() => {
+    return allFeedbacks.filter((f) => {
+      if (filterRating && f.rating !== filterRating) return false;
+      if (filterStatus && f.curation_status !== filterStatus) return false;
+      return true;
+    });
+  }, [allFeedbacks, filterRating, filterStatus]);
 
   function openGoldAnswerModal(item: FeedbackItem) {
     setActiveFeedback(item);
@@ -259,7 +263,7 @@ export default function FeedbackAuditPanel() {
           <RefreshCw className="h-6 w-6 animate-spin text-blue-400" />
           <span className="text-xs">Consultando fila de auditoria e telemetria...</span>
         </div>
-      ) : feedbacks.length === 0 ? (
+      ) : displayedFeedbacks.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 rounded-xl border border-dashed border-slate-800 bg-slate-900/30 text-center">
           <ShieldCheck className="h-10 w-10 text-emerald-400/80 mb-2" />
           <div className="text-sm font-semibold text-slate-200">Fila de Curadoria Limpa</div>
@@ -269,7 +273,7 @@ export default function FeedbackAuditPanel() {
         </div>
       ) : (
         <div className="space-y-3.5">
-          {feedbacks.map((fb) => {
+          {displayedFeedbacks.map((fb) => {
             const isDislike = fb.rating === "dislike";
             const isExpanded = expandedId === fb.id;
             const diag = fb.ai_diagnosis;

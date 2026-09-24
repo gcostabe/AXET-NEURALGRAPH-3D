@@ -2141,3 +2141,207 @@ O sistema agora cumpre integralmente a regra de que documentos de referência s�
 ### Next Safe Action
 
 Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
+
+### CHECKPOINT-056 (2026-09-22 12:43 - Sincronização Okta/aXet e Refresh Agendado)
+- **Causa Raiz Identificada**: 
+  1. `axet-code login` autentica com sucesso, mas armazena credenciais em `~/.local/share/axet-code/auth.enc`, enquanto o `local-ai-gateway` consome `gateway/tokens.json`.
+  2. O agendador macOS (`com.axet.local-ai-gateway.refresh-token.plist`) já estava ativo rodando a cada 300s, mas falhava com `HTTP 400 invalid_grant` porque o `refresh_token` antigo do JSON havia expirado.
+- **Ações Realizadas**:
+  1. Descriptografia do token ativo de `auth.enc` e renovação direta no Okta.
+  2. Atualização atômica de `gateway/tokens.json` e `~/.codex/.env`.
+  3. Adicionado fallback em `refresh_axet_token.py` para extrair de `auth.enc` automaticamente caso o token em disco expire.
+  4. Validação do `refresh_axet_token.py` (executado com sucesso, código 0).
+  5. Teste fim-a-fim de embeddings (1536 dimensões) e chat completions (`gpt-5.6-terra`) com retorno correto do backend.
+- **Próximo Passo**: Solicitar validação final do usuário na interface web do chat.
+
+### CHECKPOINT-057 (2026-09-22 17:15 - Correção da Auditoria de Feedbacks e Painel de Qualidade)
+- **Causa Raiz Identificada**: 
+  1. O schema Pydantic `FeedbackItemOut` em `backend/app/api/admin.py` declarava `sources: dict | None = None`. Como as mensagens no banco gravam listas (`list` de referências `[{"source_path": ...}]` ou `[]`), o endpoint `GET /admin/feedbacks` disparava `ValidationError: Input should be a valid dictionary [type=dict_type, input_value=[]]`, gerando HTTP 422 e fazendo o frontend exibir "Erro ao carregar auditoria de feedbacks" com contadores zerados.
+  2. O frontend `FeedbackAuditPanel.tsx` calculava métricas globais sobre a lista filtrada, fazendo com que filtros de "Apenas Dislikes" zerassem visualmente o contador de Likes.
+- **Ações Realizadas**:
+  1. No backend (`backend/app/api/admin.py`), alterado `sources: Any = None` com import de `from typing import Any`.
+  2. No frontend (`frontend/components/FeedbackAuditPanel.tsx`), implementado `allFeedbacks` e memoização de `displayedFeedbacks` para manter as 4 métricas do topo (Total, Likes, Dislikes e Pares Dourados) sempre precisas e globais, enquanto a tabela filtra ágil e client-side.
+  3. Recompilado o frontend no Docker (`rag-local-reef-frontend-1`) e reiniciado o backend (`rag-local-reef-backend-1`).
+  4. Validado o endpoint `GET /admin/feedbacks` com HTTP 200 retornando com sucesso os 3 feedbacks existentes no banco (2 likes e 1 dislike analisado pela IA).
+- **Próximo Passo**: Convidar o usuário a atualizar o painel no navegador e conferir os feedbacks.
+
+### CHECKPOINT-058 (2026-09-22 22:25 - Sincronização Autônoma do aXet, Script de Refresh e Correção do Chat)
+- **Causa Raiz Identificada**:
+  1. **Falha de sincronização aXet / Gateway**: Quando o usuário executava `axet-code login`, as novas credenciais eram gravadas em `~/.local/share/axet-code/auth.enc`. O gateway (`local_ai_gateway.py`) e o script agendado (`refresh_axet_token.py`) não detectavam que um novo login havia ocorrido enquanto o timestamp antigo em `tokens.json` marcava tempo restante >300s. Quando o gateway tentava usar ou renovar o token antigo, o Okta rejeitava com `HTTP 400 invalid_grant` porque uma nova sessão substituiu a anterior.
+  2. **Interrupção no Streaming do Chat**: Em `backend/app/api/chat.py`, a variável `settings` não havia sido importada na linha `model_name = getattr(llm, "_model", settings.llm_model)`, disparando um `NameError` que encerrava a conexão HTTP SSE prematuramente antes do evento `done`, deixando o frontend travado.
+  3. **Inconsistência de caminhos no script agendado**: O script `macos/install_refresh_token_launchagent.sh` e o plist de template apontavam para um caminho antigo do Desktop, enquanto o repositório atual está em `/Users/gcostabe/dev/local-ai-gateway`.
+- **Ações Realizadas**:
+  1. Em `local-ai-gateway/refresh_axet_token.py` e `local-ai-gateway/gateway/initialize_proxy.py`:
+     - Adicionada detecção ativa de novo login em `auth.enc` (`has_new_axet_login`).
+     - Sincronização imediata e renovação com o Okta sempre que um login for realizado no aXet.
+     - Resolução de `TOKENS_FILE` como caminho absoluto relativo ao `PROJECT_DIR`.
+  2. Em `local-ai-gateway/gateway/local_ai_gateway.py`:
+     - Integrada rotina de decifração de `auth.enc` com fallback automático em caso de erro 400/401 do Okta.
+     - O próprio gateway agora detecta novos logins do aXet de forma autônoma e em tempo real.
+  3. Corrigidos os caminhos no LaunchAgent do macOS (`com.axet.local-ai-gateway.refresh-token.plist`) e recarregado via `launchctl kickstart`. O job roda a cada 5 minutos e está executando com código 0.
+  4. Em `backend/app/api/chat.py`:
+     - Importado `from app.config import settings`.
+     - Reiniciado o container `rag-local-reef-backend-1`.
+  5. Testado o endpoint `/chat` com streaming SSE completo: retorno com tokens, citação de fontes vazia para recusas, cálculo de uso e encerramento com `event: done`.
+- **Próximo Passo**: Pedir para o usuário testar e validar o chat em `http://localhost:3001/chat`.
+
+### CHECKPOINT-059 (2026-09-23 11:00 - Resolução das Perguntas Sugeridas Repetidas e Diversificação Temática)
+- **Causa Raiz Identificada**:
+  1. **Título Boilerplate Repetido**: 632 documentos indexados na base continham o cabeçalho genérico `# Relatório de Análise Avançada de Transcrição` na primeira linha markdown. O parser (`_first_h1`) capturava essa linha como título oficial do documento em vez do segundo H1 temático real (`# Análise estruturada — <Tema>`).
+  2. **Pergunta com Estrutura Frasal Idêntica**: Em `backend/app/api/chat.py`, a função `get_chat_suggestions` usava um único template robotizado de fallback (`desc = f"Quais são as diretrizes e regras relativas a {topics[0]} e {topics[1]}?"`), fazendo com que todos os cards tivessem exatamente a mesma pergunta.
+  3. **Ausência de Diversidade Temática**: A deduplicação por tema comparava apenas strings brutas (`theme_key = top_topic`), permitindo que variações do mesmo assunto ("liquidações", "liquidações de sinistro", "neutron") ocupassem todos os 4 slots ao mesmo tempo. Todos os cards recebiam o mesmo ícone (`layers`).
+  4. **"Outras Sugestões" Estático**: O endpoint `GET /chat/suggestions` ordenava os documentos por `updated_at.desc()` e parava nos primeiros 4 de forma determinística. O botão "Outras sugestões" do frontend sempre recebia exatamente os mesmos 4 cards.
+- **Ações Realizadas**:
+  1. **Aprimoramento do Parser (`backend/app/ingestion/parser.py`)**:
+     - `_first_h1` ignora cabeçalhos genéricos (`Relatório de Análise`, `Relatório de Ingestão`, `Página de Erro`, etc.) e busca o H1 temático real subjacente.
+     - `_clean_heading` limpa prefixos redundantes (`Análise estruturada —`, `Análise funcional e técnica —`, `Análise da `, etc.).
+  2. **Migração dos Títulos em Produção (`knowledge_documents`)**:
+     - Atualizados 648 títulos na tabela PostgreSQL `knowledge_documents` com os títulos específicos e limpos dos documentos.
+  3. **Refatoração de `get_chat_suggestions` (`backend/app/api/chat.py`)**:
+     - Classificação automática dos documentos em clusters temáticos de negócio (`emissao`, `sinistros`, `terceiros`, `controles`, `financeiro`, `estrutura`).
+     - Seleção forçada de 4 domínios diferentes para cada conjunto sugerido (ex.: 1 de Sinistros, 1 de Emissão, 1 de Terceiros, 1 de Controles/Financeiro).
+     - Rotação de templates de perguntas linguística e estruturalmente variados (evitando qualquer repetição frasal).
+     - Atribuição de ícones e paletas contextuais (`shield`, `building`, `quality`, `calendar`, `globe`, `layers`).
+     - Suporte a rotação e aleatorização dinâmica com `refresh: bool = False`.
+  4. **Frontend (`frontend/lib/api.ts` e `frontend/components/ChatWelcomeScreen.tsx`)**:
+     - Conectado o parâmetro `refresh` com timestamp cache-busting ao clicar no botão "Outras sugestões".
+     - Frontend recompilado e backend reiniciado com sucesso nos containers Docker.
+- **Validação**: Testes executados via script interno e requisições HTTP curl com token JWT. Em cada chamada os 4 cards exibem domínios distintos, títulos reais específicos, estilos frasais variados e ícones diferentes, rotacionando a cada clique em "Outras sugestões".
+### CHECKPOINT-060 (2026-09-23 13:00 - Início da Implementação: Processamento Multimodal de Vídeos e Chave de Seleção)
+- **Tarefa**: `TASK-20260923-1258-VIDEO-MULTIMODAL-OCR`
+- **Estado**: WRITE_AHEAD
+- **Ação Planejada**:
+  1. Atualizar `backend/Dockerfile` e `backend/requirements.txt` para incluir `ffmpeg` e `faster-whisper`.
+  2. Atualizar `backend/app/config.py` e `backend/app/auth/models.py` para suportar configurações de processamento de vídeo.
+  3. Criar `backend/app/ingestion/video_processor.py` com extração de áudio, transcrição Whisper, amostragem de frames via ffmpeg e análise multimodal com OCR de tela.
+  4. Adicionar rotas administrativas em `backend/app/api/admin.py` para configurações de vídeo, listagem de vídeos em `sources_root` e disparo em background com telemetria.
+  5. Atualizar cliente frontend `frontend/lib/api.ts` e implementar painel em `frontend/components/SourcesPanel.tsx` com chave de seleção (Com OCR/Visão vs Sem OCR/Apenas Áudio).
+- **Justificativa**: Aprovado pelo usuário para enriquecer a geração de `.md` a partir de vídeos com captura visual de tela (Opção 2) e chave de seleção em configurações.
+- **Próxima Ação Segura**: Atualizar `backend/Dockerfile` e `backend/requirements.txt`.
+
+### CHECKPOINT-061 (2026-09-23 13:34 - Conclusão do Processamento Multimodal de Vídeos e Chave de Seleção em Configurações)
+- **Tarefa**: `TASK-20260923-1258-VIDEO-MULTIMODAL-OCR`
+- **Estado**: POST_ACTION / COMPLETED
+- **Implementações Realizadas**:
+  1. **Infraestrutura**:
+     - `backend/Dockerfile` e `backend/requirements.txt`: adicionados `ffmpeg` e `faster-whisper==1.2.1`.
+     - Container backend enriquecido com certificado raiz Zscaler no store de certificados SSL e `certifi`, viabilizando downloads seguros de modelos Hugging Face.
+     - Modelos Whisper `tiny` e `small` (464MB) cacheados localmente no container para execução rápida e offline.
+  2. **Backend**:
+     - `backend/app/config.py`: adicionadas variáveis padrão (`video_processing_mode_default = "multimodal_ocr"`, `video_frame_interval_seconds = 10`, `video_whisper_model = "small"`, `video_whisper_language = "es"`).
+     - `backend/app/llm/base.py`: adicionado suporte multimodal em `Message.content` (`str | list[Any] | Any`).
+     - `backend/app/ingestion/video_processor.py`:
+       - Extração de áudio mono 16kHz WAV de alta fidelidade via `ffmpeg`.
+       - Transcrição offline via `faster-whisper` com timestamps de segmentos.
+       - Amostragem periódica de frames de tela via `ffmpeg` com filtro `fps=1/{interval}` e fallback inteligente para t=0 em vídeos curtos.
+       - Análise visual multimodal via LLM (`gpt-5.6-terra-high`), extraindo telas, grids, formulários, tabelas e regras que aparecem na tela mas não são faladas.
+       - Geração de `.md` padronizado e indexação direta no Qdrant (vetorial) e no Grafo de Conhecimento (PostgreSQL).
+     - `backend/app/api/admin.py`: adicionados endpoints `GET/POST /admin/video/settings`, `GET /admin/video/list`, `GET /admin/video/status` e `POST /admin/video/process` com auditoria e execução assíncrona desacoplada em threadpool.
+  3. **Frontend**:
+     - `frontend/lib/api.ts`: interfaces `VideoSettings`, `VideoItem`, `VideoJobStatus` e métodos do `adminApi`.
+     - `frontend/components/VideoProcessorPanel.tsx`: painel rico com chave seletora em cartões interativos (Opção 2: Multimodal com OCR de Tela vs Somente Áudio Whisper), configuração de intervalo de amostragem de frames, modelo Whisper, idioma, HUD de monitoramento em tempo real com barra de progresso animada e inventário de vídeos com status de `.md`.
+     - `frontend/components/SourcesPanel.tsx`: integrada aba `🎥 Processamento de Vídeos`.
+     - Build de produção compilado sem erros (11/11 páginas).
+- **Validação**:
+  - Testado o endpoint de persistência `POST /admin/video/settings` alternando entre `audio_only` e `multimodal_ocr`.
+  - Processado vídeo de teste nos dois modos (`audio_only` e `multimodal_ocr` com 1 frame visual). Ambos geraram relatórios `.md` de alta qualidade, diagnosticaram visualmente os padrões do vídeo, e foram indexados com sucesso no banco de dados.
+### CHECKPOINT-063 (2026-09-23 18:42 - Conclusão e Build da Casca Translúcida 3D de Cérebro)
+- **Tarefa**: `TASK-20260923-1830-TRANSLUCENT-BRAIN-SHELL-3D`
+- **Estado**: POST_ACTION / COMPLETED
+- **Implementações Realizadas**:
+  1. **Backup de Segurança**: criado `frontend/components/NeuralGraph3D.tsx.bak` idêntico ao commit original do Git.
+  2. **Modelagem Anatômica Procedural (`createHolographicBrainShell`)**:
+     - Hemisférios esquerdo e direito deformados com curvatura cortical e fissura sagital inter-hemisférica.
+     - Sulcos e giros corticais modulados parametricamente com micro-ondulações tridimensionais.
+     - Cerebelo posterior-inferior duplo com estriações foliadas.
+     - Tronco encefálico cônico descendente conectando suavemente à placa-mãe holográfica.
+     - Dupla camada: superfície translúcida + malha wireframe delicada (`opacity: 0.12`, Additive Blending).
+  3. **Shader Holográfico Fresnel**:
+     - `uColor`: base azul profunda translúcida (`#02162e`).
+     - `uRimColor`: borda eletroluminescente (reativa aos filtros de lobos: Ciano padrão, Roxo Parietal, Rosa Occipital, etc.).
+     - `uOpacity`: interior ultra-translúcido cristalino (centro ~0.02 - 0.04), permitindo ver nós internos com 100% de clareza.
+     - `depthWrite: false`: nós, textos, halos e pulso sináptico 100% visíveis sem oclusão.
+     - Pulso sutil de "respiração neural viva" (`sin(time * 1.5)`).
+  4. **Controles na Toolbar**:
+     - Botão interativo `🧠 Casca 3D [ON / OFF]` com badge com brilho neon.
+     - Seletor rápido de opacidade: `15%`, `25%`, `40%`.
+     - Preservação total do Raycaster (cliques e hover do mouse continuam passando diretamente para os nós).
+  5. **Compilação e Deploy no Docker Compose**:
+     - Teste de build `npm run build` bem-sucedido (11 rotas estáticas).
+     - Container `rag-local-reef-frontend-1` reconstruído com sucesso (`docker compose build frontend && docker compose up -d frontend`) servindo na porta **3001** (`http://localhost:3001`).
+### CHECKPOINT-065 (2026-09-23 19:08 - Validação e Deploy da Casca de Vidro Anatômico 3D Real - Ref. Imagem 2)
+- **Tarefa**: `TASK-20260923-1830-TRANSLUCENT-BRAIN-SHELL-3D`
+- **Estado**: POST_ACTION / COMPLETED
+- **Implementações Concluídas**:
+  1. **Modelo Escaneado Real (`brain.glb`) Integrado**:
+     - Arquivo `frontend/public/models/brain.glb` otimizado para 3.03 MB (sem texturas JPEG supérfluas).
+     - Carregado via `GLTFLoader` nativo do Three.js com alinhamento volumétrico automático e centrado em `(0, 0, 0)`.
+  2. **Eliminação do Wireframe Poligonal**:
+     - Removida completamente a malha triangular low-poly de `WireframeGeometry` que criava a aparência facetada e aberta da Imagem 1.
+  3. **Shader de Vidro Cristalino Translúcido com Sulcos Iluminados**:
+     - Material customizado com Fresnel `pow(1.0 - cosTheta, 2.6)` e `AdditiveBlending`.
+     - As dobras e convoluções anatômicas reais do cérebro acendem automaticamente com o rim light azul-gelo/cristal (`0x88f0ff`), enquanto o centro mantém transparência pura permitindo enxergar os nós lá dentro.
+  4. **Correção do "Abismo" Sagital e Distribuição Volumétrica dos Nós**:
+     - Reduzido `sagittalGap` de 28 para 4 unidades, eliminando o formato de "asas de borboleta" e unificando os dois hemisférios em um único cérebro anatômico contínuo.
+     - Nós distribuídos realisticamente no volume interno do encéfalo (`depth: 0.35 a 1.0`), assemelhando-se às sinapses brilhantes que iluminam o interior na Imagem 2.
+  5. **Compilação e Deploy no Docker**:
+### CHECKPOINT-066 (2026-09-23 19:15 - Rebaixamento Anatômico dos Nós do Cerebelo)
+- **Tarefa**: `TASK-20260923-1830-TRANSLUCENT-BRAIN-SHELL-3D`
+- **Estado**: WRITE_AHEAD
+- **Causa Raiz Identificada**:
+  - Na função `calculateBrainNodePosition`, a coordenada `by` (eixo Y) do cerebelo e de outros lobos não estava sendo multiplicada pelo fator `scale` (ao contrário de `bz`), gerando um achatamento vertical em modo 10k (`scale = 2.85`).
+  - Além disso, a faixa de `yCereb` estava estática entre `-42` e `-84`, deixando o cerebelo flutuando perto da linha média (Y ≈ 0), muito acima da cúpula inferior posterior do modelo `brain.glb`.
+- **Ação Planejada**:
+  - Reformular `calculateBrainNodePosition` com escala uniforme tridimensional `rx = 76 * scale`, `ry = 84 * scale`, `rz = 100 * scale`.
+  - Mover o cerebelo para o terço inferior posterior anatômico (`by = (-0.48 a -0.86) * ry`, Y de `-154` a `-198`), exatamente onde as setas vermelhas do usuário apontam no modelo de vidro.
+  - Sincronizar proporcionalmente todos os outros lobos (Frontal anterior, Parietal dorsal no ápice, Occipital caudal superior, Temporal lateral e Tronco central descendente).
+- **Próxima Ação Segura**: Modificar `calculateBrainNodePosition` em `frontend/components/NeuralGraph3D.tsx`, testar compilação e atualizar o container Docker na porta 3001.
+
+### CHECKPOINT-067 (2026-09-23 19:17 - Validação e Deploy dos Nós do Cerebelo no Bojo Inferior)
+- **Tarefa**: `TASK-20260923-1830-TRANSLUCENT-BRAIN-SHELL-3D`
+- **Estado**: POST_ACTION / COMPLETED
+- **Implementações Concluídas**:
+  1. **Ajuste Paramétrico em `calculateBrainNodePosition`**:
+     - Cerebelo rebaixado para `by = (-0.52 a -0.88) * ry` (alcançando Y entre `-154` e `-198` em modo 10k).
+     - Alinhamento posterior em `bz = (-0.30 a -0.82) * rz` (ocupando perfeitamente a curvatura occipital/cerebelar inferior indicada pelas setas vermelhas).
+     - Escala volumétrica uniforme para todos os eixos (`rx`, `ry`, `rz` com o multiplicador de escala).
+  2. **Build e Deploy Concluídos**:
+     - `npm run build` compilou com sucesso (11 rotas estáticas).
+     - Imagem Docker `rag-local-reef-frontend` reconstruída em 32.5s.
+     - Container `rag-local-reef-frontend-1` recriado e iniciado.
+     - Endpoint `http://localhost:3001/graph` respondendo HTTP 200 OK.
+- **Próxima Ação Segura**: Orientar o usuário a dar refresh na página `http://localhost:3001/graph` para validar o posicionamento dos nós do cerebelo.
+
+### CHECKPOINT-068 (2026-09-23 19:28 - Curvatura em Cúpula e Expansão Lateral do Lobo Parietal)
+- **Tarefa**: `TASK-20260923-1830-TRANSLUCENT-BRAIN-SHELL-3D`
+- **Estado**: WRITE_AHEAD
+- **Causa Raiz Identificada**:
+  - Na implementação anterior de `case "parietal"`, a multiplicação final por `depth` (variando de 0.40 a 1.0) contra o vetor `(bx, by, bz)` criava um efeito de cone/funil que puxava os nós em direção à origem `(0, 0, 0)`, resultando em um feixe estreito diagonal e plano no topo (conforme capturado na imagem do usuário).
+  - Além disso, a coordenada `xParietal` não cobria o arco angular coronal da calota craniana, deixando as laterais superiores do cérebro vazias.
+- **Ação Planejada**:
+  - Em `frontend/components/NeuralGraph3D.tsx`, remodelar a distribuição do Lobo Parietal com parametrização esferoidal de cúpula anatômica:
+    1. **Arredondamento no Topo**: modelagem do ápice superior ($Y \approx 0.85$ a $0.99$ de $ry$) com curvatura contínua tanto no plano coronal ($X-Y$) quanto no longitudinal ($Z-Y$).
+    2. **Expansão Lateral Ampla**: dispersão angular lateral $\theta$ de até $70^\circ$, cobrindo do topo da fissura sagital até as paredes laterais da calota craniana ($X$ atingindo $\pm 185$ a $\pm 195$).
+    3. **Manto Cortical/Subcortical Definido**: nós confinados à camada superior de 78% a 98% da espessura craniana, eliminando o colapso radial para o centro do cérebro.
+  - Testar compilação (`npm run build`) e reconstruir container Docker `rag-local-reef-frontend-1`.
+- **Próxima Ação Segura**: Aplicar a alteração em `frontend/components/NeuralGraph3D.tsx`.
+
+### CHECKPOINT-069 (2026-09-23 19:30 - Validação e Deploy da Calota Parietal Arredondada e Lateral)
+- **Tarefa**: `TASK-20260923-1830-TRANSLUCENT-BRAIN-SHELL-3D`
+- **Estado**: POST_ACTION / COMPLETED
+- **Implementações Concluídas**:
+  1. **Remodelação Paramétrica de Cúpula Convexa**:
+     - `frontend/components/NeuralGraph3D.tsx`: Em `calculateBrainNodePosition` (`case "parietal"`), implementada a parametrização esferoidal coronal e sagital.
+     - O topo dorsal alcança $Y$ até $+220$ com arqueamento suave em direção à fissura longitudinal.
+     - Abertura lateral $\theta$ atinge $70^\circ$, dispersando os nós amplamente pelas laterais da calota craniana ($X$ cobrindo toda a faixa de $\pm 15$ a $\pm 195$).
+     - Definida a camada do manto (espessura de 78% a 98% da casca), eliminando o funil central anterior. Retorno direto de `{ x, y, z }` sem distorção por multiplicadores externos.
+  2. **Build e Deploy Concluídos**:
+     - `npm run build` compilou com 0 erros (11 rotas estáticas).
+     - Imagem Docker `rag-local-reef-frontend` reconstruída em 32.3s.
+     - Container `rag-local-reef-frontend-1` reiniciado com sucesso.
+     - Endpoint `http://localhost:3001/graph` respondendo HTTP 200 OK.
+- **Próxima Ação Segura**: Orientar o usuário a atualizar o navegador em `http://localhost:3001/graph` para validar o contorno arredondado e a expansão lateral do Lobo Parietal.
+
+
+
+

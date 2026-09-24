@@ -1,8 +1,10 @@
+import asyncio
 import json
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
@@ -283,6 +285,23 @@ async def update_sources_config(
     )
 
 
+@router.post("/sources/sync-onedrive")
+async def sync_onedrive_sources(admin: User = Depends(require_admin)):
+    """Aciona a sincronização do OneDrive do Host com a pasta local de fontes."""
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post("http://host.docker.internal:8765/sync-onedrive")
+            if resp.status_code == 200:
+                return resp.json()
+            raise HTTPException(status_code=502, detail=f"Host bridge retornou {resp.status_code}: {resp.text}")
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Não foi possível conectar ao bridge local no Mac (porta 8765): {exc}",
+        )
+
+
+
 _active_reindex_telemetry: dict = {}
 _last_reindex_db_save_time: float = 0.0
 
@@ -519,7 +538,7 @@ class FeedbackItemOut(BaseModel):
     created_at: str
     user_prompt: str
     assistant_response: str
-    sources: dict | None = None
+    sources: Any = None
 
 
 class CurateFeedbackRequest(BaseModel):
@@ -924,6 +943,372 @@ async def delete_glossary_pair(
 async def get_regulatory_impact():
     """Retorna o conteúdo da Matriz de Impacto Regulatório ativa e seu resumo por módulo."""
     return get_regulatory_impact_data()
+
+
+# ── Telemetria e Controle de Uso de Tokens ───────────────────────────────────
+
+class TokenSummaryOut(BaseModel):
+    total_tokens: int
+    prompt_tokens: int
+    completion_tokens: int
+    total_messages: int
+    total_conversations: int
+    total_users: int
+    usage_by_model: dict[str, int]
+
+
+class UserTokenUsageOut(BaseModel):
+    user_id: str
+    email: str
+    role: str
+    conversation_count: int
+    message_count: int
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    last_active_at: str | None = None
+
+
+class SessionTokenUsageOut(BaseModel):
+    conversation_id: str
+    title: str
+    user_email: str
+    message_count: int
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    created_at: str
+    updated_at: str
+
+
+@router.get("/tokens/summary", response_model=TokenSummaryOut)
+async def get_token_summary(db: AsyncSession = Depends(get_db)):
+    """Retorna o resumo global de uso de tokens em toda a plataforma."""
+    from sqlalchemy import func
+
+    token_stats = await db.execute(
+        select(
+            func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
+            func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens"),
+            func.coalesce(func.sum(Message.total_tokens), 0).label("total_tokens"),
+            func.count(Message.id).label("total_messages"),
+        )
+    )
+    row = token_stats.one()
+
+    total_conversations = (await db.scalar(select(func.count(Conversation.id)))) or 0
+    total_users = (await db.scalar(select(func.count(User.id)))) or 0
+
+    model_stats = await db.execute(
+        select(
+            func.coalesce(Message.model, "gpt-5.6-terra-high"),
+            func.coalesce(func.sum(Message.total_tokens), 0),
+        )
+        .group_by(Message.model)
+    )
+    usage_by_model = {m: int(t) for m, t in model_stats.all() if m}
+    if not usage_by_model:
+        usage_by_model["gpt-5.6-terra-high"] = int(row.total_tokens)
+
+    return TokenSummaryOut(
+        total_tokens=int(row.total_tokens),
+        prompt_tokens=int(row.prompt_tokens),
+        completion_tokens=int(row.completion_tokens),
+        total_messages=int(row.total_messages),
+        total_conversations=total_conversations,
+        total_users=total_users,
+        usage_by_model=usage_by_model,
+    )
+
+
+@router.get("/tokens/users", response_model=list[UserTokenUsageOut])
+async def get_token_usage_by_user(db: AsyncSession = Depends(get_db)):
+    """Retorna o consumo de tokens discriminado por usuário."""
+    from sqlalchemy import func
+
+    query = (
+        select(
+            User.id,
+            User.email,
+            User.role,
+            func.count(func.distinct(Conversation.id)).label("conversation_count"),
+            func.count(Message.id).label("message_count"),
+            func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
+            func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens"),
+            func.coalesce(func.sum(Message.total_tokens), 0).label("total_tokens"),
+            func.max(Message.created_at).label("last_active_at"),
+        )
+        .outerjoin(Conversation, Conversation.user_id == User.id)
+        .outerjoin(Message, Message.conversation_id == Conversation.id)
+        .group_by(User.id, User.email, User.role)
+        .order_by(func.coalesce(func.sum(Message.total_tokens), 0).desc())
+    )
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    return [
+        UserTokenUsageOut(
+            user_id=str(r[0]),
+            email=r[1],
+            role=r[2].value if hasattr(r[2], "value") else str(r[2]),
+            conversation_count=int(r[3]),
+            message_count=int(r[4]),
+            prompt_tokens=int(r[5]),
+            completion_tokens=int(r[6]),
+            total_tokens=int(r[7]),
+            last_active_at=r[8].isoformat() if r[8] else None,
+        )
+        for r in rows
+    ]
+
+
+@router.get("/tokens/sessions", response_model=list[SessionTokenUsageOut])
+async def get_token_usage_by_session(db: AsyncSession = Depends(get_db)):
+    """Retorna o consumo de tokens agrupado por sessão/conversa."""
+    from sqlalchemy import func
+
+    query = (
+        select(
+            Conversation.id,
+            Conversation.title,
+            User.email,
+            func.count(Message.id).label("message_count"),
+            func.coalesce(func.sum(Message.prompt_tokens), 0).label("prompt_tokens"),
+            func.coalesce(func.sum(Message.completion_tokens), 0).label("completion_tokens"),
+            func.coalesce(func.sum(Message.total_tokens), 0).label("total_tokens"),
+            Conversation.created_at,
+            Conversation.updated_at,
+        )
+        .join(User, User.id == Conversation.user_id)
+        .outerjoin(Message, Message.conversation_id == Conversation.id)
+        .group_by(Conversation.id, Conversation.title, User.email, Conversation.created_at, Conversation.updated_at)
+        .order_by(Conversation.updated_at.desc())
+    )
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    return [
+        SessionTokenUsageOut(
+            conversation_id=str(r[0]),
+            title=r[1] or "Conversa sem título",
+            user_email=r[2],
+            message_count=int(r[3]),
+            prompt_tokens=int(r[4]),
+            completion_tokens=int(r[5]),
+            total_tokens=int(r[6]),
+            created_at=r[7].isoformat() if r[7] else "",
+            updated_at=r[8].isoformat() if r[8] else "",
+        )
+        for r in rows
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Gestão e Processamento Multimodal de Vídeos (.md com Visão/OCR vs Áudio)
+# ---------------------------------------------------------------------------
+
+from app.ingestion.video_processor import (
+    VIDEO_SETTING_FRAME_INTERVAL_KEY,
+    VIDEO_SETTING_LANGUAGE_KEY,
+    VIDEO_SETTING_MAX_FRAMES_KEY,
+    VIDEO_SETTING_MODE_KEY,
+    VIDEO_SETTING_WHISPER_MODEL_KEY,
+    get_video_job_status,
+    list_available_videos,
+    process_single_video_pipeline,
+)
+
+
+class VideoSettingsRequest(BaseModel):
+    mode: str = "multimodal_ocr"  # "multimodal_ocr" | "audio_only"
+    frame_interval_seconds: int = 10
+    whisper_model: str = "small"
+    language: str = "es"
+    max_frames: int = 30
+
+
+class VideoSettingsOut(BaseModel):
+    mode: str
+    frame_interval_seconds: int
+    whisper_model: str
+    language: str
+    max_frames: int
+
+
+class VideoItemOut(BaseModel):
+    name: str
+    relative_path: str
+    parent_dir: str
+    size_mb: float
+    modified_at: str
+    has_markdown: bool
+    markdown_files: list[str]
+
+
+class VideoProcessRequest(BaseModel):
+    video_relative_path: str
+    mode_override: str | None = None
+
+
+@router.get("/video/settings", response_model=VideoSettingsOut)
+async def get_video_settings(db: AsyncSession = Depends(get_db)):
+    mode_row = await db.scalar(select(AppSetting).where(AppSetting.key == VIDEO_SETTING_MODE_KEY))
+    interval_row = await db.scalar(select(AppSetting).where(AppSetting.key == VIDEO_SETTING_FRAME_INTERVAL_KEY))
+    model_row = await db.scalar(select(AppSetting).where(AppSetting.key == VIDEO_SETTING_WHISPER_MODEL_KEY))
+    lang_row = await db.scalar(select(AppSetting).where(AppSetting.key == VIDEO_SETTING_LANGUAGE_KEY))
+    frames_row = await db.scalar(select(AppSetting).where(AppSetting.key == VIDEO_SETTING_MAX_FRAMES_KEY))
+
+    mode = mode_row.value if mode_row and mode_row.value else settings.video_processing_mode_default
+    interval = int(interval_row.value) if interval_row and interval_row.value else settings.video_frame_interval_seconds
+    model = model_row.value if model_row and model_row.value else settings.video_whisper_model
+    lang = lang_row.value if lang_row and lang_row.value else settings.video_whisper_language
+    frames = int(frames_row.value) if frames_row and frames_row.value else settings.video_max_frames
+
+    return VideoSettingsOut(
+        mode=mode,
+        frame_interval_seconds=interval,
+        whisper_model=model,
+        language=lang,
+        max_frames=frames,
+    )
+
+
+@router.post("/video/settings", response_model=VideoSettingsOut)
+async def update_video_settings(
+    req: VideoSettingsRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if req.mode not in ("multimodal_ocr", "audio_only"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Modo inválido. Escolha 'multimodal_ocr' ou 'audio_only'.",
+        )
+
+    # Atualiza ou cria configurações
+    settings_map = {
+        VIDEO_SETTING_MODE_KEY: req.mode,
+        VIDEO_SETTING_FRAME_INTERVAL_KEY: str(max(2, min(req.frame_interval_seconds, 60))),
+        VIDEO_SETTING_WHISPER_MODEL_KEY: req.whisper_model.strip() or "small",
+        VIDEO_SETTING_LANGUAGE_KEY: req.language.strip() or "es",
+        VIDEO_SETTING_MAX_FRAMES_KEY: str(max(5, min(req.max_frames, 50))),
+    }
+
+    for key, val in settings_map.items():
+        row = await db.scalar(select(AppSetting).where(AppSetting.key == key))
+        if row:
+            row.value = val
+            row.updated_by = admin.id
+            row.updated_at = datetime.now(timezone.utc)
+        else:
+            db.add(AppSetting(key=key, value=val, updated_by=admin.id))
+
+    await db.commit()
+    return await get_video_settings(db)
+
+
+@router.get("/video/list", response_model=list[VideoItemOut])
+async def list_videos(db: AsyncSession = Depends(get_db)):
+    rel_path = await get_sources_relative_path(db)
+    sources_dir = resolve_sources_dir(rel_path)
+    videos = await asyncio.to_thread(list_available_videos, sources_dir)
+    return [
+        VideoItemOut(
+            name=v["name"],
+            relative_path=v["relative_path"],
+            parent_dir=v["parent_dir"],
+            size_mb=v["size_mb"],
+            modified_at=v["modified_at"],
+            has_markdown=v["has_markdown"],
+            markdown_files=v["markdown_files"],
+        )
+        for v in videos
+    ]
+
+
+@router.get("/video/status")
+async def get_video_status():
+    return get_video_job_status()
+
+
+async def _run_video_processing_task(
+    video_rel_path: str,
+    sources_dir: Path,
+    mode_override: str | None = None,
+):
+    """Executa a rotina de vídeo em background com uma nova sessão do banco."""
+    async with AsyncSessionLocal() as db:
+        settings_obj = await get_video_settings(db)
+        mode = mode_override or settings_obj.mode
+        interval = settings_obj.frame_interval_seconds
+        lang = settings_obj.language
+        whisper_model = settings_obj.whisper_model
+
+    video_abs_path = sources_dir / video_rel_path
+    if not video_abs_path.is_file():
+        logger.error(f"Arquivo de vídeo não encontrado: {video_abs_path}")
+        return
+
+    try:
+        await process_single_video_pipeline(
+            video_abs_path=video_abs_path,
+            sources_root=sources_dir,
+            mode=mode,
+            frame_interval_seconds=interval,
+            language=lang,
+            whisper_model=whisper_model,
+        )
+    except Exception as exc:
+        logger.error(f"Erro no processamento do vídeo {video_rel_path}: {exc}", exc_info=True)
+
+
+@router.post("/video/process")
+async def trigger_video_process(
+    req: VideoProcessRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    current_status = get_video_job_status()
+    if current_status.get("status") == "running":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Já existe um processamento de vídeo em execução. Aguarde a conclusão.",
+        )
+
+    rel_path = await get_sources_relative_path(db)
+    sources_dir = resolve_sources_dir(rel_path)
+    video_abs = sources_dir / req.video_relative_path
+    if not video_abs.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Arquivo de vídeo não encontrado: {req.video_relative_path}",
+        )
+
+    background_tasks.add_task(
+        _run_video_processing_task,
+        req.video_relative_path,
+        sources_dir,
+        req.mode_override,
+    )
+
+    db.add(
+        AuditLog(
+            actor_user_id=admin.id,
+            action=AuditAction.TRIGGER_REINDEX,
+            metadata_json={"action": "trigger_video_process", "video": req.video_relative_path},
+        )
+    )
+    await db.commit()
+
+    return {
+        "status": "started",
+        "video": req.video_relative_path,
+        "mode_requested": req.mode_override or "default",
+    }
+
 
 
 

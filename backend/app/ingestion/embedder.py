@@ -44,11 +44,11 @@ class ApiEmbedder(Embedder):
             "Content-Type": "application/json",
         }
         url = f"{self._api_url}/v1/embeddings"
-        max_retries = 3
+        max_retries = 2
 
         for attempt in range(1, max_retries + 1):
             try:
-                with httpx.Client(timeout=90.0) as client:
+                with httpx.Client(timeout=8.0) as client:
                     response = client.post(
                         url,
                         headers=headers,
@@ -61,7 +61,7 @@ class ApiEmbedder(Embedder):
                 if attempt == max_retries:
                     logger.error(f"[embedder] Falha definitiva após {max_retries} tentativas: {exc}")
                     raise
-                wait_time = attempt * 1.5
+                wait_time = 0.5
                 logger.warning(
                     f"[embedder] Tentativa {attempt} falhou ({exc}). Retentando em {wait_time}s..."
                 )

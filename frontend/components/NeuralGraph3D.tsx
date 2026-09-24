@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   Maximize2,
   Minimize2,
@@ -300,6 +301,60 @@ function createMotherboardCircuitFloor(floorY: number, size: number): THREE.Grou
   return group;
 }
 
+// Casca Suave de Vidro Anatômico (Fallback de alta fidelidade sem wireframe)
+function createSmoothHolographicBrainShell(
+  scale: number,
+  shaderMaterial: THREE.ShaderMaterial
+): THREE.Group {
+  const group = new THREE.Group();
+
+  function createHemisphereGeometry(hemSign: number): THREE.BufferGeometry {
+    const segmentsW = 56;
+    const segmentsH = 42;
+    const baseGeo = new THREE.SphereGeometry(1.0, segmentsW, segmentsH);
+    const posAttr = baseGeo.attributes.position;
+    const count = posAttr.count;
+
+    const rx = 88 * scale;
+    const ry = 84 * scale;
+    const rz = 126 * scale;
+    const gap = 3.5 * scale;
+
+    for (let i = 0; i < count; i++) {
+      const vx = posAttr.getX(i);
+      const vy = posAttr.getY(i);
+      const vz = posAttr.getZ(i);
+
+      const medialX = vx < 0 ? vx * 0.15 : vx;
+      const frontalTaper = vz > 0 ? 1.0 - vz * 0.14 : 1.0;
+      const parietalLift = vy > 0 && vz > -0.35 && vz < 0.45 ? 1.0 + 0.10 * Math.cos(vz * Math.PI) : 1.0;
+      const temporalBulge = vx > 0.2 && vy < 0.1 && vz > -0.3 && vz < 0.4 ? 1.12 : 1.0;
+      const occipitalSlope = vz < 0 ? 1.0 + vz * 0.07 : 1.0;
+
+      const angleV = Math.atan2(vx, vz);
+      const sulcus = (Math.sin(6.0 * vy + 7.0 * angleV) * Math.cos(7.0 * angleV) + Math.sin(14.0 * angleV) * 0.3) * 0.055;
+      const factor = 1.0 + sulcus;
+
+      const px = hemSign * (gap + (medialX + 0.12) * rx * frontalTaper * temporalBulge * factor);
+      const py = vy * ry * parietalLift * factor;
+      const pz = vz * rz * occipitalSlope * factor;
+
+      posAttr.setXYZ(i, px, py, pz);
+    }
+
+    baseGeo.computeVertexNormals();
+    return baseGeo;
+  }
+
+  [-1, 1].forEach((hemSign) => {
+    const hemiGeo = createHemisphereGeometry(hemSign);
+    const hemiMesh = new THREE.Mesh(hemiGeo, shaderMaterial);
+    group.add(hemiMesh);
+  });
+
+  return group;
+}
+
 // Gerador de dados de estresse com 10.000 nós e 25.000 arestas para teste de escala e 60 FPS
 function generate10kBenchmarkData(): KnowledgeGraph {
   const clusterNames = [
@@ -397,6 +452,11 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
   const [is10kBenchmark, setIs10kBenchmark] = useState(false);
   const [fps, setFps] = useState(60);
   const [layoutMode, setLayoutMode] = useState<"brain" | "sphere">("brain");
+  const [showBrainShell, setShowBrainShell] = useState<boolean>(true);
+  const [shellOpacity, setShellOpacity] = useState<number>(0.30);
+  const brainShellGroupRef = useRef<THREE.Group | null>(null);
+  const brainShellMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
+  const brainShellWireframeMatRef = useRef<THREE.LineBasicMaterial | null>(null);
 
   // Seleção de dados: reais ou benchmark de 10.000 nós
   const data = useMemo(() => {
@@ -636,95 +696,125 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
       const subTotal = Math.max(1, Math.ceil(localCount / 2));
       const latRatio = subTotal <= 1 ? 0.5 : subIdx / (subTotal - 1);
 
-      // Escala anatômica adaptativa
+      // Escala anatômica adaptativa uniforme nas 3 dimensões
       const scale = isHugeScale ? 2.85 : 1.35;
-      const rx = 95 * scale;  // Largura hemisférica
-      const ry = 90 * scale;  // Altura dorso-ventral
-      const rz = 140 * scale; // Comprimento antero-posterior
+      const rx = 76 * scale;  // Largura hemisférica
+      const ry = 84 * scale;  // Altura dorso-ventral
+      const rz = 100 * scale; // Comprimento antero-posterior
 
-      // Ângulos paramétricos na superfície
+      // Ângulos paramétricos na superfície e volume
       const u = (latRatio - 0.5) * Math.PI * 0.9;
       const v = (subIdx * phi) % (2 * Math.PI);
 
-      // Sulcos corticais modulados como trilhas de circuito integrado (PCB Traces da referência)
-      const gyriCircuit = Math.sin(7.0 * u + v) * Math.cos(8.0 * v) + Math.sin(16.0 * v) * 0.35;
-      const gyriFactor = 1.0 + gyriCircuit * 0.11;
-
-      // 85% na superfície cortical, 15% em profundidade subcortical
-      const depth = (subIdx % 6 === 0) ? (0.60 + 0.25 * Math.random()) : gyriFactor;
+      // Distribuição volumétrica realista de sinapses iluminando o interior do encéfalo (como na Imagem 2)
+      let depth = 0.40 + 0.60 * Math.pow(((subIdx * 17) % 100) / 100, 0.65);
 
       let bx = 0;
       let by = 0;
       let bz = 0;
-      let sagittalGap = (20 + 8 * Math.cos(u)) * scale;
+      let sagittalGap = (2.5 + 1.2 * Math.cos(u)) * scale; // Fenda sagital anatômica estreita
 
       switch (lobe.id) {
         case "frontal": {
-          // Lobo Frontal: Z anterior elevado (+35 a +145), afilando suavemente no polo frontal
-          const zFront = 35 + (0.5 + 0.5 * Math.sin(u)) * 105;
-          const yFront = -10 + Math.cos(u) * 90;
-          const xFront = Math.abs(Math.cos(u) * Math.sin(v)) * rx * (1.0 - (zFront / 160) * 0.22);
-          bx = xFront;
-          by = yFront;
-          bz = zFront * scale;
+          // Lobo Frontal: Anterior (+Z), curvatura anterior e polo frontal
+          const zFront = 0.18 + (0.5 + 0.5 * Math.sin(u)) * 0.74;
+          const yFront = -0.06 + Math.cos(u) * 0.64;
+          const xFront = Math.abs(Math.cos(u) * Math.sin(v)) * (1.0 - zFront * 0.18);
+          bx = xFront * rx;
+          by = yFront * ry;
+          bz = zFront * rz;
+          sagittalGap = 2.5 * scale;
           break;
         }
         case "parietal": {
-          // Lobo Parietal: Dorsal superior, cúpula medial do crânio (-30 <= Z <= 35, Y alto)
-          const zParietal = -30 + latRatio * 65;
-          const yParietal = 40 + Math.cos(u * 0.8) * 65;
-          const xParietal = Math.abs(Math.cos(u) * Math.sin(v)) * (rx * 0.95);
-          bx = xParietal;
-          by = yParietal;
-          bz = zParietal * scale;
-          break;
+          // Lobo Parietal: Cúpula dorsal perfeitamente arredondada e ampla expansão lateral bilateral
+          // Respeita o contorno do encéfalo (arredondado no ápice e espalhado pelas laterais da calota craniana)
+          const uP = (subIdx * 0.6180339887) % 1;
+          const vP = (subIdx * 0.3819660113 + Math.floor(subIdx / 25) * 0.07) % 1;
+
+          // Antero-posterior: Do sulco central (+0.12) até a transição parieto-occipital (-0.36)
+          const zNorm = 0.12 - vP * 0.48;
+
+          // Curvatura sagital fronto-caudal (mantém o topo arredondado no eixo longitudinal Z)
+          const zSag = (zNorm + 0.12) / 0.40;
+          const sagFactor = Math.sqrt(Math.max(0.45, 1.0 - zSag * zSag * 0.22));
+
+          // Ângulo de curvatura lateral coronal (theta):
+          // Distribui harmonicamente desde a fenda superior (theta ~ 0.06) até as paredes laterais (theta ~ 1.22 rad / ~70°)
+          // Math.sqrt(uP) garante densidade uniforme de nós na superfície convexa
+          const s = 0.06 + 0.92 * Math.sqrt(uP);
+          const maxRoll = Math.PI * 0.39; // ~70 graus de abertura lateral
+          const theta = s * maxRoll;
+
+          // Raios de curvatura da cúpula parietal
+          const domeRadiusY = 0.82 * sagFactor;
+          const domeRadiusX = 0.94 * sagFactor;
+
+          // Camada do manto cortical/subcortical (78% a 98% da casca, sem colapsar no centro do encéfalo)
+          const layer = Math.pow(((subIdx * 31) % 100) / 100, 0.55);
+          const mantle = 0.78 + 0.20 * layer;
+
+          // Ondulações orgânicas de giros e sulcos parietais
+          const ripple = Math.sin(theta * 7.5 + zNorm * 11.0) * 0.025;
+
+          const yModel = 0.15 + (Math.cos(theta) * domeRadiusY + ripple) * mantle;
+          const xModel = (Math.sin(theta) * domeRadiusX + Math.abs(ripple) * 0.4) * mantle;
+
+          const sagittalGap = 2.5 * scale;
+          const nx = hemSign * (sagittalGap + xModel * rx) + (Math.random() - 0.5) * 2 * scale;
+          const ny = yModel * ry + (Math.random() - 0.5) * 2 * scale;
+          const nz = zNorm * rz + (Math.random() - 0.5) * 2 * scale;
+
+          return { x: nx, y: ny, z: nz };
         }
         case "occipital": {
-          // Lobo Occipital: Posterior (Z < -35), declive suave para trás e para baixo
-          const zOccipital = -40 - (0.5 + 0.5 * Math.sin(u)) * 95;
-          const yOccipital = -15 + Math.cos(u) * 70;
-          const xOccipital = Math.abs(Math.cos(u) * Math.sin(v)) * (rx * 0.88);
-          bx = xOccipital;
-          by = yOccipital;
-          bz = zOccipital * scale;
+          // Lobo Occipital: Posterior superior (-Z), declive caudal dorsal
+          const zOccipital = -0.30 - (0.5 + 0.5 * Math.sin(u)) * 0.62;
+          const yOccipital = 0.08 + Math.cos(u) * 0.52;
+          const xOccipital = Math.abs(Math.cos(u) * Math.sin(v)) * 0.84;
+          bx = xOccipital * rx;
+          by = yOccipital * ry;
+          bz = zOccipital * rz;
+          sagittalGap = 2.5 * scale;
           break;
         }
         case "temporal": {
-          // Lobo Temporal: Lateral inferior, curvado abaixo da fissura Sylviana
-          const zTemporal = -35 + latRatio * 75;
-          const yTemporal = -48 + (0.5 + 0.5 * Math.sin(u)) * 55;
-          const xTemporal = (50 + Math.abs(Math.sin(v)) * 65) * scale;
-          bx = xTemporal / scale;
-          by = yTemporal;
-          bz = zTemporal * scale;
-          sagittalGap = 16 * scale;
+          // Lobo Temporal: Lateral inferior (-Y moderado, Z intermediário)
+          const zTemporal = -0.25 + latRatio * 0.55;
+          const yTemporal = -0.15 - (0.5 + 0.5 * Math.sin(u)) * 0.36;
+          const xTemporal = 0.36 + Math.abs(Math.sin(v)) * 0.50;
+          bx = xTemporal * rx;
+          by = yTemporal * ry;
+          bz = zTemporal * rz;
+          sagittalGap = 4 * scale;
           break;
         }
         case "cerebellum": {
-          // Cerebelo Neural: Posterior inferior (abaixo do occipital, Z < -40, Y < -20)
-          // Estrutura globular foliada horizontalmente como na imagem de referência
-          const zCereb = -50 - latRatio * 65;
-          const yCereb = -42 - (0.5 + 0.5 * Math.cos(u)) * 42;
-          const folia = Math.sin(18.0 * latRatio * Math.PI) * 4.0;
-          const xCereb = (18 + Math.abs(Math.sin(v)) * 42 + folia) * scale;
-          bx = xCereb / scale;
-          by = yCereb;
-          bz = zCereb * scale;
-          sagittalGap = 12 * scale;
+          // Cerebelo Neural: POSTERIOR INFERIOR PROFUNDO (exatamente onde apontam as setas vermelhas)
+          // Y desce entre -0.52 e -0.88 de ry, situando-se perfeitamente na cúpula inferior traseira do encéfalo
+          const zCereb = -0.30 - latRatio * 0.52;
+          const yCereb = -0.52 - (0.5 + 0.5 * Math.cos(u)) * 0.26 - latRatio * 0.14;
+          const folia = Math.sin(16.0 * latRatio * Math.PI) * 0.04;
+          const xCereb = 0.16 + Math.abs(Math.sin(v)) * 0.38 + folia;
+          bx = xCereb * rx;
+          by = yCereb * ry;
+          bz = zCereb * rz;
+          sagittalGap = 3.5 * scale;
+          depth = 0.60 + 0.40 * Math.pow(((subIdx * 13) % 100) / 100, 0.7); // Permanece no bojo do cerebelo
           break;
         }
         case "brainstem": {
-          // Tronco Encefálico: Haste vertical central descendente em direção ao piso da placa-mãe
+          // Tronco Encefálico: Haste vertical central descendente conectando ao piso
           const stemAngle = (localIdx * phi) % (2 * Math.PI);
-          const stemRadius = (9 - latRatio * 4.5) * scale;
-          const nx = Math.cos(stemAngle) * stemRadius + (Math.random() - 0.5) * 3 * scale;
-          const ny = (-50 - latRatio * 75) * scale + (Math.random() - 0.5) * 3 * scale;
-          const nz = (-16 - latRatio * 8) * scale + (Math.random() - 0.5) * 3 * scale;
+          const stemRadius = (0.08 - latRatio * 0.04) * rx;
+          const nx = Math.cos(stemAngle) * stemRadius + (Math.random() - 0.5) * 2 * scale;
+          const ny = (-0.42 - latRatio * 0.50) * ry + (Math.random() - 0.5) * 2 * scale;
+          const nz = (-0.16 - latRatio * 0.08) * rz + (Math.random() - 0.5) * 2 * scale;
           return { x: nx, y: ny, z: nz };
         }
       }
 
-      const jitter = (Math.random() - 0.5) * 4 * scale;
+      const jitter = (Math.random() - 0.5) * 3 * scale;
       const nx = hemSign * (sagittalGap + bx * depth) + jitter;
       const ny = by * depth + jitter;
       const nz = bz * depth + jitter;
@@ -814,11 +904,11 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
         }
 
         if (layoutMode === "brain") {
-          // Preserva a fenda sagital central para que a separação dos dois hemisférios permaneça nítida
-          if (u.x < 0 && u.x > -18) u.x = -18;
-          if (u.x > 0 && u.x < 18) u.x = 18;
-          if (v.x < 0 && v.x > -18) v.x = -18;
-          if (v.x > 0 && v.x < 18) v.x = 18;
+          // Preserva a fenda sagital anatômica natural sem abrir abismo entre os hemisférios
+          if (u.x < 0 && u.x > -4) u.x = -4;
+          if (u.x > 0 && u.x < 4) u.x = 4;
+          if (v.x < 0 && v.x > -4) v.x = -4;
+          if (v.x > 0 && v.x < 4) v.x = 4;
         }
       });
     }
@@ -860,6 +950,105 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
       const floorSize = Math.max(maxClusterRadius * 2.8, 600);
       const motherboardFloor = createMotherboardCircuitFloor(floorY, floorSize);
       scene.add(motherboardFloor);
+
+      // Casca Holográfica de Vidro Anatômico 3D (Modelo Esculpido Real com Giros e Sulcos - Imagem 2)
+      const centeredBbox = new THREE.Box3();
+      for (let i = 0; i < nodeCount; i++) {
+        centeredBbox.expandByPoint(new THREE.Vector3(nodePositions[i].x, nodePositions[i].y, nodePositions[i].z));
+      }
+      const centeredSize = new THREE.Vector3();
+      centeredBbox.getSize(centeredSize);
+
+      // Proporções ideais do modelo brain.glb (largura X ~1.51, altura Y ~1.67, comprimento Z ~2.00)
+      const scale = isHugeScale ? 2.85 : 1.35;
+      const scaleX = (centeredSize.x * 1.08) / 1.51;
+      const scaleY = (centeredSize.y * 1.08) / 1.67;
+      const scaleZ = (centeredSize.z * 1.08) / 2.00;
+      const uniformScale = Math.max(scaleX, scaleY, scaleZ);
+
+      const initialRimHex =
+        selectedLobeFilter === "ALL"
+          ? 0x88f0ff // Ice cyan / crystal pearl glow
+          : CYBERPUNK_BRAIN_LOBES[selectedLobeFilter]?.hex || 0x88f0ff;
+
+      const brainShellShaderMat = new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: new THREE.Color(0x021020) }, // Deep smoky obsidian/navy glass
+          uRimColor: { value: new THREE.Color(initialRimHex) },
+          uOpacity: { value: shellOpacity },
+          uTime: { value: 0 },
+        },
+        vertexShader: `
+          varying vec3 vNormal;
+          varying vec3 vViewPosition;
+          void main() {
+            vNormal = normalize(normalMatrix * normal);
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            vViewPosition = -mvPosition.xyz;
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 uColor;
+          uniform vec3 uRimColor;
+          uniform float uOpacity;
+          uniform float uTime;
+          varying vec3 vNormal;
+          varying vec3 vViewPosition;
+
+          void main() {
+            vec3 normal = normalize(vNormal);
+            vec3 viewDir = normalize(vViewPosition);
+            // Double-sided view angle
+            float cosTheta = abs(dot(viewDir, normal));
+            // Power of 2.6 dá um contorno vítreo nos sulcos e giros corticais reais
+            float fresnel = pow(1.0 - cosTheta, 2.6);
+            float pulse = 0.92 + 0.08 * sin(uTime * 1.4);
+            vec3 finalColor = mix(uColor, uRimColor, fresnel * 0.94);
+            // Centro altamente translúcido para enxergar todos os nós internos
+            float alpha = uOpacity * (0.04 + 0.96 * fresnel) * pulse;
+            gl_FragColor = vec4(finalColor, alpha);
+          }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+      });
+      brainShellMaterialRef.current = brainShellShaderMat;
+
+      // Grupo para a casca do encéfalo
+      const brainShellGroup = new THREE.Group();
+      brainShellGroup.visible = showBrainShell && layoutMode === "brain";
+      scene.add(brainShellGroup);
+      brainShellGroupRef.current = brainShellGroup;
+
+      // Carregamento do modelo 3D escaneado/esculpido com giros corticais reais (Sem wireframe grosseiro)
+      const gltfLoader = new GLTFLoader();
+      gltfLoader.load(
+        "/models/brain.glb",
+        (gltf) => {
+          const model = gltf.scene;
+          model.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              const mesh = child as THREE.Mesh;
+              mesh.material = brainShellShaderMat;
+              mesh.castShadow = false;
+              mesh.receiveShadow = false;
+            }
+          });
+          model.scale.set(uniformScale, uniformScale, uniformScale);
+          model.position.set(0, 0, 0);
+          brainShellGroup.add(model);
+        },
+        undefined,
+        (err) => {
+          console.warn("Aviso ao carregar brain.glb, usando casca procedural suave", err);
+          const fallback = createSmoothHolographicBrainShell(scale, brainShellShaderMat);
+          fallback.position.set(-clusterCenter.x, -clusterCenter.y, -clusterCenter.z);
+          brainShellGroup.add(fallback);
+        }
+      );
     }
 
     // 9. CÁLCULO DINÂMICO DE ENQUADRAMENTO COM ZOOM MENOR (VISIBILIDADE INTEGRAL E PERFEITA)
@@ -1202,6 +1391,11 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
       // Rotação suave da poeira estelar
       starField.rotation.y += 0.0003;
 
+      // Pulso holográfico suave do encéfalo
+      if (brainShellMaterialRef.current) {
+        brainShellMaterialRef.current.uniforms.uTime.value = now * 0.001;
+      }
+
       renderer.render(scene, camera);
     };
 
@@ -1236,6 +1430,35 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
       controlsRef.current.autoRotate = autoRotate;
     }
   }, [autoRotate]);
+
+  // Sincronização dinâmica da casca cerebral holográfica 3D (visibilidade, opacidade e coloração por lobo)
+  useEffect(() => {
+    if (brainShellGroupRef.current) {
+      brainShellGroupRef.current.visible = showBrainShell && layoutMode === "brain";
+    }
+    if (brainShellMaterialRef.current) {
+      brainShellMaterialRef.current.uniforms.uOpacity.value = shellOpacity;
+      if (selectedLobeFilter === "ALL") {
+        brainShellMaterialRef.current.uniforms.uRimColor.value.setHex(0x00f0ff);
+      } else {
+        const lobe = CYBERPUNK_BRAIN_LOBES[selectedLobeFilter];
+        if (lobe) {
+          brainShellMaterialRef.current.uniforms.uRimColor.value.setHex(lobe.hex);
+        }
+      }
+    }
+    if (brainShellWireframeMatRef.current) {
+      brainShellWireframeMatRef.current.opacity = shellOpacity * 0.55;
+      if (selectedLobeFilter === "ALL") {
+        brainShellWireframeMatRef.current.color.setHex(0x00f0ff);
+      } else {
+        const lobe = CYBERPUNK_BRAIN_LOBES[selectedLobeFilter];
+        if (lobe) {
+          brainShellWireframeMatRef.current.color.setHex(lobe.hex);
+        }
+      }
+    }
+  }, [showBrainShell, shellOpacity, layoutMode, selectedLobeFilter]);
 
   // Aplicação do Filtro de Lobos Cerebrais, Relações e Destaque de Nós
   useEffect(() => {
@@ -1439,6 +1662,50 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
               {layoutMode === "brain" ? "Cérebro 3D" : "Esférico"}
             </span>
           </button>
+
+          {/* Botão Casca 3D Translúcida (Encapsulamento do Encéfalo) */}
+          {layoutMode === "brain" && (
+            <div className="flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-slate-950/60 p-0.5">
+              <button
+                onClick={() => setShowBrainShell(!showBrainShell)}
+                title={showBrainShell ? "Ocultar casca translúcida 3D" : "Exibir casca translúcida 3D encapsulando o grafo"}
+                className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold transition ${
+                  showBrainShell
+                    ? "bg-gradient-to-r from-cyan-500/30 to-purple-500/30 text-cyan-200 border border-cyan-400/50 shadow-[0_0_12px_rgba(0,240,255,0.3)]"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                }`}
+              >
+                <Layers className={`h-3.5 w-3.5 ${showBrainShell ? "text-cyan-400 animate-pulse" : "text-slate-400"}`} />
+                <span className="hidden sm:inline">Casca 3D</span>
+                <span className={`text-[10px] font-mono font-bold px-1 rounded ${showBrainShell ? "bg-cyan-400/25 text-cyan-300" : "bg-slate-800 text-slate-500"}`}>
+                  {showBrainShell ? "ON" : "OFF"}
+                </span>
+              </button>
+
+              {showBrainShell && (
+                <div className="flex items-center gap-0.5 border-l border-slate-700/60 pl-1 pr-0.5">
+                  {[
+                    { label: "Suave", val: 0.18 },
+                    { label: "Cristal", val: 0.30 },
+                    { label: "Vívido", val: 0.45 },
+                  ].map((lvl) => (
+                    <button
+                      key={lvl.val}
+                      onClick={() => setShellOpacity(lvl.val)}
+                      title={`Opacidade da casca de vidro: ${lvl.label}`}
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-mono transition ${
+                        Math.abs(shellOpacity - lvl.val) < 0.05
+                          ? "bg-cyan-400 text-slate-950 font-bold shadow-sm"
+                          : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                      }`}
+                    >
+                      {lvl.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Botão Benchmark 10.000 Nós */}
           <button

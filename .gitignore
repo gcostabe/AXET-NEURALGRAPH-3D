@@ -94,6 +94,7 @@ tmp/
 temp/
 .temp/
 .cache/
+*.bak
 
 # ── Operating System & Editors ───────────────────────────────
 .DS_Store

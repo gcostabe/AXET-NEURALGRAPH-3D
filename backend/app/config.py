@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     jwt_refresh_token_ttl_days: int = 7
     bootstrap_admin_email: str = "admin@example.com"
 
+    # Okta SSO (OneNTT / aXet)
+    okta_domain: str = "onentt.okta.com"
+    okta_tenant_id: str = "ausf3mzucjRGKYWLy417"
+    okta_client_id: str = "0oafbxnffaeuydB7l417"
+    okta_scopes: str = "openid profile email offline_access"
+    okta_token_url: str = "https://onentt.okta.com/oauth2/ausf3mzucjRGKYWLy417/v1/token"
+    okta_device_auth_url: str = "https://onentt.okta.com/oauth2/ausf3mzucjRGKYWLy417/v1/device/authorize"
+    gateway_host_url: str = "http://host.docker.internal:8766"
+
     environment: str = "local"
     cors_allowed_origins: str = "http://localhost:3001"
 
@@ -48,6 +57,13 @@ class Settings(BaseSettings):
 
     # Enriquecimento cognitivo de documentos (auto-resumo, tópicos, grafo e conflitos)
     cognitive_analysis_enabled: bool = True
+
+    # Processamento de vídeo para geração de .md (multimodal_ocr vs audio_only)
+    video_processing_mode_default: str = "multimodal_ocr"  # "multimodal_ocr" | "audio_only"
+    video_frame_interval_seconds: int = 10
+    video_whisper_model: str = "small"
+    video_whisper_language: str = "es"
+    video_max_frames: int = 30
 
     @property
     def postgres_dsn(self) -> str:
