@@ -2829,3 +2829,58 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
   3. **Verificacao CRLF e Sintaxe**:
      - Validado depth de parenteses estritamente 0 em todo o arquivo e 100% quebras CRLF.
 - **Proxima Acao Segura**: Comitar e subir para os remotes origin e axet.
+
+### CHECKPOINT-093 (2026-09-24 16:19 - Ajuste de Layout da Caixa de Detalhes dos Lobos e Nao-Quebra de Linha dos Botoes de Lobos)
+- **Tarefa**: TASK-20260924-1615-GRAPH-LOBE-DETAILS-LAYOUT
+- **Estado**: POST_ACTION / COMPLETED
+- **Acoes Concluidas**:
+  1. **Remocao de Quebra de Linha nos Botoes de Lobos**:
+     - Configurado container flexivel `flex-nowrap`, `shrink-0` e `overflow-x-auto` com `whitespace-nowrap shrink-0` em todos os botoes e etiquetas de lobos.
+  2. **Reposicionamento da Caixa de Detalhe dos Lobos**:
+     - Movido para a coluna esquerda como elemento irmao imediato abaixo do painel de filtros expandido, ocupando a area demarcada do retangulo azul.
+  3. **Validacao**:
+     - Executado `npm run build` do Next.js com sucesso.
+
+### CHECKPOINT-094 (2026-09-24 16:59 - Botoes de Continuar Conversa e Nova Conversa no Card do Copiloto)
+- **Tarefa**: TASK-20260924-1655-REPLACE-CONVERSAR-WITH-TWO-BUTTONS
+- **Estado**: POST_ACTION / COMPLETED
+- **Acoes Concluidas**:
+  1. **Substituicao do Botao Unico**:
+     - No componente `NeuralGraph3D.tsx`, substituiu o botao anterior por dois botoes dedicados: "Continuar conversa" e "Nova Conversa".
+  2. **Rebuild e Deploy no Docker**:
+     - Executado `docker compose build frontend && docker compose up -d frontend`. Container atualizado na porta 3001.
+
+### CHECKPOINT-095 (2026-09-24 18:58 - Git Pull / Merge do Repositório NTT e Análise de Arquivos Alterados)
+- **Tarefa**: TASK-20260924-1858-GIT-PULL-NTT-AND-3-STEP-SYNC
+- **Estado**: POST_ACTION / ANALYZED
+- **Acoes Concluidas**:
+  1. **Git Fetch & Merge do NTT (axet/main)**:
+     - Realizado fetch e merge das atualizações mais recentes do remote NTT (`axet/main` commits `19aa19d` e `ef8eb2d`).
+  2. **Análise de Arquivos Alterados**:
+     - `iniciar_windows.bat`, `instalar_windows.bat`, `parar_windows.bat`, `scripts/setup_wsl_internal.sh`: ajustes no WSL2 (distro Ubuntu explícita, conversão de `/mnt/host/` para `/mnt/`, `vmIdleTimeout=-1`, `tail -f /dev/null` para keepalive da sessão Docker, novo script de encerramento).
+     - `docker-compose.yml`: diretiva `restart: unless-stopped` nos containers.
+     - `backend/app/ingestion/vector_store.py` e `run.py`: verificação defensiva de existência da coleção Qdrant antes de ler hashes, evitando exceções no bootstrap.
+     - `backend/app/config.py` e `.env.example`: inclusão de origens adicionais de CORS (portas 3000 e 3001 em localhost e 127.0.0.1).
+     - `backend/app/auth/security.py`: inclusão de admin NTT adicional.
+  3. **Reconciliação e Integridade**:
+     - Nenhuma alteração colidiu com o código do frontend ou com os novos vídeos do OneDrive. O sistema continua íntegro e operacional.
+- **Proxima Acao Segura**: Iniciar a implementação das 3 etapas da sincronização remota da base de conhecimento (1 clique).
+
+### CHECKPOINT-096 (2026-09-24 19:10 - Recurso de Sincronização da Base Oficial em 1 Clique Implementado)
+- **Tarefa**: TASK-20260924-1858-GIT-PULL-NTT-AND-3-STEP-SYNC
+- **Estado**: POST_ACTION / COMPLETED
+- **Acoes Concluidas**:
+  1. **Etapa 1 - Endpoints de Sincronização em Background**:
+     - Desenvolvido `POST /snapshots/sync-remote` e `GET /snapshots/sync-remote/progress` em `backend/app/api/snapshots.py`.
+     - Implementado worker assíncrono não-bloqueante (`run_in_executor`) para streaming com httpx (redirects automáticos para OneDrive/GitHub Releases/S3), validação SHA-256 e restauração atômica no Qdrant e PostgreSQL.
+  2. **Etapa 2 - Configuração Flexível**:
+     - Adicionado `knowledge_base_sync_url` em `backend/app/config.py` e `KNOWLEDGE_BASE_SYNC_URL` em `.env.example`.
+  3. **Etapa 3 - Interface de 1 Clique e Barra de Progresso**:
+     - Atualizado `frontend/components/AppHeader.tsx` com botão "Sincronizar Base".
+     - Renovado `frontend/components/KnowledgeSnapshotModal.tsx` com card de 1 clique, barra de progresso em tempo real, etapas detalhadas e recarregamento automático do grafo neural.
+  4. **Validação End-to-End**:
+     - Executado teste real de restauração do pacote .qpack via endpoint: restaurados com sucesso 87.270 vetores, 2.683 documentos e 7.931 conexões neurais em ~40 segundos.
+     - Contêineres Docker atualizados e ativos na porta 3001 e 8000.
+- **Proxima Acao Segura**: Apresentar solução ao usuário e comitar alterações.
+
+

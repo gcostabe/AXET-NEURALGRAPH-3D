@@ -703,8 +703,36 @@ export interface ImportResult {
   edges_restored: number;
 }
 
+export interface RemoteSyncProgress {
+  is_running: boolean;
+  stage: "idle" | "downloading" | "verifying" | "extracting" | "restoring_qdrant" | "restoring_graph" | "completed" | "error";
+  progress_percent: number;
+  downloaded_bytes: number;
+  total_bytes: number;
+  downloaded_mb: number;
+  total_mb: number;
+  message: string;
+  error: string | null;
+  result: {
+    points_count: number;
+    documents_restored: number;
+    edges_restored: number;
+    sha256: string;
+  } | null;
+  started_at: string | null;
+  completed_at: string | null;
+  has_configured_url: boolean;
+  configured_url: string;
+}
+
 export const snapshotsApi = {
   getStatus: () => request<SnapshotStatus>("/snapshots/status"),
+  getRemoteSyncProgress: () => request<RemoteSyncProgress>("/snapshots/sync-remote/progress"),
+  triggerRemoteSync: (body?: { url?: string; expected_sha256?: string }) =>
+    request<{ status: string; message: string; target_url: string }>("/snapshots/sync-remote", {
+      method: "POST",
+      body: JSON.stringify(body || {}),
+    }),
   listAdminSnapshots: () => request<SnapshotItem[]>("/admin/snapshots"),
   exportSnapshot: () => request<SnapshotItem>("/admin/snapshots/export", { method: "POST" }),
   deleteSnapshot: (filename: string) =>

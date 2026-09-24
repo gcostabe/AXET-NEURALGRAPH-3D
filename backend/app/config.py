@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     # Enriquecimento cognitivo de documentos (auto-resumo, tópicos, grafo e conflitos)
     cognitive_analysis_enabled: bool = True
 
+    # Sincronização remota da base de conhecimento (1 clique - .qpack)
+    knowledge_base_sync_url: str = ""
+
     # Processamento de vídeo para geração de .md (multimodal_ocr vs audio_only)
     video_processing_mode_default: str = "multimodal_ocr"  # "multimodal_ocr" | "audio_only"
     video_frame_interval_seconds: int = 10

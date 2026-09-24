@@ -19,7 +19,8 @@ import {
   LayoutDashboard,
   MessageSquare,
   Sparkles,
-  Network
+  Network,
+  CloudDownload
 } from "lucide-react";
 
 export default function AppHeader() {
@@ -163,14 +164,14 @@ export default function AppHeader() {
             </span>
           </button>
 
-          {/* Sincronização da Base Local (Snapshots) */}
+          {/* Sincronização da Base Oficial (1 Clique) */}
           <button
             onClick={() => setShowSnapshotModal(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/80 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:border-blue-500/50 hover:text-blue-300 hover:bg-slate-800/90 transition-all shadow-sm"
-            title="Sincronizar Base de Conhecimento Local (Snapshots Qdrant)"
+            className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-2.5 py-1.5 text-xs font-semibold text-cyan-300 hover:border-cyan-400 hover:text-cyan-200 hover:bg-cyan-900/30 transition-all shadow-sm shadow-cyan-950/20"
+            title="Sincronizar Base Oficial em 1 Clique (Vetores Qdrant & Grafo Neural)"
           >
-            <span className="text-xs">📦</span>
-            <span className="hidden sm:inline text-[11px]">Base Local</span>
+            <CloudDownload className="h-3.5 w-3.5 text-cyan-400" />
+            <span className="hidden sm:inline text-[11px]">Sincronizar Base</span>
           </button>
           {/* Acesso ao Grafo Neural 3D para Todos os Usuários */}
           <button
