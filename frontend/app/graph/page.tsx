@@ -35,7 +35,7 @@ function GraphVisualPage() {
       <AppHeader />
 
       {/* Conteúdo Principal do Grafo */}
-      <div className="flex-1 relative flex flex-col overflow-hidden p-3 sm:p-4">
+      <div className="flex-1 relative flex flex-col overflow-hidden px-1 pb-1 pt-0.5 sm:px-1.5 sm:pb-1.5 sm:pt-0.5">
         {loading ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3">
             <RefreshCw className="h-8 w-8 text-cyan-400 animate-spin" />

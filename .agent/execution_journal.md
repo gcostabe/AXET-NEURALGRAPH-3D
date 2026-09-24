@@ -2541,5 +2541,27 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
      - Em cumprimento estrito à instrução do usuário ("nao teste autonomamente me passe pra testar"), nenhum teste automatizado com subagente de browser foi executado.
 - **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push dual.
 
+### CHECKPOINT-083 (2026-09-24 10:42 - Elevação da Imagem 3D ao Topo, Redução Drástica de Margens e Menu de Lobos/Sinapses Colapsável por Padrão)
+- **Tarefa**: `TASK-20260924-1035-ELEVATE-3D-GRAPH-AND-COLLAPSIBLE-FILTER-MENU`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. **Elevação e Expansão da Área 3D do Cérebro ao Topo**:
+     - `frontend/app/graph/page.tsx`: Reduzido o padding da área principal de `p-3 sm:p-4` para `px-1 pb-1 pt-0.5 sm:px-1.5 sm:pb-1.5 sm:pt-0.5`, eliminando o espaço morto preto entre o `AppHeader` corporativo e o card do Grafo 3D.
+     - `frontend/components/NeuralGraph3D.tsx`: Container do canvas atualizado de altura fixa `h-[700px]` para preenchimento dinâmico total `h-full min-h-[600px]`.
+     - Câmera 3D: Ponto focal ajustado com centro em Y=-18 (`camera.lookAt(0, -18, 0)` e `controls.target.set(0, -18, 0)`), fazendo com que a casca do cérebro e os nós neurais subam visualmente em direção ao topo da tela, preenchendo a área visual com proeminência total.
+     - Ação de recentralização `resetCamera` atualizada para manter o foco elevado em `(0, -18, 0)`.
+  2. **Menu de Lobos e Sinapses Colapsável e Fechado por Padrão**:
+     - Criado estado `showFilterControls = false` (abertura padrão colapsada).
+     - Removido o menu estático anterior que ficava travado em `top-20` (80px abaixo da borda), que criava espaço vazio no topo e cobria a área frontal/superior do cérebro.
+     - Criado botão colapsável de disparo no canto superior esquerdo: `[ ⚡ Filtros Lobos & Sinapses ⌄ ]` ao lado do pill de telemetria compacto.
+     - Quando expandido, exibe painel com cabeçalho, botão `[ Recolher ⌃ ]`, a barra completa de Lobos Anatômicos (`Todos`, `Frontal`, `Parietal`, `Occipital`, `Temporal`, `Cerebelo`, `Tronco`) e a barra de Sinapses (`Todas`, `Atualiza`, `Substitui`, `Complementa`, `Depende de`, `Referência`).
+     - Card informativo do lobo ativo reposicionado para fluir harmoniosamente abaixo do Top HUD.
+  3. **Compilação e Deploy no Docker**:
+     - Executado `npm run build` com sucesso absoluto (0 erros).
+     - Container Docker `rag-local-reef-frontend-1` reconstruído com sucesso via `docker compose build frontend && docker compose up -d frontend`.
+     - Respeitada a diretriz do usuário ("nao teste autonomamente me passe pra testar") sem disparo de subagente de browser.
+- **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit e push simultâneo para os repositórios remotos.
+
+
 
 

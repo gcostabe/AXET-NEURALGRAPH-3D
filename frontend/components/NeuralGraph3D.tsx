@@ -467,6 +467,7 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
   const [showBrainShell, setShowBrainShell] = useState<boolean>(true);
   const [shellOpacity, setShellOpacity] = useState<number>(0.30);
   const [showVisualControls, setShowVisualControls] = useState<boolean>(false);
+  const [showFilterControls, setShowFilterControls] = useState<boolean>(false);
   const [greetingData, setGreetingData] = useState<SmartGreetingResponse | null>(null);
   const [greetingDismissed, setGreetingDismissed] = useState<boolean>(false);
   const brainShellGroupRef = useRef<THREE.Group | null>(null);
@@ -595,11 +596,11 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
     [startCameraTransition]
   );
 
-  // Restauração da visão panorâmica com centralização no centróide do cérebro
+  // Restauração da visão panorâmica com centralização e elevação no cérebro
   const resetCamera = useCallback(() => {
     if (!cameraRef.current || !controlsRef.current) return;
     const targetPos = defaultCameraPosRef.current || new THREE.Vector3(0, 60, 400);
-    startCameraTransition(targetPos, new THREE.Vector3(0, 0, 0), 750);
+    startCameraTransition(targetPos, new THREE.Vector3(0, -18, 0), 750);
     setSelectedNode(null);
   }, [startCameraTransition]);
 
@@ -1087,14 +1088,14 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
     // Zoom calibrado e próximo: preenche a visão com o cérebro neural em destaque frontal/isométrico
     const fitDistance = Math.max(boundingDist * 0.92, 120);
 
-    // Posicionamento inicial da câmera: para o modo cérebro, ângulo 3/4 ligeiramente elevado valoriza os 2 hemisférios
+    // Posicionamento inicial da câmera: para o modo cérebro, ângulo 3/4 com centro focal em Y=-18 eleva a imagem para o topo
     const initialCamPos = layoutMode === "brain"
-      ? new THREE.Vector3(fitDistance * 0.32, fitDistance * 0.34, fitDistance * 0.78)
+      ? new THREE.Vector3(fitDistance * 0.32, fitDistance * 0.32, fitDistance * 0.78)
       : new THREE.Vector3(0, fitDistance * 0.15, fitDistance);
     camera.position.copy(initialCamPos);
-    camera.lookAt(0, 0, 0);
+    camera.lookAt(0, -18, 0);
 
-    controls.target.set(0, 0, 0);
+    controls.target.set(0, -18, 0);
     controls.minDistance = 15;
     controls.maxDistance = Math.max(fitDistance * 4.0, 3000);
     controls.update();
@@ -1593,36 +1594,160 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
   return (
     <div
       className={`relative w-full overflow-hidden rounded-2xl border border-border/80 bg-slate-950 transition-all duration-300 ${
-        isFullscreen ? "fixed inset-0 z-50 rounded-none" : "h-[700px]"
+        isFullscreen ? "fixed inset-0 z-50 rounded-none" : "h-full min-h-[600px]"
       }`}
     >
       {/* 3D Canvas Mount Point */}
       <div ref={mountRef} className="h-full w-full cursor-grab active:cursor-grabbing" />
 
-      {/* Top HUD: Status do Motor de Alto Desempenho e FPS */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-wrap items-center justify-between gap-3 p-4">
-        {/* Status Badge & Telemetria */}
-        <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-sky-500/30 bg-slate-900/85 px-3.5 py-2 backdrop-blur-md shadow-lg shadow-sky-950/40">
-          <div className="flex h-2.5 w-2.5 items-center justify-center">
-            <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping absolute" />
-            <span className="h-2 w-2 rounded-full bg-cyan-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold tracking-wide text-cyan-300 uppercase">
-                {is10kBenchmark ? "AXET 10.000 Nós (Stress Test)" : "AXET-NEURALGRAPH-3D"}
+      {/* Top HUD: Status & Filtros Colapsáveis no Topo Esquerdo, Saudação do Copiloto no Topo Direito */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-wrap items-start justify-between gap-3 p-3 z-20">
+        {/* Canto Superior Esquerdo: Telemetria & Filtros Colapsáveis de Lobos & Sinapses */}
+        <div className="pointer-events-auto flex flex-col items-start gap-2 max-w-[calc(100vw-380px)]">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Status Telemetria Compacto */}
+            <div className="flex items-center gap-2 rounded-xl border border-sky-500/25 bg-slate-900/85 px-3 py-1.5 backdrop-blur-md shadow-lg shadow-sky-950/30">
+              <span className="flex h-2 w-2 items-center justify-center relative">
+                <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping absolute" />
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
               </span>
-              <span className="rounded bg-purple-500/20 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-purple-300 border border-purple-500/30">
-                {layoutMode === "brain" ? "🧠 Cérebro 3D" : "🌐 Esférico"}
+              <span className="text-[11px] font-mono text-slate-300">
+                {stats.totalNodes.toLocaleString()} nós • {stats.totalEdges.toLocaleString()} sinapses
               </span>
-              <span className="rounded bg-emerald-500/20 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-emerald-400">
+              <span className="rounded bg-emerald-500/15 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-emerald-400 border border-emerald-500/30">
                 {fps} FPS
               </span>
+              <span className="rounded bg-purple-500/20 px-1.5 py-0.2 font-mono text-[9px] font-semibold text-purple-300 border border-purple-500/30">
+                {layoutMode === "brain" ? "🧠 Cérebro 3D" : "🌐 Esférico"}
+              </span>
             </div>
-            <span className="text-[11px] text-slate-400 font-mono">
-              {stats.totalNodes.toLocaleString()} nós • {stats.totalEdges.toLocaleString()} sinapses • 3 Draw Calls (GPU)
-            </span>
+
+            {/* Botão Colapsável: Filtros de Lobos & Sinapses (Abre por default colapsado) */}
+            {!showFilterControls ? (
+              <button
+                onClick={() => setShowFilterControls(true)}
+                className="flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-slate-200 shadow-xl backdrop-blur-md transition-all hover:border-cyan-400/60 hover:text-cyan-300 hover:shadow-cyan-950/40 group"
+                title="Abrir filtros de Lobos Cerebrais e Sinapses"
+              >
+                <div className="flex h-4 w-4 items-center justify-center rounded bg-gradient-to-tr from-purple-500/20 to-cyan-500/20 border border-cyan-400/30 text-cyan-300 group-hover:scale-105 transition-transform">
+                  <Filter className="h-3 w-3" />
+                </div>
+                <span>Filtros Lobos & Sinapses</span>
+                {(selectedLobeFilter !== "ALL" || relationFilter !== "ALL") && (
+                  <span className="flex h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+                )}
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-cyan-300 transition-colors" />
+              </button>
+            ) : null}
           </div>
+
+          {/* Painel Expandido de Filtros de Lobos & Sinapses */}
+          {showFilterControls && (
+            <div className="flex flex-col gap-2 rounded-2xl border border-slate-700/80 bg-slate-950/95 p-2.5 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 max-w-3xl">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5 px-1">
+                <span className="text-[11px] font-semibold tracking-wide text-cyan-300 uppercase flex items-center gap-1.5">
+                  <Filter className="h-3.5 w-3.5" />
+                  Filtros de Lobos Cerebrais & Sinapses
+                </span>
+                <button
+                  onClick={() => setShowFilterControls(false)}
+                  className="flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-200 px-2 py-0.5 rounded-lg hover:bg-slate-800 transition"
+                  title="Recolher filtros"
+                >
+                  <span>Recolher</span>
+                  <ChevronUp className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Barra de Lobos Cerebrais Cyberpunk */}
+              {layoutMode === "brain" && (
+                <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-800/90 bg-slate-900/90 p-1 backdrop-blur-md shadow-inner">
+                  <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <span className="text-cyan-400 animate-pulse">⚡</span>
+                    Lobos:
+                  </span>
+                  <button
+                    onClick={() => setSelectedLobeFilter("ALL")}
+                    className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold transition ${
+                      selectedLobeFilter === "ALL"
+                        ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-slate-950 shadow-md font-bold"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                    }`}
+                  >
+                    Todos ({stats.totalNodes.toLocaleString()})
+                  </button>
+                  {LOBE_KEYS.map((key) => {
+                    const lobe = CYBERPUNK_BRAIN_LOBES[key];
+                    const count = lobeStats[key] || 0;
+                    const isSelected = selectedLobeFilter === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setSelectedLobeFilter(isSelected ? "ALL" : key)}
+                        title={`${lobe.name}: ${lobe.description}`}
+                        className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-medium transition border ${
+                          isSelected
+                            ? "text-slate-950 font-bold shadow-lg"
+                            : "text-slate-300 hover:text-white border-transparent hover:bg-slate-800/80"
+                        }`}
+                        style={{
+                          backgroundColor: isSelected ? lobe.color : "transparent",
+                          borderColor: isSelected ? lobe.color : "transparent",
+                          boxShadow: isSelected ? `0 0 12px ${lobe.color}60` : undefined,
+                        }}
+                      >
+                        <span className="text-xs">{lobe.icon}</span>
+                        <span>{lobe.shortName}</span>
+                        <span
+                          className={`rounded-full px-1.5 py-0.1 text-[9px] font-mono ${
+                            isSelected ? "bg-slate-950/40 text-slate-900 font-bold" : "bg-slate-800/80 text-slate-400"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Filtros de Relação Sináptica */}
+              <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-800/90 bg-slate-900/90 p-1 backdrop-blur-md shadow-inner">
+                <span className="px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <Filter className="h-2.5 w-2.5" />
+                  Sinapses:
+                </span>
+                <button
+                  onClick={() => setRelationFilter("ALL")}
+                  className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
+                    relationFilter === "ALL"
+                      ? "bg-cyan-500 text-slate-950 font-semibold"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  Todas ({stats.totalEdges.toLocaleString()})
+                </button>
+                {Object.entries(RELATION_COLORS).map(([key, info]) => {
+                  const count = stats.relationCounts[key] || 0;
+                  if (count === 0) return null;
+                  const isSelected = relationFilter === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setRelationFilter(key)}
+                      className={`flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition ${
+                        isSelected ? "text-slate-950 font-semibold" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                      style={{ backgroundColor: isSelected ? info.color : "transparent" }}
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: info.color }} />
+                      {info.label} ({count.toLocaleString()})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
 
@@ -1706,95 +1831,8 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
         )}
       </div>
 
-      {/* Controles Flutuantes no Canto Superior Esquerdo: Lobos Cerebrais & Filtros */}
-      <div className="pointer-events-none absolute left-4 top-20 flex flex-col gap-2 z-20 max-w-[calc(100vw-32px)]">
-        {/* Barra de Lobos Cerebrais Cyberpunk */}
-        {layoutMode === "brain" && (
-          <div className="pointer-events-auto flex flex-wrap items-center gap-1 rounded-xl border border-slate-800/90 bg-slate-900/90 p-1 backdrop-blur-md shadow-xl">
-            <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-              <span className="text-cyan-400 animate-pulse">⚡</span>
-              Lobos:
-            </span>
-            <button
-              onClick={() => setSelectedLobeFilter("ALL")}
-              className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold transition ${
-                selectedLobeFilter === "ALL"
-                  ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-slate-950 shadow-md font-bold"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-              }`}
-            >
-              Todos ({stats.totalNodes.toLocaleString()})
-            </button>
-            {LOBE_KEYS.map((key) => {
-              const lobe = CYBERPUNK_BRAIN_LOBES[key];
-              const count = lobeStats[key] || 0;
-              const isSelected = selectedLobeFilter === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setSelectedLobeFilter(isSelected ? "ALL" : key)}
-                  title={`${lobe.name}: ${lobe.description}`}
-                  className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-medium transition border ${
-                    isSelected
-                      ? "text-slate-950 font-bold shadow-lg"
-                      : "text-slate-300 hover:text-white border-transparent hover:bg-slate-800/80"
-                  }`}
-                  style={{
-                    backgroundColor: isSelected ? lobe.color : "transparent",
-                    borderColor: isSelected ? lobe.color : "transparent",
-                    boxShadow: isSelected ? `0 0 12px ${lobe.color}60` : undefined,
-                  }}
-                >
-                  <span className="text-xs">{lobe.icon}</span>
-                  <span>{lobe.shortName}</span>
-                  <span
-                    className={`rounded-full px-1.5 py-0.1 text-[9px] font-mono ${
-                      isSelected ? "bg-slate-950/40 text-slate-900 font-bold" : "bg-slate-800/80 text-slate-400"
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Filtros de Relação Sináptica */}
-        <div className="pointer-events-auto flex flex-wrap items-center gap-1 rounded-xl border border-slate-800/90 bg-slate-900/90 p-1 backdrop-blur-md shadow-md">
-          <span className="px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-            <Filter className="h-2.5 w-2.5" />
-            Sinapses:
-          </span>
-          <button
-            onClick={() => setRelationFilter("ALL")}
-            className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
-              relationFilter === "ALL"
-                ? "bg-cyan-500 text-slate-950 font-semibold"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            Todas ({stats.totalEdges.toLocaleString()})
-          </button>
-          {Object.entries(RELATION_COLORS).map(([key, info]) => {
-            const count = stats.relationCounts[key] || 0;
-            if (count === 0) return null;
-            const isSelected = relationFilter === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setRelationFilter(key)}
-                className={`flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition ${
-                  isSelected ? "text-slate-950 font-semibold" : "text-slate-400 hover:text-slate-200"
-                }`}
-                style={{ backgroundColor: isSelected ? info.color : "transparent" }}
-              >
-                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: info.color }} />
-                {info.label} ({count.toLocaleString()})
-              </button>
-            );
-          })}
-        </div>
+      {/* Container Flutuante para Card Informativo do Lobo Ativo */}
+      <div className="pointer-events-none absolute left-3 top-14 z-20">
 
         {/* Card Informativo de Iluminação da Área Anatômica Cyberpunk */}
         {layoutMode === "brain" && selectedLobeFilter !== "ALL" && (() => {
