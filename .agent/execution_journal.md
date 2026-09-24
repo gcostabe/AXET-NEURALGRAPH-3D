@@ -2591,3 +2591,40 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
      - Container Docker `rag-local-reef-frontend-1` reconstruído com sucesso via `docker compose build frontend && docker compose up -d --force-recreate frontend`.
      - Respeitada a diretriz do usuário ("nao teste autonomamente me passe pra testar") sem disparo de subagente de browser.
 - **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push simultâneo para os 2 repositórios remotos (`origin` e `axet`).
+
+### CHECKPOINT-085-PRE (2026-09-24 12:00 - Write-ahead: Implementação da FASE 1 - Expansão Multi-Hop no Retrieval / 2-Hop Reasoning)
+- **Tarefa**: `TASK-20260924-1200-MULTI-HOP-GRAPH-RETRIEVAL-FASE-1`
+- **Estado**: PRE_ACTION
+- **Ação Pretendida**: 
+  1. Evoluir `get_graph_context_for_sources` em `backend/app/retrieval/search.py` para suportar `2-hop reasoning` no PostgreSQL, coletando vizinhos diretos (1-hop) e expandindo seletivamente para os vizinhos dos vizinhos (2-hop) priorizando relações de dependência (`DEPENDE_DE`), revogação (`SUBSTITUI`), atualização (`ATUALIZA`) e complementaridade (`COMPLEMENTA`).
+  2. Implementar teto seguro (máximo 8 arestas de 2-hop e 4 documentos ancestrais) e ordenação por criticidade para proteger o contexto contra inchaço (*prompt bloat*).
+  3. Atualizar `build_context` para estruturar visualmente conexões diretas e caminhos transitivos de 2 passos.
+  4. Adaptar `backend/app/api/chat.py` para associar as fontes relevantes descobertas no 2-hop.
+- **Arquivos Relevantes**:
+  - `backend/app/retrieval/search.py`
+  - `backend/app/api/chat.py`
+  - `backend/tests/test_multihop.py`
+- **Motivo**: Permitir que o RAG corporativo alcance documentos regulatórios ou normativos fundamentais que não contêm as palavras-chave da consulta original, mas que estão amarrados por cadeias lógicas e de dependência com os documentos retornados na busca vetorial.
+- **Estado Atual**: Retrieval opera estritamente em 1-hop direto.
+- **Próxima Ação Segura**: Aplicar as alterações em `backend/app/retrieval/search.py`.
+
+### CHECKPOINT-085 (2026-09-24 12:03 - Conclusão da FASE 1: Expansão Multi-Hop no Retrieval com 2-Hop Reasoning)
+- **Tarefa**: `TASK-20260924-1200-MULTI-HOP-GRAPH-RETRIEVAL-FASE-1`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. **Algoritmo de Travessia 2-Hop em `backend/app/retrieval/search.py`**:
+     - `get_graph_context_for_sources`: Mapeia arestas de 1-hop conectadas diretamente às fontes recuperadas no top-k.
+     - Extrai vizinhos de 1-hop e busca conexões de 2-hop secundárias no PostgreSQL.
+     - Aplica filtro de criticidade semântica (`RELATION_PRIORITY_WEIGHTS`: `SUBSTITUI=10.0`, `DEPENDE_DE=9.0`, `ATUALIZA=8.0`, `COMPLEMENTA=6.0`, `REFERENCIA=4.0`), multiplicando pelo `weight` da aresta.
+     - Aplica teto defensivo (máximo 8 arestas de 2-hop e 4 documentos ancestrais) para proteger o LLM contra inchaço de prompt (*prompt bloat*) e dispersão (*lost in the middle*).
+     - Busca resumos executivos (`KnowledgeDocument`) dos nós ancestrais descobertos no 2-hop e verifica conflitos ativos relacionados.
+  2. **Estruturação Hierárquica do Prompt em `build_context`**:
+     - Separação clara entre `Conexões Diretas (1-Hop)` e `Cadeias de Dependência Transitiva (2-Hop Reasoning)`.
+     - Inclusão dos resumos executivos dos documentos ancestrais de 2-hop no bloco de contexto factual.
+  3. **Integração no Chat em `backend/app/api/chat.py`**:
+     - Fontes ancestrais críticas do 2-hop incluídas no payload de fontes com rótulo identificador `🔗 {título} (Via Grafo)`.
+  4. **Testes Automatizados e Validação**:
+     - Criada suíte em `backend/tests/test_multihop.py` cobrindo formatação de 2-hop, documentos ancestrais e ausência graciosa de arestas.
+     - Testes unitários executados e aprovados 100% no container Docker do backend.
+     - Endpoint `/health` validado com HTTP 200 `{"status":"ok"}`.
+- **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push dual para `origin` e `axet`.

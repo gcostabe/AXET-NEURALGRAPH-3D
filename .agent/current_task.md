@@ -1,10 +1,10 @@
 # CURRENT TASK
 
-Task ID: TASK-20260924-1118-RELOCATE-ACTIVE-LOBE-CARD-TO-BOTTOM-LEFT
+Task ID: TASK-20260924-1200-MULTI-HOP-GRAPH-RETRIEVAL-FASE-1
 
-Created: 2026-09-24 11:18
+Created: 2026-09-24 12:00
 
-Last Updated: 2026-09-24 11:22
+Last Updated: 2026-09-24 12:04
 
 Status: COMPLETED
 
@@ -14,22 +14,24 @@ Resume Authorization: NO
 
 ## User Request
 
-"ajuste a caixa marcada em vermelho para a area marcada em azul"
+"execute fase a fase"
 
 ---
 
 ## Objective
 
-1. **Reposicionamento do Card de Lobo Cerebral Ativo**:
-   - Mover o container e o card informativo de Iluminação Anatômica Cyberpunk do lobo ativo (`activeLobe`) do cabeçalho superior (`absolute left-3 top-14`) para o canto inferior esquerdo, posicionado diretamente acima da barra de busca de nós (`Localizar nó no espaço...`), na exata área marcada em azul no screenshot do usuário.
-   - Ajustar as classes CSS para `w-full` (respeitando a largura padrão `max-w-xs sm:max-w-sm` do painel inferior esquerdo), com `animate-in fade-in slide-in-from-bottom-2 duration-200` e rolagem máxima defensiva (`max-h-[min(380px,45vh)] overflow-y-auto`).
-   - Liberar completamente a visão e interação com o menu superior de filtros colapsáveis de Lobos e Sinapses, eliminando a sobreposição indesejada.
+1. **Implementar a FASE 1: Expansão Multi-Hop no Retrieval (2-Hop Reasoning)**:
+   - Evoluir a função `get_graph_context_for_sources` em `backend/app/retrieval/search.py` para realizar a travessia de 2 passos no Grafo de Conhecimento (`KnowledgeEdge` e `KnowledgeConflict` no PostgreSQL).
+   - Filtrar a expansão de 2-hop priorizando arestas de alta criticidade semântica (`SUBSTITUI`, `DEPENDE_DE`, `ATUALIZA`, `COMPLEMENTA`), com ordenação e teto defensivo (máximo 8 arestas secundárias e 4 documentos ancestrais) para prevenir *prompt bloat* e diluição de atenção (*lost in the middle*).
+   - Resgatar resumos executivos (`KnowledgeDocument`) dos nós ancestrais críticos alcançados no 2º salto e integrá-los à hierarquia de contexto.
+   - Atualizar `build_context` para formatar e rotular explicitamente as cadeias transitivas (1-Hop direto e 2-Hop encadeado).
+   - Atualizar `backend/app/api/chat.py` para incorporar os nós estruturantes de 2-hop às fontes com precisão (`🔗 Título (Via Grafo)`).
 
-2. **Compilação e Deploy Local**:
-   - Validar com `npm run build` na pasta `frontend/`.
-   - Reconstruir e subir o container Docker `rag-local-reef-frontend`.
-   - Respeitar a regra de não testar autonomamente via subagente de browser e passar para o usuário testar.
-   - Registrar CHECKPOINT-084, comitar e realizar push dual para `origin` e `axet`.
+2. **Validação e Testes**:
+   - Desenvolver testes automatizados cobrindo a lógica de expansão 1-hop e 2-hop, filtragem de arestas, prevenção de ciclos e montagem do prompt topológico em `backend/tests/test_multihop.py`.
+   - Executar testes no ambiente Docker do backend (100% aprovados).
+   - Validar endpoint de saúde e compilação.
+   - Registrar CHECKPOINT-085, comitar e realizar push simultâneo para `origin` e `axet`.
 
 ---
 
@@ -37,16 +39,17 @@ Resume Authorization: NO
 
 Phase: COMPLETED
 
-Current Step: Handover to user for testing.
+Current Step: Handover Fase 1 to user and prepare for Fase 2 (NER).
 
-Last Safe Checkpoint: CHECKPOINT-084.
+Last Safe Checkpoint: CHECKPOINT-085.
 
 ---
 
 ## Planned Steps
 
-- [x] Analisar screenshot e coordenadas dos retângulos vermelho e azul.
-- [x] Mover o card informativo do lobo ativo em `frontend/components/NeuralGraph3D.tsx` para o container do canto inferior esquerdo (acima do campo de busca).
-- [x] Validar compilação (`npm run build`).
-- [x] Reconstruir container Docker `frontend`.
-- [x] Registrar CHECKPOINT-084, comitar e dar push dual para `origin` e `axet`.
+- [x] Escrever checkpoint write-ahead no `execution_journal.md`.
+- [x] Implementar expansão 2-hop filtrada e resumos em `backend/app/retrieval/search.py`.
+- [x] Adaptar `build_context` e integração em `backend/app/api/chat.py`.
+- [x] Criar e executar suite de testes em `backend/tests/test_multihop.py`.
+- [x] Validar containers e rotas da API.
+- [x] Registrar CHECKPOINT-085 no journal, comitar e push dual para `origin` e `axet`.

@@ -97,7 +97,7 @@ async def chat(
         chunks = []
 
     unique_paths = list({c.source_path for c in chunks if c.source_path})
-    edges, conflicts = await get_graph_context_for_sources(db, unique_paths)
+    hop1_edges, conflicts, hop2_edges, hop2_docs = await get_graph_context_for_sources(db, unique_paths)
     doc_summaries = await get_document_summaries_for_sources(db, unique_paths, query=request.message)
 
     # 1. Filtro estrito de relevância semântica:
@@ -115,11 +115,21 @@ async def chat(
         )
         sources = []
     else:
-        context = build_context(relevant_chunks, edges=edges, conflicts=conflicts, doc_summaries=doc_summaries)
+        context = build_context(
+            relevant_chunks,
+            edges=hop1_edges,
+            conflicts=conflicts,
+            doc_summaries=doc_summaries,
+            hop2_edges=hop2_edges,
+            hop2_docs=hop2_docs,
+        )
         sources = [{"source_path": c.source_path, "title": c.title} for c in relevant_chunks]
         for s in doc_summaries:
             if not any(src["source_path"] == s.source_path for src in sources):
                 sources.append({"source_path": s.source_path, "title": s.title})
+        for s in hop2_docs:
+            if not any(src["source_path"] == s.source_path for src in sources):
+                sources.append({"source_path": s.source_path, "title": f"🔗 {s.title} (Via Grafo)"})
 
     messages: list[LLMMessage] = [
         {"role": "system", "content": f"{SYSTEM_PROMPT}\n\nContexto:\n{context}"},
