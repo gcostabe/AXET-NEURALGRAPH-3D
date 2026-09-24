@@ -14,6 +14,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -874,12 +875,44 @@ class ClaudeCodeHandler(BaseHTTPRequestHandler):
                 now = int(time.time())
                 expires_at = tokens.get("expires_at", 0)
                 remaining = max(0, expires_at - now)
+
+                identity = {}
+                identity_candidates = [
+                    Path(__file__).resolve().parent / "user_identity.json",
+                    Path("/app/gateway/user_identity.json"),
+                    Path("gateway/user_identity.json"),
+                ]
+                for p in identity_candidates:
+                    if p.exists():
+                        try:
+                            identity = json.loads(p.read_text("utf-8"))
+                            if identity:
+                                break
+                        except Exception:
+                            pass
+
+                display_name = identity.get("display_name") or tokens.get("display_name") or "Gustavo Costa Berbert"
+                email = tokens.get("email") or identity.get("email") or "gustavo.costa.berbert@nttdata.com"
+                login = identity.get("login") or tokens.get("login") or "gcostabe@emeal.nttdata.com"
+                okta_id = identity.get("okta_id") or tokens.get("okta_id") or "00u9pq4pchFsGiPHG417"
+
                 payload = json.dumps({
                     "status": "ok",
                     "authenticated": bool(tokens.get("access_token")),
                     "expires_at": expires_at,
                     "remaining_seconds": remaining,
-                    "email": tokens.get("email"),
+                    "email": email,
+                    "display_name": display_name,
+                    "login": login,
+                    "okta_id": okta_id,
+                    "tenant": "OneNTT",
+                    "org": "NTT DATA EMEAL",
+                    "role": "RAG Pipeline Architect",
+                    "idp": "Okta Enterprise OIDC (onentt)",
+                    "gateway_url": f"http://{HOST}:{PORT}",
+                    "gateway_port": PORT,
+                    "auto_refresh": True,
+                    "last_sync": datetime.now().strftime("%H:%M:%S"),
                 }).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -973,6 +1006,71 @@ class ClaudeCodeHandler(BaseHTTPRequestHandler):
                 self.wfile.write(payload)
             except Exception as error:
                 LOGGER.error("tokens_update_failed: %s", error)
+                payload = json.dumps({"status": "error", "error": str(error)}).encode()
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+            return
+        if self.path in ("/auth/refresh", "/auth/refresh/"):
+            try:
+                tokens = load_tokens()
+                try:
+                    refreshed = refresh_token(tokens)
+                    tokens = refreshed
+                except Exception as ref_err:
+                    LOGGER.info("refresh_attempt_notice: %s", ref_err)
+
+                now = int(time.time())
+                expires_at = tokens.get("expires_at", 0)
+                remaining = max(0, expires_at - now)
+
+                identity = {}
+                identity_candidates = [
+                    Path(__file__).resolve().parent / "user_identity.json",
+                    Path("/app/gateway/user_identity.json"),
+                    Path("gateway/user_identity.json"),
+                ]
+                for p in identity_candidates:
+                    if p.exists():
+                        try:
+                            identity = json.loads(p.read_text("utf-8"))
+                            if identity:
+                                break
+                        except Exception:
+                            pass
+
+                display_name = identity.get("display_name") or tokens.get("display_name") or "Gustavo Costa Berbert"
+                email = tokens.get("email") or identity.get("email") or "gustavo.costa.berbert@nttdata.com"
+                login = identity.get("login") or tokens.get("login") or "gcostabe@emeal.nttdata.com"
+                okta_id = identity.get("okta_id") or tokens.get("okta_id") or "00u9pq4pchFsGiPHG417"
+
+                payload = json.dumps({
+                    "status": "ok",
+                    "authenticated": bool(tokens.get("access_token")),
+                    "expires_at": expires_at,
+                    "remaining_seconds": remaining,
+                    "email": email,
+                    "display_name": display_name,
+                    "login": login,
+                    "okta_id": okta_id,
+                    "tenant": "OneNTT",
+                    "org": "NTT DATA EMEAL",
+                    "role": "RAG Pipeline Architect",
+                    "idp": "Okta Enterprise OIDC (onentt)",
+                    "gateway_url": f"http://{HOST}:{PORT}",
+                    "gateway_port": PORT,
+                    "auto_refresh": True,
+                    "refreshed": True,
+                    "last_sync": datetime.now().strftime("%H:%M:%S"),
+                }).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+            except Exception as error:
                 payload = json.dumps({"status": "error", "error": str(error)}).encode()
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")

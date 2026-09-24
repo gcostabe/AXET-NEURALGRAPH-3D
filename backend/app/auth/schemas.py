@@ -73,3 +73,17 @@ class GatewayAuthStatusResponse(BaseModel):
     expires_at: int
     remaining_seconds: int
     email: str | None = None
+    display_name: str | None = "Gustavo Costa Berbert"
+    login: str | None = "gcostabe@emeal.nttdata.com"
+    okta_id: str | None = "00u9pq4pchFsGiPHG417"
+    tenant: str | None = "OneNTT"
+    org: str | None = "NTT DATA EMEAL"
+    role: str | None = "RAG Pipeline Architect"
+    idp: str | None = "Okta Enterprise OIDC (onentt)"
+    gateway_url: str | None = "http://gateway:8766"
+    gateway_port: int | None = 8766
+    gateway_online: bool = True
+    auto_refresh: bool = True
+    last_sync: str | None = None
+    refreshed: bool | None = None
+

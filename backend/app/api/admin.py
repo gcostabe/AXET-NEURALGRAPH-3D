@@ -25,6 +25,7 @@ from app.auth.models import (
     UserStatus,
 )
 from app.auth.schemas import ChangeRoleRequest, UserOut
+from app.auth.security import is_authorized_admin
 from app.config import settings
 from app.ingestion.sources_settings import (
     InvalidSourcesPath,
@@ -138,6 +139,12 @@ async def change_role(
     admin: User = Depends(require_admin),
 ):
     user = await _get_user_or_404(db, user_id)
+
+    if request.role == UserRole.ADMIN and not is_authorized_admin(user.email):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas o login corporativo autorizado (gcostabe@emeal.nttdata.com) pode possuir privilégios de Administrador.",
+        )
 
     if user.role == UserRole.ADMIN and request.role != UserRole.ADMIN:
         remaining_admins = await db.scalar(

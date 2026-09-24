@@ -2439,3 +2439,36 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
   5. Criado `iniciar_mac.command`: Lançador com duplo clique para macOS (Finder) com checagem de status, subida do compose e abertura do navegador em `http://localhost:3001/`. Validado e testado com sucesso localmente.
   6. Atualizado `README.md` com a seção "🚀 Instalação e Execução Local Rápida" em destaque logo após a Visão Geral, com passos claros para Windows (WSL2) e macOS.
 - **Próxima Ação Segura**: Commit e push simultâneo nos dois repositórios remotos (`origin` e `axet`).
+
+### CHECKPOINT-078 (2026-09-24 05:15 - Modal de Detalhamento da Autenticação Corporativa Okta SSO & Gateway)
+- **Tarefa**: `TASK-20260924-0510-OKTA-CORPORATE-LOGIN-MODAL`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. Criação do componente `frontend/components/OktaCorporateSessionModal.tsx` reproduzindo com fidelidade pixel-perfect o design do app de referência:
+     - Avatar GB circular em degradê azul (#0072bc ➔ #0284c7) com dados do usuário (Gustavo Costa Berbert, e-mail corporativo, organização NTT DATA EMEAL e cargo RAG Pipeline Architect).
+     - Card de destaque azul claro "⚡ Conexão com API Gateway (:3001)" explicando o auto-refresh silencioso em segundo plano.
+     - Tabela de metadados: IdP Okta Enterprise OIDC (onentt), Login corporativo, Okta User ID, Status do Token/Sessão com countdown dinâmico em tempo real, Status do Gateway (:8766 / :3001), Mecanismo de Renovação e Última Sincronização.
+     - Rodapé com botão de ação "🔄 Sincronizar Sessão" (com spinner e feedback) e botão "Entendido".
+  2. Implementação no gateway (`gateway/local_ai_gateway.py`) e backend (`backend/app/api/auth.py` e `schemas.py`) de rotas enriquecidas `GET /auth/okta/status` e `POST /auth/okta/refresh` retornando a identidade corporativa real.
+  3. Integração do modal no `frontend/components/AppHeader.tsx`, acessível tanto pelo clique direto na pílula Okta SSO quanto pelo item dedicado no menu suspenso do perfil do usuário.
+  4. Build Next.js compilado com sucesso e containers Docker reiniciados.
+- **Próxima Ação Segura**: Validar visualmente via browser e realizar commit e push dual.
+
+### CHECKPOINT-079 (2026-09-24 05:40 - Restrição Estrita de Papel Admin para gcostabe@emeal.nttdata.com e RBAC)
+- **Tarefa**: `TASK-20260924-0535-STRICT-ADMIN-WHITELIST`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Realizadas**:
+  1. Criação de `is_authorized_admin(identifier)` e `AUTHORIZED_ADMIN_EMAILS` em `backend/app/auth/security.py`, restringindo o papel de Administrador exclusivamente ao login `gcostabe@emeal.nttdata.com` e ao alias de e-mail corporativo Okta `gustavo.costa.berbert@nttdata.com`.
+  2. Eliminação definitiva de heurísticas permissivas (`"gustavo" in email`, `startswith("admin@")`) em `backend/app/api/auth.py`.
+  3. No endpoint `/auth/register`: qualquer novo cadastro cujo e-mail seja diferente da whitelist autorizada é compulsoriamente criado com `role=UserRole.USER` e `status=UserStatus.PENDING`.
+  4. No endpoint `/auth/okta/poll`: novos usuários corporativos recebem estritamente `role=UserRole.USER`, e contas preexistentes não autorizadas são rebaixadas automaticamente para `UserRole.USER`.
+  5. No endpoint `/auth/login`: validação ativa rebaixa qualquer conta não autorizada para `UserRole.USER` antes da emissão do token JWT.
+  6. No endpoint `/admin/users/{user_id}/role` em `backend/app/api/admin.py`: bloqueada qualquer tentativa de promover para `ADMIN` contas que não pertençam à whitelist autorizada (HTTP 403 Forbidden).
+  7. Atualização de `bootstrap_admin_email` em `backend/app/config.py`, `.env` e `.env.example` para `gcostabe@emeal.nttdata.com`.
+  8. Sanitização do banco PostgreSQL: rebaixamento de `admin@example.com` para `USER`, garantindo que apenas `gcostabe@emeal.nttdata.com` e `gustavo.costa.berbert@nttdata.com` possuam `ADMIN`.
+  9. Testes de integração via `curl`:
+     - Cadastro de `colaborador1@nttdata.com` retornou `role: "USER"`, `status: "PENDING"`.
+     - Login gerou token com `role: "USER"`.
+     - Tentativa de acesso a rotas administrativas (`/admin/users`) foi bloqueada com `403 Forbidden`.
+- **Próxima Ação Segura**: Commit e push simultâneo para os dois repositórios remotos (`origin` e `axet`).
+

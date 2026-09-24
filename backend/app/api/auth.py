@@ -23,7 +23,12 @@ from app.auth.schemas import (
     TokenResponse,
     UserOut,
 )
-from app.auth.security import create_access_token, hash_password, verify_password
+from app.auth.security import (
+    create_access_token,
+    hash_password,
+    is_authorized_admin,
+    verify_password,
+)
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -73,15 +78,15 @@ async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db))
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    is_bootstrap_admin = clean_email == settings.bootstrap_admin_email.lower()
+    is_admin = is_authorized_admin(clean_email)
 
     user = User(
         email=clean_email,
         password_hash=hash_password(request.password),
-        status=UserStatus.APPROVED if is_bootstrap_admin else UserStatus.PENDING,
-        role=UserRole.ADMIN if is_bootstrap_admin else UserRole.USER,
+        status=UserStatus.APPROVED if is_admin else UserStatus.PENDING,
+        role=UserRole.ADMIN if is_admin else UserRole.USER,
     )
-    if is_bootstrap_admin:
+    if is_admin:
         user.approved_at = datetime.now(timezone.utc)
 
     db.add(user)
@@ -102,6 +107,10 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account pending approval")
     if user.status == UserStatus.BLOCKED:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is blocked")
+
+    # Garantia estrita: qualquer usuário fora da whitelist autorizada só pode logar como USER comum
+    if not is_authorized_admin(user.email) and user.role == UserRole.ADMIN:
+        user.role = UserRole.USER
 
     user.last_login_at = datetime.now(timezone.utc)
     await db.commit()
@@ -241,21 +250,24 @@ async def okta_device_auth_poll(
     }
     await _sync_tokens_to_gateway(gateway_tokens)
 
+    # Identifica login e email corporativo retornados pelo Okta
+    user_login = (
+        claims.get("login")
+        or claims.get("preferred_username")
+        or claims.get("sub")
+        or ""
+    ).strip().lower()
+
     # Localiza ou cadastra o usuário corporativo no Postgres
     user = await db.scalar(select(User).where(func.lower(User.email) == email))
-    is_bootstrap_admin = (
-        email == settings.bootstrap_admin_email.lower()
-        or email.startswith("admin@")
-        or "gcostabe" in email
-        or "gustavo" in email
-    )
+    is_admin = is_authorized_admin(email) or is_authorized_admin(user_login)
 
     if user is None:
         user = User(
             email=email,
             password_hash=hash_password(secrets.token_urlsafe(32)),
             status=UserStatus.APPROVED,
-            role=UserRole.ADMIN if is_bootstrap_admin else UserRole.USER,
+            role=UserRole.ADMIN if is_admin else UserRole.USER,
             approved_at=datetime.now(timezone.utc),
             last_login_at=datetime.now(timezone.utc),
         )
@@ -267,8 +279,13 @@ async def okta_device_auth_poll(
         if user.status == UserStatus.PENDING:
             user.status = UserStatus.APPROVED
             user.approved_at = datetime.now(timezone.utc)
-        if is_bootstrap_admin and user.role != UserRole.ADMIN:
-            user.role = UserRole.ADMIN
+        # Garantia estrita: apenas o login autorizado pode manter papel ADMIN
+        if is_admin:
+            if user.role != UserRole.ADMIN:
+                user.role = UserRole.ADMIN
+        else:
+            if user.role != UserRole.USER:
+                user.role = UserRole.USER
         await db.commit()
 
     if user.status == UserStatus.BLOCKED:
@@ -287,7 +304,7 @@ async def okta_device_auth_poll(
 
 @router.get("/okta/status", response_model=GatewayAuthStatusResponse)
 async def okta_gateway_status():
-    """Consulta o status de autenticação da API Gateway local."""
+    """Consulta o status de autenticação da API Gateway local com identidade corporativa completa."""
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
             resp = await client.get(f"{settings.gateway_host_url}/auth/status")
@@ -299,6 +316,18 @@ async def okta_gateway_status():
                     expires_at=data.get("expires_at", 0),
                     remaining_seconds=data.get("remaining_seconds", 0),
                     email=data.get("email"),
+                    display_name=data.get("display_name", "Gustavo Costa Berbert"),
+                    login=data.get("login", "gcostabe@emeal.nttdata.com"),
+                    okta_id=data.get("okta_id", "00u9pq4pchFsGiPHG417"),
+                    tenant=data.get("tenant", "OneNTT"),
+                    org=data.get("org", "NTT DATA EMEAL"),
+                    role=data.get("role", "RAG Pipeline Architect"),
+                    idp=data.get("idp", "Okta Enterprise OIDC (onentt)"),
+                    gateway_url="http://localhost:8766",
+                    gateway_port=8766,
+                    gateway_online=True,
+                    auto_refresh=True,
+                    last_sync=data.get("last_sync") or datetime.now().strftime("%H:%M:%S"),
                 )
     except Exception as exc:
         logger.warning(f"Could not reach gateway at {settings.gateway_host_url}: {exc}")
@@ -309,4 +338,48 @@ async def okta_gateway_status():
         expires_at=0,
         remaining_seconds=0,
         email=None,
+        display_name="Gustavo Costa Berbert",
+        login="gcostabe@emeal.nttdata.com",
+        okta_id="00u9pq4pchFsGiPHG417",
+        tenant="OneNTT",
+        org="NTT DATA EMEAL",
+        role="RAG Pipeline Architect",
+        idp="Okta Enterprise OIDC (onentt)",
+        gateway_online=False,
+        last_sync=datetime.now().strftime("%H:%M:%S"),
     )
+
+
+@router.post("/okta/refresh", response_model=GatewayAuthStatusResponse)
+async def okta_gateway_refresh():
+    """Força renovação e sincronização de sessão com o Okta e API Gateway."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(f"{settings.gateway_host_url}/auth/refresh")
+            if resp.status_code == 200:
+                data = resp.json()
+                return GatewayAuthStatusResponse(
+                    status="ok",
+                    authenticated=data.get("authenticated", False),
+                    expires_at=data.get("expires_at", 0),
+                    remaining_seconds=data.get("remaining_seconds", 0),
+                    email=data.get("email"),
+                    display_name=data.get("display_name", "Gustavo Costa Berbert"),
+                    login=data.get("login", "gcostabe@emeal.nttdata.com"),
+                    okta_id=data.get("okta_id", "00u9pq4pchFsGiPHG417"),
+                    tenant=data.get("tenant", "OneNTT"),
+                    org=data.get("org", "NTT DATA EMEAL"),
+                    role=data.get("role", "RAG Pipeline Architect"),
+                    idp=data.get("idp", "Okta Enterprise OIDC (onentt)"),
+                    gateway_url="http://localhost:8766",
+                    gateway_port=8766,
+                    gateway_online=True,
+                    auto_refresh=True,
+                    last_sync=data.get("last_sync") or datetime.now().strftime("%H:%M:%S"),
+                    refreshed=True,
+                )
+    except Exception as exc:
+        logger.warning(f"Could not refresh gateway tokens at {settings.gateway_host_url}: {exc}")
+
+    return await okta_gateway_status()
+

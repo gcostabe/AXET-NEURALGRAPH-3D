@@ -6,6 +6,7 @@ import { authApi, UserOut, ApiError, GatewayAuthStatusResponse } from "@/lib/api
 import { clearToken, isAdmin as checkIsAdmin } from "@/lib/auth";
 import NttDataLogo from "./NttDataLogo";
 import OktaSsoModal from "./OktaSsoModal";
+import OktaCorporateSessionModal from "./OktaCorporateSessionModal";
 import { 
   ShieldCheck, 
   User as UserIcon, 
@@ -26,6 +27,7 @@ export default function AppHeader() {
   const [user, setUser] = useState<UserOut | null>(null);
   const [oktaStatus, setOktaStatus] = useState<GatewayAuthStatusResponse | null>(null);
   const [showOktaModal, setShowOktaModal] = useState(false);
+  const [showCorporateModal, setShowCorporateModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -129,7 +131,7 @@ export default function AppHeader() {
         <div className="flex items-center gap-2.5">
           {/* Okta SSO Gateway Status Pill */}
           <button
-            onClick={() => setShowOktaModal(true)}
+            onClick={() => setShowCorporateModal(true)}
             className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all shadow-sm ${
               oktaStatus?.authenticated
                 ? ((oktaStatus.remaining_seconds || 0) > 600
@@ -139,8 +141,8 @@ export default function AppHeader() {
             }`}
             title={
               oktaStatus?.authenticated
-                ? `Okta SSO Conectado • ${Math.round((oktaStatus.remaining_seconds || 0) / 60)} min restantes • Clique para renovar`
-                : "Okta SSO Desconectado • Clique para autenticar"
+                ? `Okta SSO Conectado • ${Math.round((oktaStatus.remaining_seconds || 0) / 60)} min restantes • Ver detalhes da sessão corporativa`
+                : "Okta SSO • Clique para detalhes e conexão"
             }
           >
             <span
@@ -155,7 +157,7 @@ export default function AppHeader() {
             <span className="hidden md:inline text-[11px] font-semibold">
               {oktaStatus?.authenticated
                 ? ((oktaStatus.remaining_seconds || 0) > 600 ? "Okta SSO" : "Renovar SSO")
-                : "Conectar Okta"}
+                : "Okta SSO"}
             </span>
           </button>
           {/* Acesso ao Grafo Neural 3D para Todos os Usuários */}
@@ -260,6 +262,17 @@ export default function AppHeader() {
                       <span>Painel de Administração</span>
                     </button>
                   )}
+
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setShowCorporateModal(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 transition"
+                  >
+                    <span className="text-xs">🏢</span>
+                    <span>Sessão Okta & Gateway</span>
+                  </button>
 
                   <button
                     onClick={() => {
@@ -393,6 +406,14 @@ export default function AppHeader() {
           authApi.oktaStatus().then(setOktaStatus);
         }}
         isRenewal={true}
+      />
+
+      {/* Detalhamento da Sessão Corporativa Okta SSO & Gateway */}
+      <OktaCorporateSessionModal
+        isOpen={showCorporateModal}
+        onClose={() => setShowCorporateModal(false)}
+        initialStatus={oktaStatus}
+        onStatusUpdate={(updated) => setOktaStatus(updated)}
       />
     </>
   );

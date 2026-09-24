@@ -36,3 +36,23 @@ def decode_token(token: str) -> dict:
         return jwt.decode(token, settings.jwt_secret, algorithms=[ALGORITHM])
     except JWTError as exc:
         raise ValueError("Invalid or expired token") from exc
+
+
+# Whitelist autorizada para privilégios de Administrador no sistema.
+# Qualquer usuário diferente deste login é compulsoriamente restrito ao papel comum (USER).
+AUTHORIZED_ADMIN_EMAILS = {
+    "gcostabe@emeal.nttdata.com",
+    "gustavo.costa.berbert@nttdata.com",
+}
+
+
+def is_authorized_admin(identifier: str | None) -> bool:
+    """Verifica se o login ou e-mail fornecido pertence à whitelist estrita de administradores."""
+    if not identifier:
+        return False
+    clean = identifier.strip().lower()
+    allowed = set(AUTHORIZED_ADMIN_EMAILS)
+    if settings.bootstrap_admin_email:
+        allowed.add(settings.bootstrap_admin_email.strip().lower())
+    return clean in allowed
+

@@ -1,58 +1,63 @@
 # CURRENT TASK
 
-Task ID: TASK-20260924-0440-ONE-CLICK-LOCAL-INSTALLERS
+Task ID: TASK-20260924-0535-STRICT-ADMIN-WHITELIST
 
-Created: 2026-09-24 04:40
+Created: 2026-09-24 05:35
 
-Last Updated: 2026-09-24 04:40
+Last Updated: 2026-09-24 05:35
 
-Status: COMPLETED
+Status: IN_PROGRESS
 
-Resume Authorization: NO
+Resume Authorization: YES
 
 ---
 
 ## User Request
 
-"preciso que tambem disponibilize um processo de instalação em maquinas local windowns e mac seguindo o padrao abaixo que usamos para outro app
-
-🚀 Instalação e Execução Local Rápida
-🪟 No Windows (Instalador One-Click via WSL2)
-...
-🍏 No macOS (Instalador One-Click)
-..."
+"garanta que todo novo usuário diferente do login gcostabe@emeal.nttdata.com somentee se loguem como user comum sem acesso adm"
 
 ---
 
 ## Objective
 
-1. Criar `instalar_windows.bat` para instalação automatizada no Windows via WSL2 (Ubuntu), detecção/habilitação de WSL2, Docker e criação do atalho `Iniciar AXET-NEURALGRAPH-3D.bat` na Área de Trabalho (Desktop).
-2. Criar `scripts/setup_wsl_internal.sh` para provisionamento interno silencioso no Ubuntu WSL2 (Docker Engine / Compose, utilitários, permissões e subida do stack).
-3. Criar `iniciar_windows.bat` para iniciar o stack no Windows via WSL2, aguardar a porta 3001 e abrir o navegador automaticamente em `http://localhost:3001/`.
-4. Criar `setup_mac.sh` para validação e setup no macOS, verificação de Docker/Colima/Homebrew, criação do atalho `Iniciar AXET-NEURALGRAPH-3D.command` na Mesa (Desktop) e geração automática de `.env`.
-5. Criar `iniciar_mac.command` para inicialização com duplo clique no macOS, checagem do daemon Docker, subida dos 5 containers e abertura automática do navegador em `http://localhost:3001/`.
-6. Atualizar o `README.md` com a seção "🚀 Instalação e Execução Local Rápida" (Windows WSL2 e macOS One-Click) e sincronizar nos 2 repositórios remotos.
+1. Restringir estritamente o papel de Administrador (`UserRole.ADMIN`) exclusivamente ao login `gcostabe@emeal.nttdata.com` (e ao seu alias de e-mail corporativo Okta `gustavo.costa.berbert@nttdata.com`).
+2. Remover completamente quaisquer heurísticas genéricas anteriores (como `"gustavo" in email` ou `startswith("admin@")` ou `"gcostabe" in email`), substituindo-as por validação estrita baseada em whitelist oficial.
+3. No endpoint de registro `/auth/register`:
+   - Todo novo usuário diferente de `gcostabe@emeal.nttdata.com` / `gustavo.costa.berbert@nttdata.com` é cadastrado compulsoriamente como `UserRole.USER` com status `PENDING`.
+4. No endpoint de autenticação Okta `/auth/okta/poll`:
+   - Todo usuário autenticado cujo login/e-mail corporativo for diferente da whitelist recebe compulsoriamente o papel `UserRole.USER`.
+   - Usuários existentes não autorizados que porventura possuam `ADMIN` são automaticamente rebaixados para `USER`.
+5. No endpoint de login padrão `/auth/login`:
+   - Usuários não autorizados são validados para garantir que nunca emitam JWT com role `ADMIN`.
+6. No endpoint de alteração de papel `/admin/users/{user_id}/role`:
+   - Bloquear promoção de qualquer usuário para `ADMIN` caso seu e-mail/login não pertença à whitelist autorizada.
+7. Atualizar configurações padrão:
+   - `backend/app/config.py`: `bootstrap_admin_email = "gcostabe@emeal.nttdata.com"`
+   - `.env` e `.env.example`: `BOOTSTRAP_ADMIN_EMAIL=gcostabe@emeal.nttdata.com`
+8. Sanitizar a base Postgres em execução:
+   - Rebaixar `admin@example.com` para `USER`.
+   - Garantir que apenas `gcostabe@emeal.nttdata.com` e `gustavo.costa.berbert@nttdata.com` possuam `ADMIN`.
+9. Reiniciar containers, validar testes funcionais e executar commit e push dual para ambos os repositórios remotos.
 
 ---
 
 ## Execution Cursor
 
-Phase: COMPLETED
+Phase: IMPLEMENTATION
 
-Current Step: One-click scripts created and tested; README updated and pushed to both remotes.
+Current Step: Updating backend auth logic, settings, and database sanitization.
 
-Last Safe Checkpoint: CHECKPOINT-077.
+Last Safe Checkpoint: CHECKPOINT-078.
 
 ---
 
 ## Planned Steps
 
-- [x] Criar `scripts/setup_wsl_internal.sh` para provisionamento no WSL2 Ubuntu.
-- [x] Criar `instalar_windows.bat` (one-click installer para Windows).
-- [x] Criar `iniciar_windows.bat` (one-click launcher para Windows).
-- [x] Criar `setup_mac.sh` (one-click installer para macOS).
-- [x] Criar `iniciar_mac.command` (one-click launcher para macOS).
-- [x] Testar `setup_mac.sh` e `iniciar_mac.command` localmente no macOS.
-- [x] Atualizar `README.md` com o sumário e o guia completo de instalação local rápida.
-- [x] Registrar checkpoint no `execution_journal.md`.
-- [x] Realizar commit e push simultâneo para ambos os repositórios remotos (`origin` e `axet`).
+- [ ] Criar função de validação estrita `is_authorized_admin(email_or_login)` em `backend/app/auth/security.py` ou `backend/app/api/auth.py`.
+- [ ] Atualizar `backend/app/api/auth.py` (`/register`, `/login`, `/okta/poll`) com a validação estrita de RBAC.
+- [ ] Atualizar `backend/app/api/admin.py` (`change_role`) para impedir promoção de contas não autorizadas.
+- [ ] Atualizar `backend/app/config.py`, `.env` e `.env.example` definindo `BOOTSTRAP_ADMIN_EMAIL=gcostabe@emeal.nttdata.com`.
+- [ ] Executar sanitização no banco PostgreSQL (`docker compose exec postgres psql...`).
+- [ ] Reiniciar backend e validar autenticações de teste (novo usuário comum vs login de admin).
+- [ ] Registrar checkpoint CHECKPOINT-079 em `.agent/execution_journal.md`.
+- [ ] Realizar commit e push para ambos os repositórios (`origin` e `axet`).

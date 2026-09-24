@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "changeme"
     jwt_access_token_ttl_minutes: int = 1440  # 24 horas para conveniência local
     jwt_refresh_token_ttl_days: int = 7
-    bootstrap_admin_email: str = "admin@example.com"
+    bootstrap_admin_email: str = "gcostabe@emeal.nttdata.com"
 
     # Okta SSO (OneNTT / aXet)
     okta_domain: str = "onentt.okta.com"

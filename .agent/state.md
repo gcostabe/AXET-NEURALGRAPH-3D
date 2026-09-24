@@ -62,6 +62,9 @@ Repositório Git inicializado na branch `main` com remote origin configurado par
 - 2026-09-20: Inicialização do repositório Git com branch `main`, configuração do remote `origin` para `https://github.com/gberbert/RAG-LOCAL-REEF.git`, criação de `.gitignore` robusto com proteção contra segredos e caches, e preparação do commit inicial.
 - 2026-09-20: Atualização do favicon do navegador com o emblema oficial quadrado da NTT DATA.
 - 2026-09-20: Alinhamento assimétrico de mensagens (perguntas à direita, respostas à esquerda) e avatar oficial do assistente.
+- 2026-09-24: Implementado o modal corporativo de detalhamento de sessão Okta SSO & Gateway (`OktaCorporateSessionModal.tsx`) com dados em tempo real, auto-refresh e botão de sincronização.
+- 2026-09-24: Aplicada política estrita de RBAC que restringe o papel de Administrador exclusivamente ao login corporativo `gcostabe@emeal.nttdata.com` (e alias Okta `gustavo.costa.berbert@nttdata.com`), garantindo que todos os novos usuários cadastrados ou autenticados operem compulsoriamente como usuários comuns sem privilégios administrativos.
+
 
 ---
 
