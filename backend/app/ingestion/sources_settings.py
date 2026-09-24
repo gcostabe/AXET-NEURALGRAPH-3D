@@ -49,8 +49,13 @@ def to_relative_path(host_or_relative_path: str) -> str:
         sub_part = norm_candidate.split(norm_onedrive)[-1].lstrip("/")
         return sub_part if sub_part else "."
 
-    if "_markdown" in norm_candidate:
-        sub_part = norm_candidate.split("_markdown")[-1].lstrip("/")
+    if "MAPFRE REEF VIDEOS" in norm_candidate:
+        return "08. Videos Reef Market Place"
+
+    norm_lower = norm_candidate.lower()
+    if "_markdown" in norm_lower:
+        idx = norm_lower.find("_markdown")
+        sub_part = norm_candidate[idx + len("_markdown"):].lstrip("/")
         return sub_part if sub_part else "."
 
     # 3. Verificação padrão com sources_root_host_path

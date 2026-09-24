@@ -1,0 +1,681 @@
+# Relatório de Análise Avançada de Transcrição
+
+**Arquivo de origem:** `Reefcore  Siniestros  Definición de liquidaciones-1.mp4`
+**Data de processamento:** 24/09/2026 14:44:20
+**Modelo de transcrição:** whisper.cpp Metal (base) — idioma: es
+**Modo de Análise:** Com OCR + Visão Multimodal (Frames de Tela + Áudio)
+**Modelo de Visão/IA:** LLM Gateway (gpt-5.6-terra)
+**Prompt utilizado:** análise multimodal avançada (documentação funcional, OCR de telas, formulários, tabelas, arquitetura)
+
+---
+
+# Relatório Técnico-Funcional Multimodal — REEF.core / TRON
+## Liquidações de Sinistros: catálogos, operação e parametrizações complementares
+
+> **Base de evidências.** Este relatório foi elaborado exclusivamente a partir da transcrição Whisper e dos Frames 01–09 fornecidos. O trecho inicial repetitivo da transcrição foi tratado como ruído de reconhecimento e não foi usado como fonte factual. Os Frames 01–03 são telas de videoconferência e foram deliberadamente excluídos da análise técnica.
+>
+> **Critério de leitura.** Afirmações ditas ou claramente visíveis são apresentadas como fatos. Reorganizações didáticas são contextualização. Inferências são marcadas como **Análise**. Onde a sessão não fornece detalhe suficiente, a lacuna é declarada sem preenchimento especulativo.
+
+---
+
+## 1. Síntese executiva
+
+A sessão é uma capacitação técnico-funcional sobre a configuração e a operação de **liquidações de sinistros** no ecossistema documental REEF.core/TRON. O conteúdo parte das definições prévias de tesouraria — conceitos de cobrança e pagamento e documentos de pagamento — e mostra como esses catálogos são usados para determinar o que pode ser liquidado, para qual beneficiário, em qual contexto de sinistro e sob quais regras de valor.
+
+O problema funcional central é controlar a elegibilidade das liquidações. A solução apresentada impede que um detalhe de pagamento inadequado seja oferecido em determinado expediente ou a determinado beneficiário: o sistema cruza a configuração por tipo de expediente e conceito de reserva com a configuração por atividade do beneficiário. Assim, por exemplo, uma liquidação de danos próprios pode permitir indenização ao segurado, pagamento a oficina e honorários de perito, sem oferecer pagamento de hospital ou advogado quando não configurados para aquele caso.
+
+Também são demonstrados elementos operacionais: seleção e consulta de beneficiário, documento de pagamento, data estimada de pagamento, informação adicional parametrizável, lógica de valor inicial/máximo, convênios de prazo por fornecedor/atividade e valores iniciais. A mensagem-chave é que o comportamento da liquidação é majoritariamente configurável por catálogos, estruturas de dados e lógicas de negócio; porém, a sessão não descreve a arquitetura física nem as tecnologias internas do Core. [Evidência Visual: Frames 04–09]
+
+## 2. Contexto e antecedentes
+
+A capacitação consulta a documentação corporativa **DOCUMENTACIÓN Reef.core** no MAPFRE Marketplace. A página inicial exibe uma trilha documental organizada por infraestrutura, arquitetura, metodologia, desenvolvimento, módulos Reef.core e implantação, além de uma árvore com `01 TRON`, `02 ARQUITECTURA` e `99 SESION`. Isso demonstra a existência de uma base documental estruturada para a plataforma, sem comprovar detalhes de implantação ou de código. [Evidência Visual: Frames 04–05]
+
+No trecho inteligível, a instrutora afirma que parte do assunto já havia sido apresentada em uma primeira sessão. A aula atual retoma definições de tesouraria antes de avançar nos catálogos específicos de sinistros. A sequência conceitual transmitida é: definir em tesouraria os conceitos de cobrança/pagamento e os documentos; associar os conceitos a tipos de expediente e conceitos de reserva; associá-los também às atividades que poderão ser beneficiárias; e, então, operar a liquidação.
+
+A documentação exibida confirma duas definições de tesouraria: **conceito de cobrança e pagamento** e **tipo de documento de cobrança/pagamento**. Na primeira, os conceitos são identificados por chave, nome, nome curto, agrupação contábil e agrupação de impostos. Na segunda, os documentos identificam justificantes de cobrança ou pagamento e possuem propriedades como inclusão de IVA, retenção, livro de compras e retificação de documento. [Evidência Visual: Frames 06–07]
+
+A reunião não apresenta histórico de companhias, países, sistemas legados, dispersão de código, migração, versão do produto ou cenário tecnológico anterior. Portanto, não é possível concluir que a sessão trate de substituição de legado ou de uma iniciativa multinacional.
+
+## 3. Problemas e necessidades identificados
+
+### 3.1. Restringir detalhes de pagamento ao contexto correto de sinistro
+
+**Problema.** Um catálogo indiscriminado de conceitos de cobrança/pagamento permitiria selecionar pagamentos incompatíveis com o tipo de expediente ou com o beneficiário.
+
+**Como ocorre.** A fala usa o exemplo de perda parcial: pagamento de oficina pode ser aplicável, enquanto pagamento a hospital não deveria aparecer. Do mesmo modo, um perito pode receber honorários, mas não indenização destinada ao segurado.
+
+**Impacto.** A seleção inadequada comprometeria a consistência da liquidação e poderia direcionar um pagamento a conceito incompatível.
+
+**Prioridade.** A instrutora qualifica esse controle como importante e o apresenta como resultado do cruzamento entre dois catálogos.
+
+### 3.2. Centralizar atributos fiscais e documentais em tesouraria
+
+**Problema.** Sinistros precisa liquidar valores com possíveis impostos, IVA e retenções, mas esses atributos não são definidos livremente a cada liquidação.
+
+**Como ocorre.** Os conceitos de cobrança/pagamento e os tipos de documento são definidos em tesouraria. A fala diz que tesouraria indica, entre outros aspectos, se há impostos e retenções; a documentação exibe propriedades de IVA e retenção do documento. [Evidência Visual: Frame 07 @ 25:25]
+
+**Impacto.** A liquidação depende de configurações prévias para apresentar e calcular corretamente os elementos tributários.
+
+**Prioridade.** A instrutora anuncia que impostos e retenções serão aprofundados em sessão futura com exemplo específico.
+
+### 3.3. Obter e validar valores de liquidação
+
+**Problema.** O valor inicial pode vir de fontes funcionais distintas e o valor final não pode ultrapassar o máximo configurado.
+
+**Como ocorre.** A documentação mostra uma lógica de negócio para devolver o importe inicial de conceitos variados; exemplos mencionam peritação, custo de serviço por atividade, módulo de juízos e profissionais externos. A fala acrescenta que pode existir lógica para validar se o importe liquidado supera o máximo estabelecido. [Evidência Visual: Frame 08 @ 29:02]
+
+**Impacto.** A operação pode ser pré-preenchida e controlada por regras configuradas para cada instalação.
+
+**Prioridade.** A documentação afirma explicitamente que o comportamento pode mudar por instalação.
+
+### 3.4. Determinar automaticamente a data estimada de pagamento
+
+**Problema.** O pagamento automático precisa saber quando cada liquidação se torna pagável, sem exigir cálculo manual repetitivo.
+
+**Como ocorre.** Convênios por ramo, atividade, tipo/código de documento e, conforme a fala, categorias de prestadores, definem a quantidade de dias a somar à data de geração da liquidação.
+
+**Impacto.** Tesouraria usa a data estimada de pagamento como critério para processar liquidações cuja data seja igual ou anterior ao dia de execução.
+
+**Prioridade.** É apresentada como o objetivo prático do catálogo de convênios de pagamento por atividade.
+
+### 3.5. Capturar informação complementar sem alterar telas fixas
+
+**Problema.** Diferentes tipos de expediente podem necessitar informações adicionais para gerar uma liquidação.
+
+**Como ocorre.** A sessão mostra o uso de estruturas de dados variáveis agrupadas e associadas à liquidação, com ordenação, obrigatoriedade e regra de visibilidade.
+
+**Impacto.** A companhia pode solicitar, por exemplo, informação de finiquito ou outra informação necessária ao processo sem que a sessão afirme a criação de uma tela fixa nova.
+
+**Prioridade.** A instrutora destaca a agilidade de incluir novos campos quando necessário, particularmente ao comparar TRON Web e New TRON.
+
+## 4. Solução apresentada: visão conceitual
+
+A solução é um modelo de liquidações parametrizado por catálogos prévios. A liquidação sempre está vinculada a um expediente de sinistro e reúne: dados do expediente, beneficiário, dados fixos/documentais, informação adicional quando configurada e parte econômica.
+
+O modelo mental transmitido separa responsabilidades funcionais. Tesouraria define conceitos e documentos de cobrança/pagamento, incluindo propriedades fiscais e contábeis. Sinistros associa esses conceitos ao tipo de expediente, ao conceito de reserva e às atividades que podem figurar como beneficiárias. A operação de liquidação consulta essa configuração e limita as opções disponíveis.
+
+Há ainda mecanismos de extensão por **lógica de negócio**. A documentação visualiza uma implementação exemplificativa em package body SQL/PL-SQL, mas a sessão não generaliza essa tecnologia para toda a plataforma. A fala trata as lógicas como apoio aos informáticos e afirma que devem ser definidas pelo usuário; essa formulação não esclarece a divisão exata de responsabilidades de análise, desenvolvimento e aprovação. [Evidência Visual: Frame 08 @ 29:02]
+
+**Análise.** A configuração busca reduzir escolhas operacionais incompatíveis e reutilizar regras por contexto. Não há elementos suficientes para classificar o Core como monólito, microserviços, arquitetura orientada a eventos ou qualquer outro estilo técnico.
+
+## 5. Arquitetura e funcionamento: reconstrução lógica
+
+A reunião não demonstra arquitetura física, APIs, gateway, mensageria, banco de dados, serviços, infraestrutura ou comunicação entre países. O diagrama abaixo é estritamente lógico-funcional, reconstruído das evidências fornecidas.
+
+```text
+Catálogos de Tesouraria
+  ├─ Conceitos de cobrança/pagamento
+  │    ├─ chave, nomes, agrupação contábil e de impostos
+  │    └─ uso em sinistros, tesouraria, resseguro/cosseguro (conforme fala)
+  └─ Tipos de documento de cobrança/pagamento
+       ├─ IVA, retenção, retificação e registro
+       └─ uso autorizado em sinistros
+                │
+                ▼
+Catálogos de Sinistros
+  ├─ Tipo de expediente + conceito de reserva → conceitos elegíveis
+  ├─ Atividade beneficiária + conceito de reserva → conceitos elegíveis
+  ├─ Estruturas de informação adicional
+  ├─ Convênios de prazo de pagamento
+  └─ Valores iniciais / lógicas de negócio
+                │
+                ▼
+Operação de Liquidação vinculada ao expediente
+  ├─ Beneficiário (terceiro/atividade)
+  ├─ Documento e datas
+  ├─ Informação complementar
+  └─ Parte econômica: cobertura, reserva e detalhe de cobrança/pagamento
+                │
+                ▼
+Tesouraria
+  └─ Processo automático: liquidações com data estimada <= data do dia
+```
+
+No exemplo de documentação técnica, uma lógica recebe `cod_cto_rva`, `cod_cto_cob_pag` e `cod_mon`; para retificação recebe `num_liq`, e para não retificação recebe `num_insp` e `num_orden`, devolvendo `imp_inicial`. Esses nomes são evidência de contrato de entrada/saída daquela lógica documentada, não prova de um modelo de dados global. [Evidência Visual: Frame 08 @ 29:02]
+
+A sessão menciona que os catálogos e lógicas podem variar por instalação. Não foram mostrados mecanismos de extensibilidade como sinônimos, hooks, procedures além do exemplo visual ou processos de deploy.
+
+## 6. Componentes e conceitos mencionados
+
+### 6.1. REEF.core
+
+Nome da plataforma/documentação visualizada. A página informa que seus módulos e respectivas funcionalidades podem ser consultados no portal. A expansão da sigla não é fornecida. [Evidência Visual: Frame 05 @ 18:11]
+
+### 6.2. TRON
+
+Identificador visível na navegação documental `01 TRON`. A transcrição menciona TRON Web e New TRON ao tratar da visibilidade de informação adicional. A tecnologia interna e a relação arquitetural entre ambos não são detalhadas.
+
+### 6.3. Tesouraria
+
+Área funcional responsável pelas definições prévias de conceitos e documentos de cobrança/pagamento. A fala atribui a tesouraria a indicação de impostos e retenções e ao pagamento automático baseado na data estimada.
+
+### 6.4. Liquidações
+
+Operação de sinistros usada tanto para pagar quanto para cobrar. A fala ilustra cobrança de franquia do segurado e cobrança de companhia contrária quando ela é responsável pelo sinistro.
+
+### 6.5. Expediente de sinistro
+
+Unidade à qual a liquidação é vinculada. A tela operativa descrita pela instrutora exibe informações do sinistro e do expediente antes dos dados da liquidação.
+
+### 6.6. Conceito de cobrança e pagamento
+
+Catálogo identificado por chave, nome e nome curto. Deve ser associado a agrupação contábil; a página também lista agrupação de impostos. Exemplos visuais incluem `S07 Honorarios perito`, `DCT Descuento comisiones`, `S06 Indemnización lesionado`, `DC Descuento de comisiones cobro` e `PC1 Comisiones anticipadas`. [Evidência Visual: Frame 06 @ 21:48]
+
+### 6.7. Tipo de documento de cobrança/pagamento
+
+Catálogo de documentos justificantes de cobrança ou pagamento em tesouraria e sinistros. A tela lista propriedades: tipo/nome do documento, se é de cobrança ou pagamento, IVA, retenção, livro de compras e retificação. [Evidência Visual: Frame 07 @ 25:25]
+
+### 6.8. Beneficiário e atividade
+
+Beneficiário é quem recebe ou paga na liquidação. Atividade descreve como a pessoa física ou jurídica intervém para a companhia. A associação de conceitos por atividade delimita quais detalhes de pagamento podem ser usados quando essa atividade for beneficiária.
+
+### 6.9. Cobertura e conceito de reserva
+
+A parte econômica da liquidação relaciona a cobertura afetada, o conceito de reserva e o detalhe de cobrança/pagamento. A fala usa danos próprios e indenização a oficina como exemplo.
+
+### 6.10. Lógica de negócio
+
+Regra configurável para obter importe inicial, validar importe máximo, preencher valores iniciais, definir obrigatoriedade ou visibilidade quando a condição não é simplesmente sim/não. A documentação mostra um exemplo em package SQL/PL-SQL. [Evidência Visual: Frame 08 @ 29:02]
+
+### 6.11. Estrutura de dados variáveis
+
+Estrutura usada para solicitar informação adicional durante a liquidação. A sessão menciona agrupação, estrutura, ordem de apresentação, obrigatoriedade e visibilidade.
+
+### 6.12. Convênios de pagamento por atividade
+
+Configuração de prazo para calcular a data estimada de pagamento. Pode considerar ramo, atividade e, segundo a explicação oral, características específicas de fornecedores ou documentos.
+
+### 6.13. Neutron / New TRON
+
+A transcrição registra as formas fonéticas “neutral”, “neutron” e “new tron”. Contextualmente, o apresentador parece referir-se a **New TRON** ao contrastá-lo com TRON Web na configuração de visibilidade; a fonte não permite confirmar a grafia oficial nem a arquitetura do componente.
+
+### 6.14. Liquidaciones / catálogo de liquidações
+
+A página visualizada no fim da evidência é a definição de liquidações, dentro do módulo de sinistros, com sumário sobre objetivo e processo para definir seus catálogos. O conteúdo detalhado abaixo do título não está legível na evidência disponível. [Evidência Visual: Frame 09 @ 32:40]
+
+## 7. Especificação funcional das telas e interfaces (OCR & Evidências Visuais)
+
+### 7.1. Elementos visuais excluídos
+
+Os Frames 01–03 mostram somente participantes de videoconferência. Conforme o filtro solicitado, não são descritos como evidência funcional.
+
+### 7.2. Página inicial da documentação REEF.core
+
+| Elemento observado | Conteúdo técnico extraído |
+|---|---|
+| Título | `DOCUMENTACIÓN Reef.core` |
+| Estrutura documental | `01 TRON`, `02 ARQUITECTURA`, `99 SESION` |
+| Cards de capacitação | Infraestrutura, Arquitetura, Metodologia, Desenvolvimento, Reef.core e Implantação |
+| Evidência | Frames 04 @ 14:34 e 05 @ 18:11 |
+
+Os cards descrevem infraestrutura como aquilo que sustenta REEF; arquitetura como documentação para conhecer a arquitetura e desenvolver com ela; metodologia como orientação para documentar projetos, evolutivos, corretivos e software; desenvolvimento como normas e regras de desenvolvimento. Esses textos comprovam a organização do portal, não o conteúdo técnico de cada disciplina. [Evidência Visual: Frames 04–05]
+
+### 7.3. Tela documental: conceito de cobrança e pagamento
+
+| Campo/propriedade | Descrição visível |
+|---|---|
+| Conceito de cobrança e pagamento | Chave que identifica o conceito contábil estabelecido como conceito de cobrança/pagamento. |
+| Nome | Nome associado à chave do conceito. |
+| Nome curto | Nome abreviado associado à chave. |
+| Agrupação contábil | Associação obrigatória que fica refletida em cada lançamento contábil para estudo posterior. |
+| Agrupação de impostos | Item listado no índice da página; descrição não visível na evidência. |
+
+| Conceito | Nome | Nome curto |
+|---|---|---|
+| S07 | Honorarios perito | Honorarios |
+| DCT | Descuento comisiones | Dcto.Comi. |
+| S06 | Indemnización lesionado | Indemniza. |
+| DC | Descuento de comisiones cobro | Dcto.Cobro |
+| PC1 | Comisiones anticipadas | Anticipo |
+
+[Evidência Visual: Frame 06 @ 21:48]
+
+### 7.4. Tela documental: tipo de documento de cobrança/pagamento
+
+| Campo/propriedade | Descrição visível |
+|---|---|
+| Tipo de documento | Chave identificadora do documento usado para cobrar ou pagar em tesouraria e sinistros. |
+| Nome do documento | Nome associado à chave. |
+| Documento de cobrança ou pagamento | Propriedade listada no índice; a explicação completa não está visível. |
+| Inclui IVA | Propriedade listada no índice. |
+| Inclui retenção | Propriedade listada no índice. |
+| Livro de compras | Propriedade listada no índice. |
+| Retifica documento | Propriedade listada no índice. |
+
+O objetivo visível é identificar os diferentes documentos tratados pela companhia como comprovantes de cobranças ou pagamentos e definir suas características. [Evidência Visual: Frame 07 @ 25:25]
+
+### 7.5. Tela documental: lógica de negócio de importe inicial
+
+| Elemento | Conteúdo observado |
+|---|---|
+| Finalidade | Devolver o importe inicial para conceitos variados de cobrança/pagamento das liquidações. |
+| Entradas | `cod_cto_rva`, `cod_cto_cob_pag`, `cod_mon`; retificação: `num_liq`; não retificação: `num_insp`, `num_orden`. |
+| Saída | `imp_inicial`. |
+| Exemplo | Indenização à oficina pode tomar importe da peritação; profissionais externos podem obter valor de atividade, juízos ou peritação. |
+| Observação | “Esto puede cambiar para cada instalación.” |
+
+O bloco exibido inicia `CREATE OR REPLACE PACKAGE BODY ts_k_liq_300tst` e descreve procedimentos para personalizar importes máximos e iniciais do ramo 300 para liquidação. Não foram mostrados o package completo, a assinatura dos procedimentos nem o banco de dados utilizado pela plataforma como um todo. [Evidência Visual: Frame 08 @ 29:02]
+
+### 7.6. Tela documental: definição de liquidações
+
+A página exibida pertence ao módulo `04-Siniestros`, seção `116-Liquidacion`, e apresenta o título de definição de liquidações. O sumário contém “¿En que consiste?”, “Objetivo” e “Proceso para Definir los catálogos de las Liquidaciones”. A área principal detalhada não está disponível no frame. [Evidência Visual: Frame 09 @ 32:40]
+
+### 7.7. Interface operacional descrita oralmente
+
+A transcrição descreve, mas não fornece frame legível, uma tela de geração de liquidação. Os elementos mencionados são:
+
+| Bloco | Campos/controles ou comportamento descrito |
+|---|---|
+| Contexto | Sinistro e dados do expediente objeto da liquidação. |
+| Beneficiário | Seleção de terceiro, com busca por código e outros critérios; consulta e, para usuários autorizados, alta/modificação. |
+| Dados fixos | Documento, data do documento, data de recepção, data estimada de pagamento, emissor da fatura e observações. |
+| Informação adicional | Estruturas como relato e informação de finiquito, quando configuradas. |
+| Parte econômica | Cobertura, conceito de reserva, detalhe de cobrança/pagamento e importe. |
+
+Não há imagem suficiente para registrar máscaras, tipo técnico de cada campo, botões, mensagens de erro ou valores padrão com certeza visual.
+
+## 8. Modelo de integração
+
+A sessão não apresenta APIs REST, eventos, mensageria, protocolos, arquivos batch, integrações externas, chamadas síncronas/assíncronas ou catálogo de interfaces.
+
+Há dependências funcionais entre sinistros e tesouraria: sinistros usa conceitos e documentos definidos em tesouraria; tesouraria executa o pagamento automático conforme a data estimada. Essa relação não define, por si só, o mecanismo técnico de integração — pode ser módulo compartilhado, banco comum, chamada interna ou outro modelo não demonstrado.
+
+A fala também cita peritações, faturas, juízos, salvamentos e registro de faturas como possíveis fontes de informação para a liquidação. Não foram mostrados contratos, interfaces ou fluxos de dados entre esses módulos. Portanto, não se pode afirmar que operem por API, eventos ou acesso direto a dados.
+
+Não há evidência de GAP analysis entre pacotes globais e integrações locais, nem de integrações por país.
+
+## 9. Modelo operacional
+
+### 9.1. Configuração antes da operação
+
+Antes de liquidar, a sessão estabelece a necessidade de:
+
+1. definir em tesouraria os conceitos de cobrança/pagamento, incluindo suas propriedades fiscais/contábeis;
+2. definir documentos de pagamento que possam ser usados em sinistros;
+3. associar conceitos a setor, ramo, tipo de expediente e conceito de reserva;
+4. associar conceitos às atividades que poderão ser beneficiárias;
+5. configurar, quando necessário, lógicas de valor inicial e de limite máximo;
+6. cadastrar estruturas de informação adicional, sua ordem, obrigatoriedade e visibilidade;
+7. definir convênios de prazo de pagamento por atividade e contexto aplicável;
+8. definir valores iniciais para campos recorrentes.
+
+A instrutora enfatiza que conceitos associados ao tipo de expediente e à atividade devem ser coerentes. No exemplo de danos próprios, a configuração deve permitir oficina, segurado e perito conforme seus conceitos, sem habilitar advogado se o expediente não possuir o conceito correspondente.
+
+### 9.2. Dados compartilhados em tempo real
+
+Não foram explicadas replicação, sincronização entre instâncias/países ou compartilhamento de dados em tempo real.
+
+Funcionalmente, a tela de liquidação consulta dados de terceiros, expediente, peritação, documentos registrados e demais fontes mencionadas para preenchimento/validação. A fonte não detalha a forma de acesso a esses dados.
+
+No processo de pagamento, a fala afirma que tesouraria toma automaticamente as liquidações cuja data estimada seja igual ou inferior à data do dia. Não foram informados frequência do processo, monitoramento, tratamento de falhas, incidentes, suporte, releases ou hotfixes.
+
+## 10. Governança, versionamento e evolução
+
+### 10.1. Procedimentos corporativos mencionados
+
+A evidência mostra documentação com status `Lifecycle: Approved` e uma estrutura de capacitação Reef que inclui metodologia e desenvolvimento. [Evidência Visual: Frames 04 e 07]
+
+A sessão não informa fluxo de aprovação de catálogos, segregação de funções, responsáveis por homologação, documentação mandatória por mudança ou procedimentos formais de auditoria.
+
+### 10.2. Evolutivos e mudanças no núcleo
+
+A documentação contém um exemplo de package body para personalização de importes e a fala menciona lógicas de negócio que informáticos podem configurar. Também é dito que as lógicas devem ser definidas pelo usuário. A sessão não explica quem pode mudar o Core, quem desenvolve os packages, como a alteração é testada ou como se diferenciam evoluções globais e locais.
+
+### 10.3. Estado de versões
+
+O exemplo de código mostra comentário `VERSION = 1.00`, atribuído ao package exibido. Isso não permite inferir a versão de REEF.core, TRON ou do módulo de liquidações. [Evidência Visual: Frame 08 @ 29:02]
+
+Não há política de compatibilidade, versionamento de catálogos ou gestão de releases apresentada.
+
+## 11. Organização das equipes e responsabilidades
+
+A sessão possui uma instrutora que conduz a formação e participantes que fazem perguntas ou confirmam entendimento. A fala distingue, de modo funcional, tesouraria, sinistros, usuários/tramitadores e informáticos.
+
+| Papel citado | Responsabilidade relatada |
+|---|---|
+| Tesouraria | Definir propriedades de conceitos/documentos ligadas a impostos e retenções; executar pagamento automático com base na data estimada. |
+| Sinistros | Configurar e operar liquidações vinculadas a expedientes; estabelecer catálogos próprios a partir das definições prévias. |
+| Tramitador | Preencher informação obrigatória de estruturas adicionais quando a configuração assim exigir. |
+| Usuário autorizado | Pode dar alta ou modificar terceiro, conforme permissão descrita oralmente. |
+| Informáticos | Usam a visão técnica e exemplos para definir lógicas de negócio, conforme explicação da instrutora. |
+
+Não foram mencionados Product Managers, Product Owners, Scrum Masters, arquitetos, equipes corporativas versus locais, matriz, fornecedores de desenvolvimento ou modelo formal de suporte.
+
+## 12. Modelo de produto
+
+### 12.1. Produtos pré-configurados citados
+
+Não foram demonstrados produtos de seguro completos pré-configurados. Os exemplos funcionais citam ramos e contextos como danos próprios, lesões, vida, automóveis, saúde e perda parcial; isso não comprova catálogo de produtos out-of-the-box.
+
+O Frame 08 mostra o ramo `300` apenas no comentário do package de exemplo para personalização de importes. A sessão não explica a que produto ou ramo comercial esse código corresponde. [Evidência Visual: Frame 08 @ 29:02]
+
+### 12.2. Direção de padronização
+
+A configuração por catálogos reutilizáveis sugere padronização funcional: conceitos, documentos, atividades e lógicas são definidos antes da operação. Contudo, a sessão afirma que lógicas podem mudar por instalação, o que demonstra possibilidade de adaptação, não uma política corporativa de padronização entre países.
+
+**Análise.** O modelo aparenta combinar catálogo-base e parametrizações contextuais para reduzir escolhas inválidas. Não há evidência para concluir estratégia global, governança corporativa ou grau de reutilização regional.
+
+## 13. Terceiros, atividades e modelo de dados
+
+### 13.1. Papel do módulo de terceiros
+
+A liquidação requer que o beneficiário esteja previamente cadastrado no sistema. A instrutora afirma que o beneficiário pode ser pesquisado e, se o usuário tiver autorização, criado ou modificado a partir da operação. A sessão não descreve o modelo de cadastro único, chaves, duplicidade, pessoas físicas/jurídicas ou integração cadastral.
+
+### 13.2. Atividades e papéis
+
+Atividade é definida oralmente como a forma pela qual uma pessoa física ou jurídica intervém na companhia. A atividade é usada para definir quais conceitos de cobrança/pagamento podem ser aplicados quando aquela pessoa for beneficiária de uma liquidação.
+
+São citados exemplos como oficina, perito, hospital, médico, advogado, segurado e tomador. A fala também diferencia o tipo de beneficiário — como a pessoa atua na apólice — da atividade — como atua perante a companhia.
+
+### 13.3. Incompatibilidades e regras de validação
+
+A regra mais importante é a interseção dos dois catálogos:
+
+```text
+Conceitos permitidos no tipo de expediente + conceito de reserva
+                         ∩
+Conceitos permitidos para a atividade beneficiária
+                         =
+Conceitos selecionáveis na liquidação
+```
+
+No exemplo didático de danos próprios, oficina recebe indenização; segurado recebe indenização por reembolso; perito pode receber honorários; advogado não pode ser liquidado se o tipo de expediente não tiver o conceito necessário. A sessão não apresenta demais regras de incompatibilidade cadastral.
+
+### 13.4. Proteção de dados e consentimentos
+
+Não há evidência sobre privacidade, consentimentos, LGPD, GDPR, classificação de dados, criptografia, retenção ou trilhas de acesso.
+
+## 14. Produtos, tarifas, impostos e regras locais
+
+### 14.1. Tarifação e impostos
+
+A sessão não trata da formação de preço de seguros ou de cálculo atuarial. Trata, sim, do tratamento de impostos/IVA/retenções durante liquidações. A fala indica que sua incidência depende do tipo de documento, conceito de cobrança/pagamento e beneficiário, e que tesouraria é responsável pelo cálculo de IVA, impostos e retenções; sinistros apresenta o cálculo.
+
+A documentação de documento lista `Incluye IVA` e `Incluye retención`; a de conceito lista agrupação de impostos. [Evidência Visual: Frames 06–07]
+
+Não foram fornecidas fórmulas, alíquotas, países, regras fiscais locais ou exemplos completos de cálculo. A instrutora promete mostrar posteriormente um conceito com impostos e o efeito da combinação conceito/documento/terceiro.
+
+### 14.2. Gerador de produtos
+
+Não foi exibido gerador de produtos, motor de coberturas ou parametrização de produto. As referências a ramo, cobertura e tipos de expediente são parte do contexto de sinistros.
+
+### 14.3. Rating e motores de cálculo
+
+Não foram citados DUP, RT, rating ou motores externos de precificação. Há lógicas de negócio para valores de liquidação, incluindo busca de importe inicial em informações de peritação, atividade ou juízos; isso não equivale a um motor de rating.
+
+## 15. Sinistros, documentos e notificações
+
+### 15.1. Documentos e faturas
+
+O tipo de documento determina justificantes de cobrança/pagamento em tesouraria e sinistros. A fala cita fatura, nota de débito, nota de crédito e indenização. Nota de débito e nota de crédito são apresentadas como documentos que usualmente retificam fatura; indenização é descrita como documento criado pela companhia para indenizar terceiro ou segurado, não como documento real externo.
+
+A instrutora explica que determinados documentos podem precisar ser registrados antes da liquidação. Quando uma fatura estiver previamente registrada, a operação pode recuperar dela informações como número, data de recepção, data estimada de pagamento e moeda do documento. A fonte não especifica o repositório nem o fluxo técnico de registro.
+
+### 15.2. Notificações
+
+Não há menção a e-mail, SMS, cartas, push, notificações, templates ou eventos de comunicação.
+
+### 15.3. Limitação de formatos corporativos
+
+Não foram exibidos formatos corporativos de apólice, recibo, fatura ou documento fiscal, nem adaptações locais de layout.
+
+## 16. Cosseguro e resseguro
+
+A página de conceitos de cobrança/pagamento menciona que conceitos são usados em liquidações de sinistros, remessas de resseguro, cosseguro e demais ordens de pagamento/tesouraria. [Evidência Visual: Frame 06 @ 21:48]
+
+A fala também diz que o catálogo de conceitos é usado em resseguro, cosseguro e tesouraria, embora na ajuda da configuração de sinistros sejam exibidos apenas os conceitos destinados a sinistros. Não foram explicados módulos responsáveis, Re21, cessões, retenções, contratos proporcionais/não proporcionais nem processo operacional de resseguro/cosseguro.
+
+## 17. Casos concretos mencionados
+
+### 17.1. Danos próprios / perda parcial com oficina, segurado e perito
+
+**País/cenário.** Nenhum país é identificado. Trata-se de exemplo didático de expediente de danos próprios/perda parcial.
+
+**Arquitetura/regras adotadas.** O expediente possui conceitos que permitem indenização a oficina, indenização ao segurado em reembolso e honorários a perito externo.
+
+**Diferenciais.** A oficina não deve receber honorários/gastos de perito; o perito não recebe indenização destinada ao segurado; advogado não aparece se o tipo de expediente não possuir o conceito correspondente.
+
+**Situação e lição.** A liquidação resulta da interseção entre conceitos habilitados no expediente/reserva e conceitos habilitados na atividade do beneficiário.
+
+### 17.2. Indenização a oficina com importe vindo de peritação
+
+**País/cenário.** Não informado.
+
+**Arquitetura/regras adotadas.** A lógica de importe inicial pode obter da peritação o valor indicado na ordem de reparação para indenização à oficina.
+
+**Diferenciais.** A documentação afirma que o comportamento pode mudar em cada instalação.
+
+**Situação e lição.** A origem do valor inicial é configurável por lógica de negócio, sem que a sessão apresente a implementação completa. [Evidência Visual: Frame 08 @ 29:02]
+
+### 17.3. Pagamento a profissionais externos
+
+**País/cenário.** Não informado.
+
+**Arquitetura/regras adotadas.** Para profissionais externos, o valor pode vir do custo de serviço por atividade no terceiro; para advogado, de honorários no módulo de juízos; para perito, de informação da peritação.
+
+**Diferenciais.** São fontes distintas para conceitos semelhantes de pagamento.
+
+**Situação e lição.** A lógica de negócio permite contexto funcional específico para cálculo/preenchimento de valor inicial. [Evidência Visual: Frame 08 @ 29:02]
+
+### 17.4. Informação adicional de finiquito em danos materiais
+
+**País/cenário.** Não informado.
+
+**Arquitetura/regras adotadas.** Uma estrutura de informação adicional, exemplificada como finiquito, é associada a liquidações de determinado tipo de expediente. O relato é removido na demonstração e deixa de aparecer na liquidação seguinte.
+
+**Diferenciais.** Para todos os tipos de expediente de um ramo, a instrutora menciona o uso do genérico `999`; uma lógica pode determinar se a informação é obrigatória ou visível.
+
+**Situação e lição.** Estruturas variáveis podem ajustar a coleta de dados por contexto sem evidência de mudança de tela fixa.
+
+### 17.5. Convênio de prazo com fornecedores
+
+**País/cenário.** Não informado.
+
+**Arquitetura/regras adotadas.** O prazo pode ser definido por ramo e atividade, e refinado para um fornecedor/documento ou categoria. O exemplo compara oficinas, peritos, hospitais, médicos e categorias de oficinas.
+
+**Diferenciais.** A instrutora cita oficinas de marca, multimarca, recomendadas e recomendadas plus como exemplo de diferenciação de prazo, sem confirmar que tais categorias sejam configurações universais.
+
+**Situação e lição.** A data estimada de pagamento pode refletir acordos comerciais distintos e direcionar o pagamento automático.
+
+## 18. Roadmap e evolução
+
+O único encaminhamento explícito é a continuidade da formação em **12 de setembro**, quando a instrutora afirma que apresentará a aplicação de prêmios pendentes, validações extras e exemplo de impostos/retenções.
+
+A sessão descreve a aplicação de prêmios pendentes como manutenção que permite descontar, no sinistro, valores de recibos pendentes quando a companhia paga ao tomador. Não há demonstração da tela, regras detalhadas ou implementação.
+
+Não há cronograma de implantação por país, ondas, transição de legados, releases futuros ou prazo de entrega de software.
+
+## 19. Números e indicadores citados
+
+| Indicador / Métrica | Valor declarado | Contexto e interpretação |
+|---|---:|---|
+| Conceitos exemplificados no Frame 06 | 5 | S07, DCT, S06, DC e PC1 são exemplos visuais de conceitos. |
+| Ramo do package de exemplo | 300 | Comentário do package `ts_k_liq_300tst`; significado comercial não explicado. |
+| Ordem demonstrada de liquidação | 2.000 | Valor digitado no exemplo oral de liquidação. |
+| Prazo geral de oficinas no exemplo | 15 dias | Exemplo de convenção de pagamento citado oralmente. |
+| Prazo negociado com oficina no exemplo | 7 dias | Exemplo de acordo com desconto de 5% em peritações. |
+| Desconto do exemplo negociado | 5% | Exemplo oral; não é regra geral. |
+| Prazo ilustrativo para peritos | 20 dias | Exemplo oral de prazo por atividade. |
+| Valor padrão recorrente de moeda/documento | 90% / 95% / 100% | Percentuais ilustrativos usados para explicar valores iniciais; não são métricas operacionais. |
+| Genérico para todos os expedientes do ramo | 999 | Valor oralmente citado para aplicação sem distinção por tipo de expediente. |
+| Data estimada demonstrada | dia 23 | Data mencionada na demonstração; sem mês/ano confirmado. |
+| Próxima sessão anunciada | 12 de setembro | Encaminhamento explícito da formação. |
+
+Todos os números acima são exemplos declarados ou observados na sessão, não indicadores corporativos de desempenho.
+
+## 20. Mapa cronológico integrado da sessão (Fala + Telas)
+
+| Timestamp | Frame / Tela exibida | Evidência visual chave & OCR | Tópico técnico discutido na fala |
+|---|---|---|---|
+| 03:42 | Frame 01 | Videoconferência; excluída. | Sem conteúdo técnico visual aproveitável. |
+| 07:19 | Frame 02 | Videoconferência; excluída. | Sem conteúdo técnico visual aproveitável. |
+| 10:57 | Frame 03 | Videoconferência; excluída. | Sem conteúdo técnico visual aproveitável. |
+| 14:34 | Frame 04 — Marketplace / Reef.core | Portal documental, cards de infraestrutura, arquitetura, metodologia e desenvolvimento. | Contexto documental da capacitação. |
+| 18:11 | Frame 05 — Marketplace / Reef.core | Cards Reef.core e Implantação, além da estrutura TRON/Arquitetura/Sessão. | Continuidade da apresentação da documentação. |
+| 21:48 | Frame 06 — Conceito de cobrança/pagamento | Propriedades, tabela de conceitos, agrupação contábil. | Definições prévias de tesouraria usadas por sinistros. |
+| 25:25 | Frame 07 — Tipo de documento de cobrança/pagamento | Objetivo e propriedades de documento, IVA, retenção e retificação. | Documentos que podem suportar liquidações. |
+| 29:02 | Frame 08 — Lógica de negócio de importe inicial | Entradas/saída e package de exemplo. | Lógicas para valor inicial e máximo da liquidação. |
+| 32:40 | Frame 09 — Definição de liquidações | Página do módulo de sinistros e sumário de catálogos. | Retorno à definição de liquidações após catálogos prévios. |
+| Sem frame correspondente fornecido | Demonstração oral de tela de liquidação | Tela operacional descrita, sem OCR/imagem suficiente. | Beneficiário, documentos, datas, dados adicionais, parte econômica, convênios e valores iniciais. |
+
+A transcrição não fornece timestamps internos confiáveis para cada trecho oral após os Frames 09; por isso, a correlação posterior é temática, não temporalmente precisa.
+
+## 21. Perguntas e respostas relevantes (Q&A Exaustivo)
+
+### 21.1. É possível mostrar um exemplo em que o conceito de liquidação tenha imposto?
+
+**Pergunta.** Uma participante pede que seja exibido, após a explicação, um exemplo no qual o conceito de liquidação possua imposto.
+
+**Resposta.** A instrutora informa que naquele momento está explicando a definição e que o tema será visto em detalhe durante a operação de liquidações. Ao encerrar, compromete-se a preparar um conceito de cobrança/pagamento com impostos para demonstrar como conceito, tipo de documento e terceiro determinam a solicitação de impostos ou retenções.
+
+**O que essa resposta esclarece.** A incidência não é descrita como atributo isolado do conceito: a fala indica dependência combinada de conceito, documento e terceiro. O cálculo efetivo é atribuído à tesouraria, enquanto sinistros o apresenta.
+
+### 21.2. A mão levantada indicava uma dúvida?
+
+**Pergunta.** A instrutora nota uma mão levantada e solicita que a pessoa fale.
+
+**Resposta.** Francisco informa que a elevação foi acidental e não formula dúvida técnica.
+
+**O que essa resposta esclarece.** Não há regra funcional adicional extraível deste diálogo; ele é registrado para manter a exaustividade sem inventar conteúdo.
+
+### 21.3. Como se decide se uma informação adicional é obrigatória?
+
+**Pergunta.** A dúvida é respondida de forma preventiva durante a explicação da configuração: como tratar informação obrigatória, opcional ou condicional.
+
+**Resposta.** A instrutora diz que a configuração pode ser simplesmente sim/não. Quando depender de condição — por exemplo, expediente com juízo ou recobro — deve existir uma lógica de negócio que determine a obrigatoriedade.
+
+**O que essa resposta esclarece.** Obrigatoriedade de informação adicional pode ser estática ou delegada a lógica configurável; não foram mostrados os critérios, código ou tela dessa lógica.
+
+### 21.4. Por que configurar a visibilidade de informação adicional?
+
+**Pergunta.** A explicação introduz a necessidade de determinar se a estrutura é visualizada.
+
+**Resposta.** A instrutora relata que informação existente em TRON Web pode ser diferente da usada em New TRON. Dados variáveis seriam mais ágeis para manutenção; uma lógica pode decidir se a estrutura aparece em TRON Web, New TRON ou no sentido inverso.
+
+**O que essa resposta esclarece.** A visibilidade pode suportar coexistência funcional de interfaces. A sessão não permite concluir se essas interfaces usam a mesma base, o mesmo backend ou regras de migração.
+
+### 21.5. Onde se registra a informação adicional necessária à liquidação?
+
+**Pergunta.** A instrutora formula e responde a questão ao demonstrar o catálogo de estruturas por setor/ramo.
+
+**Resposta.** Deve-se indicar ramo, tipo de expediente, agrupação de sinistros, estrutura, ordem de apresentação, obrigatoriedade e visibilidade. Para todos os tipos de expediente de um ramo, é citado o genérico `999`.
+
+**O que essa resposta esclarece.** A coleta de informação adicional é configurada por contexto de sinistro e não simplesmente inserida livremente pelo usuário em cada liquidação.
+
+### 21.6. Como a data estimada de pagamento é calculada?
+
+**Pergunta.** A questão é respondida ao explicar convênios por atividade.
+
+**Resposta.** A data pode receber a data do dia ou resultar de convenção que soma um número de dias à data de geração, conforme ramo, atividade e condições configuradas. A instrutora dá exemplos de prazos gerais e negociados.
+
+**O que essa resposta esclarece.** A data serve de insumo para o processo automático de tesouraria; a fonte não detalha calendário, dias úteis, feriados ou reprocessamento.
+
+### 21.7. O que ocorre quando se deseja alta/modificação de oficina durante a liquidação?
+
+**Pergunta.** A instrutora explica a possibilidade ao apresentar a busca do beneficiário.
+
+**Resposta.** Se o usuário tiver permissão, a interface oferece opções para criar ou modificar terceiro; usuários sem essa autorização não podem fazê-lo. Na demonstração, a instrutora apenas seleciona a oficina.
+
+**O que essa resposta esclarece.** Há distinção de permissão funcional para manutenção de terceiros, mas não foram apresentados perfis, autenticação ou modelo de autorização.
+
+### 21.8. Há perguntas adicionais com resposta técnica delimitada?
+
+**Pergunta.** Ao fim da formação, a instrutora abre espaço para dúvidas e consulta se os participantes desejam outros temas além dos pontos pendentes.
+
+**Resposta.** Os participantes respondem que está tudo bem; não há nova pergunta técnica formulada.
+
+**O que essa resposta esclarece.** Não é possível criar Q&As adicionais sem extrapolar a evidência.
+
+## 22. Limitações reconhecidas
+
+1. A transcrição Whisper tem longo trecho inicial repetitivo e ininteligível, excluído como ruído.
+2. Frames 01–03 são videoconferência e foram filtrados.
+3. Os Frames 04–09 exibem documentação, não as telas completas de manutenção nem a tela operacional em resolução suficiente para identificar todos os campos e controles.
+4. A página de definição de liquidações no Frame 09 está visível apenas parcialmente.
+5. A demonstração de operação de liquidação é sustentada predominantemente pela fala, sem frame temporal correspondente disponível.
+6. A transcrição contém nomes foneticamente incertos como “neutral/neutron/new tron”; foi mantida a incerteza de nomenclatura.
+7. O exemplo de package SQL/PL-SQL é localizado e não permite afirmar que toda a plataforma use a mesma tecnologia ou banco.
+8. Fórmulas completas de impostos, IVA, retenções, prêmios pendentes e validações extras não foram mostradas.
+9. A sessão anuncia continuação em 12 de setembro antes de demonstrar os tópicos pendentes.
+10. Não há evidência sobre APIs, banco de dados, infraestrutura, segurança, performance ou deploy.
+
+## 23. Riscos e desafios
+
+### 23.1. Riscos explicitamente mencionados
+
+- Configurar conceitos de pagamento sem restringi-los por expediente, reserva e atividade pode oferecer opções incompatíveis, como hospital em perda parcial ou pagamento indevido a atividade não habilitada.
+- Informações adicionais podem ficar em ordem de apresentação pouco útil; a instrutora recomenda posicionar primeiro as mais usadas para evitar scroll.
+- Campos necessários podem não ser solicitados se obrigatoriedade/visibilidade forem configuradas incorretamente.
+- A data estimada de pagamento influencia a seleção automática de liquidações por tesouraria; prazo incorreto pode antecipar ou retardar pagamento.
+- Importes podem ultrapassar o máximo configurado se a lógica de validação não for corretamente definida.
+- Tributos/retenções dependem de combinação de fatores; tratá-los como regra isolada é inconsistente com a explicação.
+
+### 23.2. Desafios derivados do contexto
+
+- **Análise.** A interseção de catálogos por expediente/reserva e atividade exige governança de configuração para evitar que alterações independentes eliminem opções necessárias ou criem combinações indevidas.
+- **Análise.** A coexistência mencionada entre TRON Web e New TRON pode aumentar o risco de divergência funcional se regras de visibilidade não forem validadas em ambas as interfaces.
+- **Análise.** Lógicas para importe inicial, máximo, obrigatoriedade e visibilidade tornam os resultados dependentes de regras customizadas; sem evidência de testes, versionamento ou auditoria, não é possível avaliar a segurança dessas mudanças.
+- **Análise.** O uso de dados de peritações, documentos registrados e outros módulos para pré-preenchimento exige consistência desses dados, embora a sessão não informe mecanismos de sincronização ou tratamento de ausência.
+
+## 24. Transformações estruturais identificadas
+
+1. **De seleção livre para elegibilidade configurada.** A operação não deveria escolher qualquer conceito de pagamento; ela se limita à combinação permitida por expediente/reserva e atividade.
+2. **De coleta fixa para dados adicionais parametrizáveis.** Estruturas de dados variáveis permitem incluir, ordenar, exigir ou ocultar informações conforme contexto.
+3. **De prazo manual para previsão orientada por convênio.** A data estimada de pagamento pode ser derivada de acordos por atividade, fornecedor e categoria, alimentando tesouraria.
+4. **De valor digitado exclusivamente para valor assistido por lógica.** A liquidação pode receber importes iniciais de peritação, atividade, juízos ou outras fontes mencionadas, além de validação máxima.
+5. **De tratamento fiscal local na operação para parâmetros pré-definidos.** Conceitos e documentos definidos em tesouraria estruturam impostos, IVA e retenções antes da liquidação.
+
+Essas transformações são leitura analítica do modelo apresentado; a sessão não as formula como programa oficial de transformação organizacional ou tecnológica.
+
+## 25. O que a reunião NÃO permite concluir
+
+- Arquitetura de nuvem, topologia, servidores, containers, Kubernetes, rede, disaster recovery, observabilidade ou capacidade.
+- Banco de dados adotado pelo produto, tabelas, chaves, relacionamentos, procedures completos, sinônimos, triggers ou transações.
+- Se o package SQL/PL-SQL exibido é padrão, exemplo isolado, legado ou tecnologia de toda a plataforma.
+- APIs, protocolos, filas, eventos, arquivos, jobs, frequência e contratos de integração entre sinistros, tesouraria, peritações, faturas, juízos e salvamentos.
+- Modelo de autenticação, autorização, perfis, segregação de funções, auditoria, criptografia ou privacidade.
+- Fórmulas de cálculo de impostos, IVA, retenções, valores máximos, prêmios pendentes ou desconto de franquia.
+- Países de implantação, diferenças regulatórias por país, disponibilidade de módulos por regional ou responsabilidades de matriz/local.
+- Versões suportadas de REEF.core, TRON Web, New TRON ou estratégia de migração entre interfaces.
+- SLAs de pagamentos, performance, tratamento de falhas, reconciliação ou monitoramento do processo automático de tesouraria.
+
+## 26. Glossário terminológico, siglas e entidades
+
+| Termo / Sigla | Significado / Expansão | Descrição e papel no ecossistema |
+|---|---|---|
+| REEF.core | Não expandido na fonte | Plataforma/documentação corporativa consultada na sessão. |
+| TRON | Não expandido na fonte | Identificador de trilha documental e contexto funcional citado. |
+| TRON Web | Não expandido na fonte | Interface/ambiente citado ao tratar visibilidade de informação adicional. |
+| New TRON / “Neutron” | Grafia incerta na transcrição | Contextualmente, interface/ambiente contrastado com TRON Web; não confirmado. |
+| Tesouraria | Área funcional | Define conceitos/documentos e processa pagamentos segundo a fala. |
+| Liquidação | Liquidación | Operação de sinistros para pagar ou cobrar valores. |
+| Expediente | Expediente de sinistro | Caso/processo de sinistro ao qual a liquidação é vinculada. |
+| Conceito de cobrança/pagamento | Concepto de cobro y pago | Chave e propriedades do detalhe econômico de cobrar/pagar. |
+| Agrupação contábil | Agrupación contable | Associação refletida nos lançamentos contábeis para estudo posterior. |
+| Agrupação de impostos | Agrupación de impuestos | Propriedade listada na documentação; detalhamento não visível. |
+| Tipo de documento | Tipo de documento de cobro pago | Documento justificante para cobrança/pagamento em tesouraria e sinistros. |
+| IVA | Impuesto sobre el Valor Añadido | Tributo citado como propriedade do documento; alíquota/regra não informada. |
+| Retenção | Retención | Tributo/retenção citada como propriedade do documento e possível cálculo. |
+| Beneficiário | Beneficiario | Pessoa/entidade que recebe ou paga em uma liquidação. |
+| Terceiro | Tercero | Cadastro do beneficiário/profissional, citado na busca e em custos por atividade. |
+| Atividade | Actividad | Forma de atuação da pessoa física/jurídica para a companhia. |
+| Conceito de reserva | Concepto de reserva | Contexto usado com tipo de expediente para habilitar conceitos de liquidação. |
+| Cobertura | Cobertura | Elemento econômico/funcional afetado na liquidação. |
+| Peritação | Peritación | Fonte possível de valor inicial para oficina/perito. |
+| Juízos | Módulo de juicios | Fonte possível de honorários para advogado. |
+| Finiquito | Finiquito | Exemplo de informação adicional associada à liquidação. |
+| Lógica de negócio | Lógica de negocio | Regra configurável para cálculo, validação, obrigatoriedade ou visibilidade. |
+| `imp_inicial` | Importe inicial | Saída documentada de lógica de negócio visualizada. |
+| `cod_cto_rva` | Não expandido na fonte | Entrada exibida na lógica de importe inicial. |
+| `cod_cto_cob_pag` | Não expandido na fonte | Entrada exibida na lógica de importe inicial. |
+| `cod_mon` | Não expandido na fonte | Entrada exibida na lógica de importe inicial. |
+| Convênio por atividade | Convenios de pago por actividad | Parametrização de prazo para data estimada de pagamento. |
+| Prêmios pendentes | Primas pendientes | Tema anunciado para a sessão seguinte, ligado a desconto de recibos pendentes. |
+
+## 27. Conclusões principais
+
+A sessão demonstra que liquidações de sinistros em REEF.core/TRON dependem de uma cadeia de configuração prévia. Tesouraria define conceitos e documentos; sinistros associa esses elementos ao contexto de expediente, reserva e atividade; a operação então apresenta opções coerentes para beneficiário, documento, informação complementar e valores.
+
+O principal controle funcional é a interseção de permissões de conceitos: o mesmo conceito deve ser válido tanto para o expediente/conceito de reserva quanto para a atividade do beneficiário. Lógicas de negócio complementam o modelo com importes iniciais, limites, obrigatoriedade e visibilidade. Convênios por atividade calculam a data estimada que orienta o pagamento automático de tesouraria.
+
+As evidências visuais sustentam a documentação de conceitos, documentos, lógica de importe inicial e definição de liquidações. A transcrição amplia a visão com a demonstração operacional e os exemplos de oficinas, segurados, peritos, terceiros e informação de finiquito. Permanecem explicitamente sem resposta os detalhes de arquitetura técnica, persistência, integração, segurança, governança, cálculo fiscal e implantação regional.

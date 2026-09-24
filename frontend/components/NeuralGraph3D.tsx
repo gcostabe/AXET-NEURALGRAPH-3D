@@ -22,6 +22,7 @@ import {
   ChevronUp,
   ChevronDown,
   MessageSquare,
+  Plus,
 } from "lucide-react";
 import {
   KnowledgeGraph,
@@ -1601,7 +1602,7 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
       <div ref={mountRef} className="h-full w-full cursor-grab active:cursor-grabbing" />
 
       {/* Top HUD: Status & Filtros Colapsáveis no Topo Esquerdo, Saudação do Copiloto no Topo Direito */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-wrap items-start justify-between gap-3 p-3 z-20">
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-wrap items-start justify-between gap-3 p-3.5 sm:p-4 pb-0 z-20">
         {/* Canto Superior Esquerdo: Telemetria & Filtros Colapsáveis de Lobos & Sinapses */}
         <div className="pointer-events-auto flex flex-col items-start gap-2 max-w-[calc(100vw-380px)]">
           <div className="flex items-center gap-2 flex-wrap">
@@ -1642,9 +1643,8 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
           </div>
 
           {/* Painel Expandido de Filtros de Lobos & Sinapses */}
-          {/* Painel Expandido de Filtros de Lobos & Sinapses */}
           {showFilterControls && (
-            <div className="flex flex-col gap-1.5 rounded-2xl border border-slate-700/80 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 max-w-3xl">
+            <div className="flex flex-col gap-1.5 rounded-2xl border border-slate-700/80 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 w-fit max-w-[calc(100vw-420px)]">
               <div className="flex items-center justify-between border-b border-slate-800/80 pb-1 px-1">
                 <span className="text-[10px] font-semibold tracking-wide text-cyan-300 uppercase flex items-center gap-1.5">
                   <Filter className="h-3 w-3" />
@@ -1660,16 +1660,16 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
                 </button>
               </div>
 
-              {/* Barra de Lobos Cerebrais Cyberpunk */}
+              {/* Barra de Lobos Cerebrais Cyberpunk (Sem quebra de linha) */}
               {layoutMode === "brain" && (
-                <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-800/90 bg-slate-900/90 p-0.5 backdrop-blur-md shadow-inner">
-                  <span className="px-1.5 text-[9.5px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                <div className="flex items-center gap-1 rounded-xl border border-slate-800/90 bg-slate-900/90 p-0.5 backdrop-blur-md shadow-inner flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shrink-0">
+                  <span className="px-1.5 text-[9.5px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 whitespace-nowrap shrink-0">
                     <span className="text-cyan-400 animate-pulse">⚡</span>
                     Lobos:
                   </span>
                   <button
                     onClick={() => setSelectedLobeFilter("ALL")}
-                    className={`rounded-lg px-1.5 py-0.5 text-[10px] font-semibold transition ${
+                    className={`rounded-lg px-1.5 py-0.5 text-[10px] font-semibold transition whitespace-nowrap shrink-0 ${
                       selectedLobeFilter === "ALL"
                         ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-slate-950 shadow-md font-bold"
                         : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
@@ -1686,7 +1686,7 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
                         key={key}
                         onClick={() => setSelectedLobeFilter(isSelected ? "ALL" : key)}
                         title={`${lobe.name}: ${lobe.description}`}
-                        className={`flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[10px] font-medium transition border ${
+                        className={`flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[10px] font-medium transition border whitespace-nowrap shrink-0 ${
                           isSelected
                             ? "text-slate-950 font-bold shadow-lg"
                             : "text-slate-300 hover:text-white border-transparent hover:bg-slate-800/80"
@@ -1713,14 +1713,14 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
               )}
 
               {/* Filtros de Relação Sináptica */}
-              <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-800/90 bg-slate-900/90 p-0.5 backdrop-blur-md shadow-inner">
-                <span className="px-1.5 text-[9.5px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+              <div className="flex items-center gap-1 rounded-xl border border-slate-800/90 bg-slate-900/90 p-0.5 backdrop-blur-md shadow-inner flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shrink-0">
+                <span className="px-1.5 text-[9.5px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 whitespace-nowrap shrink-0">
                   <Filter className="h-2 w-2" />
                   Sinapses:
                 </span>
                 <button
                   onClick={() => setRelationFilter("ALL")}
-                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition ${
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition whitespace-nowrap shrink-0 ${
                     relationFilter === "ALL"
                       ? "bg-cyan-500 text-slate-950 font-semibold"
                       : "text-slate-400 hover:text-slate-200"
@@ -1736,12 +1736,12 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
                     <button
                       key={key}
                       onClick={() => setRelationFilter(key)}
-                      className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition ${
+                      className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition whitespace-nowrap shrink-0 ${
                         isSelected ? "text-slate-950 font-semibold" : "text-slate-400 hover:text-slate-200"
                       }`}
                       style={{ backgroundColor: isSelected ? info.color : "transparent" }}
                     >
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: info.color }} />
+                      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: info.color }} />
                       {info.label} ({count.toLocaleString()})
                     </button>
                   );
@@ -1749,6 +1749,132 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
               </div>
             </div>
           )}
+
+          {/* Card Informativo de Iluminação da Área Anatômica Cyberpunk (Posicionado na Área do Retângulo Azul - Anti-Sobreposição) */}
+          {layoutMode === "brain" && selectedLobeFilter !== "ALL" && (() => {
+            const activeLobe = CYBERPUNK_BRAIN_LOBES[selectedLobeFilter];
+            if (!activeLobe) return null;
+            const nodeCount = lobeStats[selectedLobeFilter] || 0;
+            const pct = Math.round((nodeCount / Math.max(1, stats.totalNodes)) * 100);
+
+            // Altura máxima calculada para NUNCA sobrepor o campo de busca e controles inferiores
+            const maxCardHeight = showFilterControls
+              ? (showVisualControls ? "max-h-[calc(100vh-420px)]" : "max-h-[calc(100vh-340px)]")
+              : (showVisualControls ? "max-h-[calc(100vh-320px)]" : "max-h-[calc(100vh-230px)]");
+
+            return (
+              <div
+                className={`w-full max-w-xs sm:max-w-sm rounded-2xl border bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 overflow-y-auto ${maxCardHeight} [scrollbar-width:thin] [scrollbar-color:#334155_transparent]`}
+                style={{
+                  borderColor: `${activeLobe.color}55`,
+                  boxShadow: `0 0 32px ${activeLobe.color}20`,
+                }}
+              >
+                {/* Header com Insígnia e Ação de Fechar */}
+                <div
+                  className="flex items-start justify-between gap-2 border-b pb-2"
+                  style={{ borderColor: `${activeLobe.color}25` }}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-sm shadow-lg shrink-0"
+                      style={{
+                        backgroundColor: `${activeLobe.color}20`,
+                        color: activeLobe.color,
+                        border: `1px solid ${activeLobe.color}40`,
+                      }}
+                    >
+                      {activeLobe.icon}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-100">
+                          {activeLobe.name}
+                        </h4>
+                        <span
+                          className="rounded px-1.5 py-0.2 text-[9px] font-mono font-bold border"
+                          style={{
+                            backgroundColor: `${activeLobe.color}25`,
+                            color: activeLobe.color,
+                            borderColor: `${activeLobe.color}60`,
+                          }}
+                        >
+                          ILUMINADO
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium">
+                        {nodeCount} documentos ativos ({pct}% do grafo neural)
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedLobeFilter("ALL")}
+                    title="Restaurar visualização de todos os lobos"
+                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {/* Localização Anatômica */}
+                <div className="mt-2 flex items-start gap-1.5 text-[10.5px] leading-tight">
+                  <span className="font-semibold text-slate-400 shrink-0">📍 Posição 3D:</span>
+                  <span className="text-slate-200">{activeLobe.anatomicalPosition}</span>
+                </div>
+
+                {/* Papel Cognitivo */}
+                <div
+                  className="mt-2 rounded-xl p-2 text-xs"
+                  style={{
+                    backgroundColor: `${activeLobe.color}0d`,
+                    border: `1px solid ${activeLobe.color}30`,
+                  }}
+                >
+                  <div
+                    className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider"
+                    style={{ color: activeLobe.color }}
+                  >
+                    <span>🧠 Papel Cognitivo:</span>
+                  </div>
+                  <p className="mt-0.5 text-[10.5px] leading-snug text-slate-200 font-medium">
+                    {activeLobe.cognitiveRole}
+                  </p>
+                </div>
+
+                {/* Critério Semântico no RAG Reef */}
+                <div className="mt-2 text-[10.5px]">
+                  <div className="font-semibold text-slate-400 flex items-center gap-1 mb-1">
+                    <Tag className="h-2.5 w-2.5 text-cyan-400" />
+                    <span>Critério Semântico de Indexação:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto [scrollbar-width:thin]">
+                    {activeLobe.semanticCriteria.split(", ").map((tag, i) => (
+                      <span
+                        key={i}
+                        className="rounded border border-slate-800 bg-slate-900/90 px-1.5 py-0.2 font-mono text-[9px] text-slate-300"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Botão para Restaurar Todos */}
+                <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                  <span className="text-[9.5px] text-slate-500 font-mono">
+                    Demais setores atenuados
+                  </span>
+                  <button
+                    onClick={() => setSelectedLobeFilter("ALL")}
+                    className="text-[10.5px] font-semibold text-cyan-400 hover:text-cyan-300 transition flex items-center gap-1"
+                  >
+                    Restaurar Todos os Lobos
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
 
@@ -1790,9 +1916,9 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
                   {greetingData.greeting}
                 </p>
 
-                <div className="flex items-center justify-between gap-2 border-t border-slate-800/80 pt-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-2.5">
                   {greetingData.subject ? (
-                    <span className="text-[10px] text-slate-400 font-mono truncate max-w-[210px]" title={greetingData.subject}>
+                    <span className="text-[10px] text-slate-400 font-mono truncate max-w-[120px] sm:max-w-[140px]" title={greetingData.subject}>
                       📌 {greetingData.subject}
                     </span>
                   ) : (
@@ -1801,20 +1927,32 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
                     </span>
                   )}
 
-                  <button
-                    onClick={() => {
-                      if (greetingData.conversation_id) {
-                        router.push(`/chat?c=${greetingData.conversation_id}`);
-                      } else {
-                        router.push("/chat");
-                      }
-                    }}
-                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-lg shadow-cyan-500/25 hover:from-cyan-400 hover:to-blue-500 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    <span>Conversar</span>
-                    <ArrowUpRight className="h-3 w-3" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        if (greetingData.conversation_id) {
+                          router.push(`/chat?c=${greetingData.conversation_id}`);
+                        } else {
+                          router.push("/chat");
+                        }
+                      }}
+                      className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-lg shadow-cyan-500/25 hover:from-cyan-400 hover:to-blue-500 hover:scale-[1.02] active:scale-[0.98] transition-all shrink-0"
+                      title="Continuar a conversa da sessão anterior"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      <span>Continuar conversa</span>
+                      <ArrowUpRight className="h-3 w-3" />
+                    </button>
+
+                    <button
+                      onClick={() => router.push("/chat")}
+                      className="flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-800/90 px-3 py-1.5 text-xs font-semibold text-slate-200 shadow-md hover:bg-slate-700 hover:text-white hover:border-slate-600 active:scale-[0.98] transition-all shrink-0"
+                      title="Iniciar uma nova conversa do zero"
+                    >
+                      <Plus className="h-3.5 w-3.5 text-cyan-400" />
+                      <span>Nova Conversa</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1877,134 +2015,8 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
       {/* Bottom HUD: Legenda de Navegação e Controles de Visualização Colapsáveis */}
       <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex flex-col gap-2.5 z-20">
         <div className="flex items-end justify-between gap-3">
-          {/* Canto Inferior Esquerdo: Card de Lobo Ativo + Busca de Nós + Opções de Visualização Colapsáveis */}
+          {/* Canto Inferior Esquerdo: Busca de Nós + Opções de Visualização Colapsáveis */}
           <div className="pointer-events-auto flex flex-col items-start gap-1.5 max-w-xs sm:max-w-sm w-full">
-            {/* Card Informativo de Iluminação da Área Anatômica Cyberpunk (Reposicionado para o Canto Inferior Esquerdo com Clamp Seguro Anti-Sobreposição) */}
-            {layoutMode === "brain" && selectedLobeFilter !== "ALL" && (() => {
-              const activeLobe = CYBERPUNK_BRAIN_LOBES[selectedLobeFilter];
-              if (!activeLobe) return null;
-              const nodeCount = lobeStats[selectedLobeFilter] || 0;
-              const pct = Math.round((nodeCount / Math.max(1, stats.totalNodes)) * 100);
-
-              // Altura máxima calculada dinamicamente para NUNCA sobrepor o painel de filtros superior nem controles inferiores
-              const maxCardHeight = showFilterControls
-                ? (showVisualControls ? "max-h-[min(150px,calc(100vh-450px))]" : "max-h-[min(205px,calc(100vh-370px))]")
-                : (showVisualControls ? "max-h-[min(260px,calc(100vh-320px))]" : "max-h-[min(380px,calc(100vh-220px))]");
-
-              return (
-                <div
-                  className={`w-full rounded-2xl border bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-200 overflow-y-auto ${maxCardHeight} [scrollbar-width:thin] [scrollbar-color:#334155_transparent]`}
-                  style={{
-                    borderColor: `${activeLobe.color}55`,
-                    boxShadow: `0 0 32px ${activeLobe.color}20`,
-                  }}
-                >
-                  {/* Header com Insígnia e Ação de Fechar */}
-                  <div
-                    className="flex items-start justify-between gap-2 border-b pb-2"
-                    style={{ borderColor: `${activeLobe.color}25` }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-sm shadow-lg shrink-0"
-                        style={{
-                          backgroundColor: `${activeLobe.color}20`,
-                          color: activeLobe.color,
-                          border: `1px solid ${activeLobe.color}40`,
-                        }}
-                      >
-                        {activeLobe.icon}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-100">
-                            {activeLobe.name}
-                          </h4>
-                          <span
-                            className="rounded px-1.5 py-0.2 text-[9px] font-mono font-bold border"
-                            style={{
-                              backgroundColor: `${activeLobe.color}25`,
-                              color: activeLobe.color,
-                              borderColor: `${activeLobe.color}60`,
-                            }}
-                          >
-                            ILUMINADO
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-medium">
-                          {nodeCount} documentos ativos ({pct}% do grafo neural)
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => setSelectedLobeFilter("ALL")}
-                      title="Restaurar visualização de todos os lobos"
-                      className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-
-                  {/* Localização Anatômica */}
-                  <div className="mt-2 flex items-start gap-1.5 text-[10.5px] leading-tight">
-                    <span className="font-semibold text-slate-400 shrink-0">📍 Posição 3D:</span>
-                    <span className="text-slate-200">{activeLobe.anatomicalPosition}</span>
-                  </div>
-
-                  {/* Papel Cognitivo */}
-                  <div
-                    className="mt-2 rounded-xl p-2 text-xs"
-                    style={{
-                      backgroundColor: `${activeLobe.color}0d`,
-                      border: `1px solid ${activeLobe.color}30`,
-                    }}
-                  >
-                    <div
-                      className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider"
-                      style={{ color: activeLobe.color }}
-                    >
-                      <span>🧠 Papel Cognitivo:</span>
-                    </div>
-                    <p className="mt-0.5 text-[10.5px] leading-snug text-slate-200 font-medium">
-                      {activeLobe.cognitiveRole}
-                    </p>
-                  </div>
-
-                  {/* Critério Semântico no RAG Reef */}
-                  <div className="mt-2 text-[10.5px]">
-                    <div className="font-semibold text-slate-400 flex items-center gap-1 mb-1">
-                      <Tag className="h-2.5 w-2.5 text-cyan-400" />
-                      <span>Critério Semântico de Indexação:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto [scrollbar-width:thin]">
-                      {activeLobe.semanticCriteria.split(", ").map((tag, i) => (
-                        <span
-                          key={i}
-                          className="rounded border border-slate-800 bg-slate-900/90 px-1.5 py-0.2 font-mono text-[9px] text-slate-300"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Botão para Restaurar Todos */}
-                  <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                    <span className="text-[9.5px] text-slate-500 font-mono">
-                      Demais setores atenuados
-                    </span>
-                    <button
-                      onClick={() => setSelectedLobeFilter("ALL")}
-                      className="text-[10.5px] font-semibold text-cyan-400 hover:text-cyan-300 transition flex items-center gap-1"
-                    >
-                      Restaurar Todos os Lobos
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-
             {/* Barra de Busca de Nós */}
             <div className="relative w-full">
               <div className="relative">
