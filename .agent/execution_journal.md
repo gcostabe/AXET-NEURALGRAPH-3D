@@ -2802,3 +2802,16 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
   4. **Verificacao CRLF**:
      - Os 3 arquivos .bat foram regravados com 100% CRLF e 0 LFs isolados.
 - **Proxima Acao Segura**: Comitar alteracoes e realizar push para origin e axet.
+
+### CHECKPOINT-091 (2026-09-24 15:03 - Remocao de Caminho Invalido para o Windows no Git)
+- **Tarefa**: TASK-20260924-1502-FIX-WINDOWS-INVALID-GIT-PATH
+- **Estado**: POST_ACTION / COMPLETED
+- **Causa Raiz Identificada**:
+  - A pasta 'data/sources/00. Reef Academy/Copy_20250122/01-TRON_01-TRON_01-Doc_01-Mod_04-Siniestros_01-Def_01-Comun_104-Plan-de-Tramitacion_DEFINIR-Roles-Plan.' terminava com um caractere ponto (.), o que e estritamente proibido pelo Win32/NTFS no Windows. Isso causava 'error: invalid path' e 'fatal: unable to checkout working tree' durante o 'git clone' no Windows.
+  - O conteudo ja existia de forma 100% identica na pasta normalizada '...DEFINIR-Roles-Plan_/'.
+- **Acoes Concluidas**:
+  1. **Remocao da Pasta Invalida**:
+     - Removido do indice Git o arquivo e a pasta com ponto final ('git rm -r').
+  2. **Auditoria de Conformidade Windows**:
+     - Varredura de todos os 2.884 caminhos rastreados no Git: confirmados 0 caracteres invalidos (: * ? " < > |) e 0 caminhos terminados em ponto ou espaco.
+- **Proxima Acao Segura**: Comitar e sincronizar push com os remotos origin e axet.
