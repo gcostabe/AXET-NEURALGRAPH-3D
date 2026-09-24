@@ -12,7 +12,8 @@ echo.
 
 :: 1. Converter caminho para o formato WSL
 set "WSL_PROJECT_DIR="
-for /f "tokens=*" %%a in ('wsl wslpath -u "%SCRIPT_DIR%"') do set "WSL_PROJECT_DIR=%%a"
+for /f "tokens=*" %%a in ('wsl -d Ubuntu wslpath -u "%SCRIPT_DIR%" 2^>nul ^|^| wsl wslpath -u "%SCRIPT_DIR%" 2^>nul') do set "WSL_PROJECT_DIR=%%a"
+set "WSL_PROJECT_DIR=%WSL_PROJECT_DIR:/mnt/host/=/mnt/%"
 
 if "%WSL_PROJECT_DIR%"=="" (
     echo [ERRO] Nao foi possivel comunicar com o WSL2.
