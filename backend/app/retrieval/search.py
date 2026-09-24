@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from qdrant_client import QdrantClient
 from sqlalchemy import select
@@ -7,7 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.ingestion.embedder import get_embedder
 from app.ingestion.vector_store import get_client
-from app.knowledge.models import KnowledgeConflict, KnowledgeDocument, KnowledgeEdge
+from app.knowledge.entity_extractor import detect_entities_in_query
+from app.knowledge.models import (
+    KnowledgeConflict,
+    KnowledgeDocument,
+    KnowledgeEdge,
+    KnowledgeEntity,
+    KnowledgeEntityMention,
+)
 from app.retrieval.reranker import rerank_chunks
 
 
@@ -20,7 +28,12 @@ class RetrievedChunk:
     score: float
 
 
-def search(query: str, top_k: int = 10, enable_rerank: bool = True) -> list[RetrievedChunk]:
+def search(
+    query: str,
+    top_k: int = 10,
+    enable_rerank: bool = True,
+    entity_sources: set[str] | None = None,
+) -> list[RetrievedChunk]:
     client: QdrantClient = get_client()
     embedder = get_embedder()
 
@@ -50,7 +63,7 @@ def search(query: str, top_k: int = 10, enable_rerank: bool = True) -> list[Retr
         )
 
     if enable_rerank:
-        return rerank_chunks(query, chunks, top_k=top_k)
+        return rerank_chunks(query, chunks, top_k=top_k, entity_sources=entity_sources)
 
     return chunks[:top_k]
 
@@ -219,6 +232,48 @@ async def get_graph_context_for_sources(
     return (hop1_edges, conflicts, hop2_edges, hop2_docs)
 
 
+async def get_query_entities_context(
+    db: AsyncSession,
+    query: str,
+    max_entities: int = 6,
+) -> tuple[list[tuple[KnowledgeEntity, list[str]]], set[str]]:
+    """Identifica entidades citadas na consulta (NER) e recupera os documentos que as mencionam formalmente.
+
+    Retorna:
+        (query_entities, matched_source_paths)
+    """
+    detected = detect_entities_in_query(query)
+    if not detected:
+        return ([], set())
+
+    canonical_ids = [d.canonical_id for d in detected][:max_entities]
+    entities_res = await db.scalars(
+        select(KnowledgeEntity).where(KnowledgeEntity.canonical_id.in_(canonical_ids))
+    )
+    entities = list(entities_res.all())
+    if not entities:
+        return ([], set())
+
+    entity_ids = [e.id for e in entities]
+    mentions_res = await db.scalars(
+        select(KnowledgeEntityMention).where(KnowledgeEntityMention.entity_id.in_(entity_ids))
+    )
+    mentions = list(mentions_res.all())
+
+    mentions_by_entity: dict[Any, list[str]] = {}
+    all_matched_sources: set[str] = set()
+    for m in mentions:
+        mentions_by_entity.setdefault(m.entity_id, []).append(m.source_path)
+        all_matched_sources.add(m.source_path)
+
+    results: list[tuple[KnowledgeEntity, list[str]]] = []
+    for e in entities:
+        docs = mentions_by_entity.get(e.id, [])
+        results.append((e, docs))
+
+    return (results, all_matched_sources)
+
+
 def build_context(
     chunks: list[RetrievedChunk],
     edges: list[KnowledgeEdge] | None = None,
@@ -226,10 +281,11 @@ def build_context(
     doc_summaries: list[KnowledgeDocument] | None = None,
     hop2_edges: list[KnowledgeEdge] | None = None,
     hop2_docs: list[KnowledgeDocument] | None = None,
+    query_entities: list[tuple[KnowledgeEntity, list[str]]] | None = None,
     max_chars: int = 9000,
 ) -> str:
     """Monta o bloco de contexto contendo resumos executivos, trechos de documentos,
-    conexões do grafo (1-Hop direto e 2-Hop Multi-Hop) e alertas de obsolescência/conflitos normativos."""
+    conexões do grafo (1-Hop direto e 2-Hop Multi-Hop), entidades do subgrafo NER e alertas de obsolescência."""
     parts = []
     total = 0
 
@@ -249,6 +305,22 @@ def build_context(
         conflict_block = "\n".join(conflict_lines)
         parts.append(conflict_block)
         total += len(conflict_block)
+
+    # 2. Entidades Críticas da Consulta (Subgrafo NER)
+    if query_entities:
+        entity_lines = [
+            "### [ENTIDADES CRÍTICAS RECONHECIDAS NA CONSULTA (Subgrafo NER)]",
+            "Atenção: A consulta cita entidades regulatórias, sistemas ou cláusulas mapeadas no subgrafo:",
+        ]
+        for ent, doc_paths in query_entities:
+            paths_str = f" (Mencionada em: {', '.join(f'`{p}`' for p in doc_paths[:4])})" if doc_paths else ""
+            entity_lines.append(f"- **[{ent.entity_type}]** {ent.name}{paths_str}")
+        entity_lines.append(
+            "(Diretriz: Dê prioridade factual estrita às definições, regras e limites que vinculam estas entidades específicas).\n"
+        )
+        entity_block = "\n".join(entity_lines)
+        parts.append(entity_block)
+        total += len(entity_block)
 
     # 2. Resumos Executivos de Alto Nível (Hierarchical Context 1-Hop e 2-Hop)
     summary_lines = []

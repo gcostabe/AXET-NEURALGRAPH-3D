@@ -2628,3 +2628,53 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
      - Testes unitários executados e aprovados 100% no container Docker do backend.
      - Endpoint `/health` validado com HTTP 200 `{"status":"ok"}`.
 - **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push dual para `origin` e `axet`.
+
+### CHECKPOINT-086-PRE (2026-09-24 13:01 - Write-ahead: Implementação da FASE 2 - Subgrafo de Entidades Críticas / NER Leve)
+- **Tarefa**: `TASK-20260924-1301-SUBGRAFO-ENTIDADES-NER-FASE-2`
+- **Estado**: PRE_ACTION
+- **Ação Pretendida**:
+  1. Criar tabelas `KnowledgeEntity` e `KnowledgeEntityMention` no PostgreSQL via SQLAlchemy.
+  2. Implementar motor de extração determinística `backend/app/knowledge/entity_extractor.py` para extrair entidades regulatórias, de sistemas e contratuais com latência inferior a 30ms e zero custo de API externa.
+  3. Integrar extração ao pipeline de ingestão (`analyzer.py`) para persistir menções por documento.
+  4. Integrar busca por entidade na query em `backend/app/retrieval/search.py` e enriquecer o contexto do LLM em `backend/app/api/chat.py`.
+  5. Testar e validar a suíte `backend/tests/test_entities.py`.
+- **Arquivos Relevantes**:
+  - `backend/app/knowledge/models.py`
+  - `backend/app/knowledge/entity_extractor.py`
+  - `backend/app/knowledge/analyzer.py`
+  - `backend/app/retrieval/search.py`
+  - `backend/app/api/chat.py`
+  - `backend/tests/test_entities.py`
+- **Motivo**: Permitir buscas cirúrgicas e determinísticas por códigos de produtos, sistemas (TRON, etc.), normas SUSEP e cláusulas contratuais, desambiguando termos e acelerando a recuperação factual.
+- **Estado Atual**: Grafo opera apenas no nível de documentos (`KnowledgeDocument` e `KnowledgeEdge`).
+- **Próxima Ação Segura**: Atualizar `backend/app/knowledge/models.py` com as novas entidades.
+
+### CHECKPOINT-086 (2026-09-24 13:10 - Conclusão da FASE 2: Subgrafo de Entidades Críticas / NER Leve e Re-ranking Relacional)
+- **Tarefa**: `TASK-20260924-1301-SUBGRAFO-ENTIDADES-NER-FASE-2`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. **Modelagem de Entidades e Menções no Banco de Dados (`backend/app/knowledge/models.py`)**:
+     - `KnowledgeEntity`: `id`, `name`, `entity_type` (REGULATORIO, SISTEMA, CLAUSULA), `canonical_id` (indexado e normalizado), `description`, `created_at`.
+     - `KnowledgeEntityMention`: `id`, `entity_id` (FK), `source_path` (indexado), `mention_count`, `context_sample`, `created_at`.
+     - Tabelas `knowledge_entities` e `knowledge_entity_mentions` criadas e validadas no PostgreSQL.
+  2. **Motor de Extração Determinística de Entidades (`backend/app/knowledge/entity_extractor.py`)**:
+     - Desenvolvido extrator de entidades de alta performance por expressões regulares compiladas (<30ms por documento, 0 chamadas de LLM externa e 0 custos de API).
+     - Cobertura completa: Circulares SUSEP, Resoluções CNSP, Leis Federais, Artigos do Código Civil, Códigos de Sistemas (TRON, DEF, BATCH, APIs, REEF Core) e Cláusulas Contratuais (Franquias, Condições Gerais).
+     - Normalização canônica, deduplicador por documento e amostragem contextual de menções.
+     - Implementadas funções `extract_entities_from_text` e `detect_entities_in_query`.
+  3. **Integração no Ciclo de Ingestão (`backend/app/knowledge/analyzer.py`)**:
+     - Conectado em `process_document_cognitive_evolution` para extrair entidades do documento e persistir suas menções atômicas no PostgreSQL.
+     - Atualizada a rotina `remove_document_knowledge` com exclusão em cascata das menções de entidades do documento excluído.
+  4. **Re-ranker Híbrido com Bônus de Entidade (`backend/app/retrieval/reranker.py`)**:
+     - Inserido parâmetro `entity_sources` no re-ranker.
+     - Documentos contendo menção formal à entidade reconhecida na consulta recebem bônus de relevância relacional (+0.18), assegurando que fontes canônicas com termos técnicos ultrapassem correspondências meramente semânticas.
+  5. **Contexto Hierárquico e Chat (`backend/app/retrieval/search.py` e `backend/app/api/chat.py`)**:
+     - Implementada a função `get_query_entities_context(db, query)`.
+     - Injetada a seção de alta prioridade `### [ENTIDADES CRÍTICAS RECONHECIDAS NA CONSULTA (Subgrafo NER)]` no prompt estruturado de `build_context`.
+     - No endpoint de chat (`chat.py`), detecção de entidades na query do usuário e repasse direto para busca, re-ranker e montagem de contexto.
+  6. **Testes Unitários & Validação**:
+     - Criada suíte completa em `backend/tests/test_entities.py`.
+     - Todos os 13 testes unitários (`test_cognitive.py`, `test_multihop.py`, `test_entities.py`) executados e aprovados com 100% de sucesso no container `rag-local-reef-backend-1`.
+     - Healthcheck `/health` validado com HTTP 200 `{"status":"ok"}`.
+- **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push dual para `origin` e `axet`.
+

@@ -79,8 +79,13 @@ def rerank_chunks(
     dense_weight: float = 0.50,
     lexical_weight: float = 0.35,
     structural_weight: float = 0.15,
+    entity_sources: set[str] | None = None,
 ) -> list[RetrievedChunk]:
-    """Reclassifica os candidatos recuperados da busca vetorial usando pontuação composta híbrida."""
+    """Reclassifica os candidatos recuperados da busca vetorial usando pontuação composta híbrida.
+
+    Pondera similaridade vetorial densa, correspondência lexical exata, metadados
+    estruturais e bônus para documentos que mencionam entidades críticas da consulta.
+    """
     if not candidates:
         return []
 
@@ -108,6 +113,10 @@ def rerank_chunks(
             + lexical_score * lexical_weight
             + structural_score * structural_weight
         )
+
+        # 5. Bônus para documentos com menção direta a entidades críticas da consulta (Subgrafo NER)
+        if entity_sources and chunk.source_path in entity_sources:
+            final_score = min(1.0, final_score + 0.18)
 
         chunk.score = round(final_score, 4)
 

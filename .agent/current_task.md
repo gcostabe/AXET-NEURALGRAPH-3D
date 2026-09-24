@@ -1,37 +1,50 @@
 # CURRENT TASK
 
-Task ID: TASK-20260924-1200-MULTI-HOP-GRAPH-RETRIEVAL-FASE-1
+Task ID: TASK-20260924-1301-SUBGRAFO-ENTIDADES-NER-FASE-2
 
-Created: 2026-09-24 12:00
+Created: 2026-09-24 13:01
 
-Last Updated: 2026-09-24 12:04
+Last Updated: 2026-09-24 13:10
 
 Status: COMPLETED
 
-Resume Authorization: NO
+Resume Authorization: YES
 
 ---
 
 ## User Request
 
-"execute fase a fase"
+"execute fase a fase" -> Usuário confirmou avanço para a FASE 2: Subgrafo de Entidades Críticas com NER Leve.
 
 ---
 
 ## Objective
 
-1. **Implementar a FASE 1: Expansão Multi-Hop no Retrieval (2-Hop Reasoning)**:
-   - Evoluir a função `get_graph_context_for_sources` em `backend/app/retrieval/search.py` para realizar a travessia de 2 passos no Grafo de Conhecimento (`KnowledgeEdge` e `KnowledgeConflict` no PostgreSQL).
-   - Filtrar a expansão de 2-hop priorizando arestas de alta criticidade semântica (`SUBSTITUI`, `DEPENDE_DE`, `ATUALIZA`, `COMPLEMENTA`), com ordenação e teto defensivo (máximo 8 arestas secundárias e 4 documentos ancestrais) para prevenir *prompt bloat* e diluição de atenção (*lost in the middle*).
-   - Resgatar resumos executivos (`KnowledgeDocument`) dos nós ancestrais críticos alcançados no 2º salto e integrá-los à hierarquia de contexto.
-   - Atualizar `build_context` para formatar e rotular explicitamente as cadeias transitivas (1-Hop direto e 2-Hop encadeado).
-   - Atualizar `backend/app/api/chat.py` para incorporar os nós estruturantes de 2-hop às fontes com precisão (`🔗 Título (Via Grafo)`).
+1. **Modelagem de Entidades e Menções no Banco de Dados (`backend/app/knowledge/models.py`)**:
+   - Criar `KnowledgeEntity`: `id`, `name`, `entity_type`, `canonical_id` (indexado e normalizado), `description`, `created_at`.
+   - Criar `KnowledgeEntityMention`: `id`, `entity_id` (FK), `source_path` (indexado), `mention_count`, `context_sample`, `created_at`.
 
-2. **Validação e Testes**:
-   - Desenvolver testes automatizados cobrindo a lógica de expansão 1-hop e 2-hop, filtragem de arestas, prevenção de ciclos e montagem do prompt topológico em `backend/tests/test_multihop.py`.
-   - Executar testes no ambiente Docker do backend (100% aprovados).
-   - Validar endpoint de saúde e compilação.
-   - Registrar CHECKPOINT-085, comitar e realizar push simultâneo para `origin` e `axet`.
+2. **Módulo de Extração Determinística de Entidades (`backend/app/knowledge/entity_extractor.py`)**:
+   - Desenvolver motor de NER leve, determinístico e de ultra-baixa latência (0 chamadas LLM externas, <30ms por documento).
+   - Cobrir padrões corporativos do ecossistema REEF:
+     - Regulatórios e Normas: Circulares SUSEP, Resoluções CNSP, Leis Federais, Artigos do Código Civil.
+     - Sistemas e Módulos: Códigos TRON (TRON_01, etc.), DEF, BATCH, APIs, REEF Core.
+     - Cláusulas e Regras Contratuais: Cláusulas de apólice, Condições Gerais, Franquia, etc.
+   - Fornecer funções `extract_entities_from_text` e `detect_entities_in_query`.
+
+3. **Integração na Ingestão (`backend/app/knowledge/analyzer.py`)**:
+   - Conectar o extrator de entidades no ciclo de evolução de documentos (`process_document_cognitive_evolution`).
+   - Persistir/sincronizar entidades e menções no PostgreSQL, e limpar menções em `remove_document_knowledge`.
+
+4. **Integração no Motor de Busca e Chat (`backend/app/retrieval/search.py` e `backend/app/api/chat.py`)**:
+   - Criar `get_query_entities_context` para resgatar entidades citadas e documentos correlatos.
+   - Injetar no `build_context` um bloco de alta autoridade: `### [ENTIDADES CRÍTICAS RECONHECIDAS NA CONSULTA (Subgrafo NER)]`.
+   - Bonificar os documentos que contêm menção direta à entidade no Re-ranker (+0.18).
+
+5. **Validação & Testes**:
+   - Criar testes em `backend/tests/test_entities.py`.
+   - Validar execução no container Docker e verificar endpoints e integridade.
+   - Registrar CHECKPOINT-086, comitar e realizar push dual para `origin` e `axet`.
 
 ---
 
@@ -39,17 +52,20 @@ Resume Authorization: NO
 
 Phase: COMPLETED
 
-Current Step: Handover Fase 1 to user and prepare for Fase 2 (NER).
+Current Step: Fase 2 concluída com 100% dos testes aprovados. Pronto para avançar para a FASE 3 (Graph-Augmented Embeddings).
 
-Last Safe Checkpoint: CHECKPOINT-085.
+Last Safe Checkpoint: CHECKPOINT-086.
 
 ---
 
 ## Planned Steps
 
-- [x] Escrever checkpoint write-ahead no `execution_journal.md`.
-- [x] Implementar expansão 2-hop filtrada e resumos em `backend/app/retrieval/search.py`.
-- [x] Adaptar `build_context` e integração em `backend/app/api/chat.py`.
-- [x] Criar e executar suite de testes em `backend/tests/test_multihop.py`.
-- [x] Validar containers e rotas da API.
-- [x] Registrar CHECKPOINT-085 no journal, comitar e push dual para `origin` e `axet`.
+- [x] Registrar decisão e iniciar FASE 2.
+- [x] Criar modelos `KnowledgeEntity` e `KnowledgeEntityMention` em `models.py`.
+- [x] Criar módulo `entity_extractor.py` com regex e padrões corporativos do REEF.
+- [x] Integrar no pipeline de ingestão em `analyzer.py`.
+- [x] Integrar detecção na query e injeção contextual em `search.py` e `chat.py`.
+- [x] Criar e executar suite de testes `test_entities.py` (13/13 testes aprovados).
+- [x] Validar saúde do backend e containers Docker (`/health` OK).
+- [x] Registrar CHECKPOINT-086, comitar e push dual para `origin` e `axet`.
+

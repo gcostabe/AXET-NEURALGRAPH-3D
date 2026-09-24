@@ -19,6 +19,7 @@ from app.retrieval.search import (
     build_context,
     get_document_summaries_for_sources,
     get_graph_context_for_sources,
+    get_query_entities_context,
     search,
 )
 
@@ -90,8 +91,11 @@ async def chat(
 
     history = await _load_history(db, conversation.id)
 
+    # 0. Reconhecimento de Entidades Críticas da Consulta (Subgrafo NER)
+    query_entities, entity_sources = await get_query_entities_context(db, request.message)
+
     try:
-        chunks = search(request.message, top_k=request.top_k)
+        chunks = search(request.message, top_k=request.top_k, entity_sources=entity_sources)
     except Exception as exc:
         logger.error(f"[chat] Falha no serviço de busca/embeddings: {exc}")
         chunks = []
@@ -122,6 +126,7 @@ async def chat(
             doc_summaries=doc_summaries,
             hop2_edges=hop2_edges,
             hop2_docs=hop2_docs,
+            query_entities=query_entities,
         )
         sources = [{"source_path": c.source_path, "title": c.title} for c in relevant_chunks]
         for s in doc_summaries:

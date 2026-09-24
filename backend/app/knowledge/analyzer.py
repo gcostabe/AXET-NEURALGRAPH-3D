@@ -7,7 +7,14 @@ from sqlalchemy import delete, select
 
 from app.auth.database import AsyncSessionLocal
 from app.config import settings
-from app.knowledge.models import KnowledgeConflict, KnowledgeDocument, KnowledgeEdge
+from app.knowledge.entity_extractor import extract_entities_from_text
+from app.knowledge.models import (
+    KnowledgeConflict,
+    KnowledgeDocument,
+    KnowledgeEdge,
+    KnowledgeEntity,
+    KnowledgeEntityMention,
+)
 from app.llm.base import Message
 from app.llm.factory import get_llm_client
 
@@ -189,7 +196,7 @@ async def process_document_cognitive_evolution(
             existing_docs=existing_docs,
         )
 
-        # 4. Limpa arestas antigas ou conflitos anteriores deste documento
+        # 4. Limpa arestas antigas, conflitos ou menções a entidades anteriores deste documento
         await db.execute(
             delete(KnowledgeEdge).where(
                 (KnowledgeEdge.source_path == doc_path) | (KnowledgeEdge.target_path == doc_path)
@@ -200,6 +207,9 @@ async def process_document_cognitive_evolution(
                 (KnowledgeConflict.source_path_new == doc_path)
                 | (KnowledgeConflict.source_path_existing == doc_path)
             )
+        )
+        await db.execute(
+            delete(KnowledgeEntityMention).where(KnowledgeEntityMention.source_path == doc_path)
         )
 
         # 5. Salva ou atualiza KnowledgeDocument
@@ -257,11 +267,40 @@ async def process_document_cognitive_evolution(
                 )
                 added_conflicts += 1
 
+        # 8. Extrai e persiste o Subgrafo de Entidades Críticas (NER Leve)
+        extracted_entities = extract_entities_from_text(doc_body)
+        added_mentions = 0
+        for ent in extracted_entities:
+            entity_row = await db.scalar(
+                select(KnowledgeEntity).where(KnowledgeEntity.canonical_id == ent.canonical_id)
+            )
+            if not entity_row:
+                entity_row = KnowledgeEntity(
+                    id=uuid.uuid4(),
+                    name=ent.name,
+                    entity_type=ent.entity_type,
+                    canonical_id=ent.canonical_id,
+                    description=f"Entidade {ent.entity_type}: {ent.name}",
+                )
+                db.add(entity_row)
+                await db.flush()
+
+            db.add(
+                KnowledgeEntityMention(
+                    id=uuid.uuid4(),
+                    entity_id=entity_row.id,
+                    source_path=doc_path,
+                    mention_count=ent.count,
+                    context_sample=ent.context_sample,
+                )
+            )
+            added_mentions += 1
+
         await db.commit()
 
     logger.info(
         f"[cognitive] Processado '{doc_path}': summary={len(summary)} chars, "
-        f"topics={len(topics)}, edges={added_edges}, conflicts={added_conflicts}"
+        f"topics={len(topics)}, edges={added_edges}, conflicts={added_conflicts}, entities={added_mentions}"
     )
 
     return {
@@ -270,11 +309,12 @@ async def process_document_cognitive_evolution(
         "topics": topics,
         "edges_count": added_edges,
         "conflicts_count": added_conflicts,
+        "entities_count": added_mentions,
     }
 
 
 async def remove_document_knowledge(doc_path: str) -> None:
-    """Remove um documento excluído do grafo de conhecimento e conflitos."""
+    """Remove um documento excluído do grafo de conhecimento, conflitos e entidades."""
     async with AsyncSessionLocal() as db:
         await db.execute(delete(KnowledgeDocument).where(KnowledgeDocument.source_path == doc_path))
         await db.execute(
@@ -288,5 +328,8 @@ async def remove_document_knowledge(doc_path: str) -> None:
                 | (KnowledgeConflict.source_path_existing == doc_path)
             )
         )
+        await db.execute(
+            delete(KnowledgeEntityMention).where(KnowledgeEntityMention.source_path == doc_path)
+        )
         await db.commit()
-    logger.info(f"[cognitive] Removido '{doc_path}' do grafo de conhecimento.")
+    logger.info(f"[cognitive] Removido '{doc_path}' do grafo de conhecimento e entidades.")
