@@ -5,8 +5,15 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST_DIR="$PROJECT_ROOT/data/sources"
 DEST_VIDEOS="$PROJECT_ROOT/data/sources/08. Videos Reef Market Place"
 
-# 1. Pasta ativa atual de vídeos gerados no OneDrive
-ONEDRIVE_VIDEOS="/Users/gcostabe/Library/CloudStorage/OneDrive-NTTDATAEMEAL/MAPFRE REEF VIDEOS/_Markdown"
+# Carregar variáveis do .env caso exista
+if [ -f "$PROJECT_ROOT/.env" ]; then
+  set -a
+  source <(grep -v '^#' "$PROJECT_ROOT/.env" | sed -e 's/\r$//') 2>/dev/null || true
+  set +a
+fi
+
+# 1. Pasta ativa atual de vídeos gerados no OneDrive (configurável via $1, .env ou padrão)
+ONEDRIVE_VIDEOS="${1:-${ONEDRIVE_VIDEOS_PATH:-/Users/gcostabe/Library/CloudStorage/OneDrive-NTTDATAEMEAL/MAPFRE REEF VIDEOS/_Markdown}}"
 if [ -d "$ONEDRIVE_VIDEOS" ]; then
   echo "🔄 Sincronizando vídeos Markdown do OneDrive:"
   echo "   $ONEDRIVE_VIDEOS"
