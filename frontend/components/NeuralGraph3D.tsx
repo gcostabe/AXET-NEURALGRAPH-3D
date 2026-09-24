@@ -1831,131 +1831,6 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
         )}
       </div>
 
-      {/* Container Flutuante para Card Informativo do Lobo Ativo */}
-      <div className="pointer-events-none absolute left-3 top-14 z-20">
-
-        {/* Card Informativo de Iluminação da Área Anatômica Cyberpunk */}
-        {layoutMode === "brain" && selectedLobeFilter !== "ALL" && (() => {
-          const activeLobe = CYBERPUNK_BRAIN_LOBES[selectedLobeFilter];
-          if (!activeLobe) return null;
-          const nodeCount = lobeStats[selectedLobeFilter] || 0;
-          const pct = Math.round((nodeCount / Math.max(1, stats.totalNodes)) * 100);
-
-          return (
-            <div
-              className="pointer-events-auto max-w-sm rounded-2xl border bg-slate-950/95 p-3.5 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200"
-              style={{
-                borderColor: `${activeLobe.color}55`,
-                boxShadow: `0 0 32px ${activeLobe.color}20`,
-              }}
-            >
-              {/* Header com Insígnia e Ação de Fechar */}
-              <div
-                className="flex items-start justify-between gap-2 border-b pb-2.5"
-                style={{ borderColor: `${activeLobe.color}25` }}
-              >
-                <div className="flex items-center gap-2">
-                  <div
-                    className="flex h-8 w-8 items-center justify-center rounded-xl text-base shadow-lg"
-                    style={{
-                      backgroundColor: `${activeLobe.color}20`,
-                      color: activeLobe.color,
-                      border: `1px solid ${activeLobe.color}40`,
-                    }}
-                  >
-                    {activeLobe.icon}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-100">
-                        {activeLobe.name}
-                      </h4>
-                      <span
-                        className="rounded px-1.5 py-0.2 text-[9px] font-mono font-bold border"
-                        style={{
-                          backgroundColor: `${activeLobe.color}25`,
-                          color: activeLobe.color,
-                          borderColor: `${activeLobe.color}60`,
-                        }}
-                      >
-                        ILUMINADO
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 font-medium">
-                      {nodeCount} documentos ativos ({pct}% do grafo neural)
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setSelectedLobeFilter("ALL")}
-                  title="Restaurar visualização de todos os lobos"
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-
-              {/* Localização Anatômica */}
-              <div className="mt-2.5 flex items-start gap-1.5 text-[11px]">
-                <span className="font-semibold text-slate-400 shrink-0">📍 Posição 3D:</span>
-                <span className="text-slate-200">{activeLobe.anatomicalPosition}</span>
-              </div>
-
-              {/* Papel Cognitivo */}
-              <div
-                className="mt-2.5 rounded-xl p-2.5 text-xs"
-                style={{
-                  backgroundColor: `${activeLobe.color}0d`,
-                  border: `1px solid ${activeLobe.color}30`,
-                }}
-              >
-                <div
-                  className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider"
-                  style={{ color: activeLobe.color }}
-                >
-                  <span>🧠 Papel Cognitivo:</span>
-                </div>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-200 font-medium">
-                  {activeLobe.cognitiveRole}
-                </p>
-              </div>
-
-              {/* Critério Semântico no RAG Reef */}
-              <div className="mt-2.5 text-[11px]">
-                <div className="font-semibold text-slate-400 flex items-center gap-1 mb-1.5">
-                  <Tag className="h-3 w-3 text-cyan-400" />
-                  <span>Critério Semântico de Indexação:</span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {activeLobe.semanticCriteria.split(", ").map((tag, i) => (
-                    <span
-                      key={i}
-                      className="rounded-md border border-slate-800 bg-slate-900/90 px-2 py-0.5 font-mono text-[10px] text-slate-300"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Botão para Restaurar Todos */}
-              <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-[10px] text-slate-500 font-mono">
-                  Demais setores atenuados
-                </span>
-                <button
-                  onClick={() => setSelectedLobeFilter("ALL")}
-                  className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 transition flex items-center gap-1"
-                >
-                  Restaurar Todos os Lobos
-                </button>
-              </div>
-            </div>
-          );
-        })()}
-      </div>
-
       {/* Hover Tooltip Flutuante Ultra-Rápido com Identificação de Lobo Cyberpunk */}
       {hoveredNode && !selectedNode && (() => {
         const lobe = getNodeBrainLobe(hoveredNode, 0);
@@ -2001,8 +1876,129 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
       {/* Bottom HUD: Legenda de Navegação e Controles de Visualização Colapsáveis */}
       <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex flex-col gap-2.5 z-20">
         <div className="flex items-end justify-between gap-3">
-          {/* Canto Inferior Esquerdo: Busca de Nós + Opções de Visualização Colapsáveis */}
+          {/* Canto Inferior Esquerdo: Card de Lobo Ativo + Busca de Nós + Opções de Visualização Colapsáveis */}
           <div className="pointer-events-auto flex flex-col items-start gap-2 max-w-xs sm:max-w-sm w-full">
+            {/* Card Informativo de Iluminação da Área Anatômica Cyberpunk (Reposicionado para o Canto Inferior Esquerdo) */}
+            {layoutMode === "brain" && selectedLobeFilter !== "ALL" && (() => {
+              const activeLobe = CYBERPUNK_BRAIN_LOBES[selectedLobeFilter];
+              if (!activeLobe) return null;
+              const nodeCount = lobeStats[selectedLobeFilter] || 0;
+              const pct = Math.round((nodeCount / Math.max(1, stats.totalNodes)) * 100);
+
+              return (
+                <div
+                  className="w-full rounded-2xl border bg-slate-950/95 p-3.5 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-200 max-h-[min(380px,45vh)] overflow-y-auto"
+                  style={{
+                    borderColor: `${activeLobe.color}55`,
+                    boxShadow: `0 0 32px ${activeLobe.color}20`,
+                  }}
+                >
+                  {/* Header com Insígnia e Ação de Fechar */}
+                  <div
+                    className="flex items-start justify-between gap-2 border-b pb-2.5"
+                    style={{ borderColor: `${activeLobe.color}25` }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="flex h-8 w-8 items-center justify-center rounded-xl text-base shadow-lg"
+                        style={{
+                          backgroundColor: `${activeLobe.color}20`,
+                          color: activeLobe.color,
+                          border: `1px solid ${activeLobe.color}40`,
+                        }}
+                      >
+                        {activeLobe.icon}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-100">
+                            {activeLobe.name}
+                          </h4>
+                          <span
+                            className="rounded px-1.5 py-0.2 text-[9px] font-mono font-bold border"
+                            style={{
+                              backgroundColor: `${activeLobe.color}25`,
+                              color: activeLobe.color,
+                              borderColor: `${activeLobe.color}60`,
+                            }}
+                          >
+                            ILUMINADO
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-medium">
+                          {nodeCount} documentos ativos ({pct}% do grafo neural)
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setSelectedLobeFilter("ALL")}
+                      title="Restaurar visualização de todos os lobos"
+                      className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Localização Anatômica */}
+                  <div className="mt-2.5 flex items-start gap-1.5 text-[11px]">
+                    <span className="font-semibold text-slate-400 shrink-0">📍 Posição 3D:</span>
+                    <span className="text-slate-200">{activeLobe.anatomicalPosition}</span>
+                  </div>
+
+                  {/* Papel Cognitivo */}
+                  <div
+                    className="mt-2.5 rounded-xl p-2.5 text-xs"
+                    style={{
+                      backgroundColor: `${activeLobe.color}0d`,
+                      border: `1px solid ${activeLobe.color}30`,
+                    }}
+                  >
+                    <div
+                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider"
+                      style={{ color: activeLobe.color }}
+                    >
+                      <span>🧠 Papel Cognitivo:</span>
+                    </div>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-200 font-medium">
+                      {activeLobe.cognitiveRole}
+                    </p>
+                  </div>
+
+                  {/* Critério Semântico no RAG Reef */}
+                  <div className="mt-2.5 text-[11px]">
+                    <div className="font-semibold text-slate-400 flex items-center gap-1 mb-1.5">
+                      <Tag className="h-3 w-3 text-cyan-400" />
+                      <span>Critério Semântico de Indexação:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {activeLobe.semanticCriteria.split(", ").map((tag, i) => (
+                        <span
+                          key={i}
+                          className="rounded-md border border-slate-800 bg-slate-900/90 px-2 py-0.5 font-mono text-[10px] text-slate-300"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Botão para Restaurar Todos */}
+                  <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between">
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      Demais setores atenuados
+                    </span>
+                    <button
+                      onClick={() => setSelectedLobeFilter("ALL")}
+                      className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 transition flex items-center gap-1"
+                    >
+                      Restaurar Todos os Lobos
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Barra de Busca de Nós */}
             <div className="relative w-full">
               <div className="relative">

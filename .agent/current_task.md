@@ -1,10 +1,10 @@
 # CURRENT TASK
 
-Task ID: TASK-20260924-1035-ELEVATE-3D-GRAPH-AND-COLLAPSIBLE-FILTER-MENU
+Task ID: TASK-20260924-1118-RELOCATE-ACTIVE-LOBE-CARD-TO-BOTTOM-LEFT
 
-Created: 2026-09-24 10:35
+Created: 2026-09-24 11:18
 
-Last Updated: 2026-09-24 10:44
+Last Updated: 2026-09-24 11:22
 
 Status: COMPLETED
 
@@ -14,29 +14,22 @@ Resume Authorization: NO
 
 ## User Request
 
-"suba a area da imagem apra o topo reduzindo o espaço da borda superior o maximo possivel e deixe esse menu colapsavel e abra por default colapsado"
+"ajuste a caixa marcada em vermelho para a area marcada em azul"
 
 ---
 
 ## Objective
 
-1. **Elevação e Expansão da Imagem do Cérebro 3D**:
-   - Reduzir o padding superior de `frontend/app/graph/page.tsx` para `pt-0.5`, eliminando o espaço escuro entre o cabeçalho e a área 3D.
-   - Expandir a altura do container do canvas para `h-full min-h-[600px]`.
-   - Ajustar o vetor de câmera e centro focal para Y=-18 (`camera.lookAt(0, -18, 0)` e `controls.target.set(0, -18, 0)`), elevando a área do cérebro para o topo da tela com máxima proeminência.
-   - Atualizar `resetCamera` para manter o ponto focal elevado.
+1. **Reposicionamento do Card de Lobo Cerebral Ativo**:
+   - Mover o container e o card informativo de Iluminação Anatômica Cyberpunk do lobo ativo (`activeLobe`) do cabeçalho superior (`absolute left-3 top-14`) para o canto inferior esquerdo, posicionado diretamente acima da barra de busca de nós (`Localizar nó no espaço...`), na exata área marcada em azul no screenshot do usuário.
+   - Ajustar as classes CSS para `w-full` (respeitando a largura padrão `max-w-xs sm:max-w-sm` do painel inferior esquerdo), com `animate-in fade-in slide-in-from-bottom-2 duration-200` e rolagem máxima defensiva (`max-h-[min(380px,45vh)] overflow-y-auto`).
+   - Liberar completamente a visão e interação com o menu superior de filtros colapsáveis de Lobos e Sinapses, eliminando a sobreposição indesejada.
 
-2. **Menu de Lobos e Sinapses Colapsável e Fechado por Padrão**:
-   - Tornar o menu destacado na imagem colapsável com `showFilterControls = false` por padrão.
-   - Criar botão de disparo colapsável `[ ⚡ Filtros Lobos & Sinapses ⌄ ]` no canto superior esquerdo ao lado da telemetria.
-   - Ao abrir, exibir os filtros de lobos e sinapses com botão `[ Recolher ⌃ ]`.
-   - Remover o container fixo anterior que ficava em `top-20` bloqueando o topo do cérebro.
-
-3. **Deploy e Entrega**:
-   - Validar com `npm run build` (0 erros).
-   - Reconstruir e subir o container Docker frontend.
-   - Cumprir diretriz de não executar testes autônomos de browser.
-   - Registrar CHECKPOINT-083, comitar e enviar push simultâneo para `origin` e `axet`.
+2. **Compilação e Deploy Local**:
+   - Validar com `npm run build` na pasta `frontend/`.
+   - Reconstruir e subir o container Docker `rag-local-reef-frontend`.
+   - Respeitar a regra de não testar autonomamente via subagente de browser e passar para o usuário testar.
+   - Registrar CHECKPOINT-084, comitar e realizar push dual para `origin` e `axet`.
 
 ---
 
@@ -46,18 +39,14 @@ Phase: COMPLETED
 
 Current Step: Handover to user for testing.
 
-Last Safe Checkpoint: CHECKPOINT-083.
+Last Safe Checkpoint: CHECKPOINT-084.
 
 ---
 
 ## Planned Steps
 
-- [x] Reduzir o padding superior em `frontend/app/graph/page.tsx`.
-- [x] Expandir altura do canvas e elevar a câmera 3D para `(0, -18, 0)` em `frontend/components/NeuralGraph3D.tsx`.
-- [x] Tornar menu de Lobos e Sinapses colapsável, fechado por padrão com botão no topo esquerdo.
-- [x] Remover menu fixo anterior em `top-20`.
+- [x] Analisar screenshot e coordenadas dos retângulos vermelho e azul.
+- [x] Mover o card informativo do lobo ativo em `frontend/components/NeuralGraph3D.tsx` para o container do canto inferior esquerdo (acima do campo de busca).
 - [x] Validar compilação (`npm run build`).
 - [x] Reconstruir container Docker `frontend`.
-- [x] Registrar CHECKPOINT-083 no journal, comitar e realizar push dual.
-
-
+- [x] Registrar CHECKPOINT-084, comitar e dar push dual para `origin` e `axet`.

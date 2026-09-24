@@ -2565,3 +2565,29 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
 
 
 
+
+### CHECKPOINT-084-PRE (2026-09-24 11:19 - Write-ahead: Reposicionar Card Informativo de Lobo Ativo para o Canto Inferior Esquerdo)
+- **Tarefa**: `TASK-20260924-1118-RELOCATE-ACTIVE-LOBE-CARD-TO-BOTTOM-LEFT`
+- **Estado**: PRE_ACTION
+- **Ação Pretendida**: Remover o container absoluto `top-14` do card de lobo cerebral iluminado (`activeLobe`) e movê-lo para o container flexível do canto inferior esquerdo em `frontend/components/NeuralGraph3D.tsx`, posicionando-o diretamente acima da barra de busca "Localizar nó no espaço..." (área indicada em azul pelo usuário).
+- **Arquivo Relevante**: `frontend/components/NeuralGraph3D.tsx`
+- **Motivo**: O card no topo esquerdo (`top-14`) sobrepunha e bloqueava o painel colapsável de filtros de Lobos e Sinapses quando expandido. Na área inferior esquerda acima da busca, há espaço limpo e dedicado, mantendo a visibilidade completa dos filtros superiores.
+- **Estado Atual**: Card posicionado em `absolute left-3 top-14 z-20`.
+- **Próxima Ação Segura**: Aplicar modificação em `frontend/components/NeuralGraph3D.tsx` e validar compilação via `npm run build`.
+
+### CHECKPOINT-084 (2026-09-24 11:21 - Reposicionamento do Card de Lobo Ativo para o Canto Inferior Esquerdo acima da Busca)
+- **Tarefa**: `TASK-20260924-1118-RELOCATE-ACTIVE-LOBE-CARD-TO-BOTTOM-LEFT`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. **Remoção do Card do Topo Esquerdo**:
+     - Removido o container fixo `absolute left-3 top-14 z-20` que continha o card informativo de iluminação do lobo cerebral ativo (`activeLobe`).
+     - Eliminada completamente a sobreposição com o menu superior colapsável de Lobos e Sinapses, garantindo visibilidade total de todos os botões e telemetria superior.
+  2. **Inserção no Canto Inferior Esquerdo (Área Marcada em Azul)**:
+     - Movido o card informativo para o container flexível do canto inferior esquerdo em `frontend/components/NeuralGraph3D.tsx`, posicionado diretamente acima da barra de busca de nós ("Localizar nó no espaço...").
+     - Ajustada a largura para `w-full` (alinhando com a largura padrão `max-w-xs sm:max-w-sm` dos controles inferiores).
+     - Aplicadas classes `animate-in fade-in slide-in-from-bottom-2 duration-200` e rolagem máxima defensiva `max-h-[min(380px,45vh)] overflow-y-auto`.
+  3. **Compilação e Deploy no Docker**:
+     - Executado `npm run build` com sucesso absoluto (0 erros de lint/tipagem).
+     - Container Docker `rag-local-reef-frontend-1` reconstruído com sucesso via `docker compose build frontend && docker compose up -d --force-recreate frontend`.
+     - Respeitada a diretriz do usuário ("nao teste autonomamente me passe pra testar") sem disparo de subagente de browser.
+- **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push simultâneo para os 2 repositórios remotos (`origin` e `axet`).
