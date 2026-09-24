@@ -2815,3 +2815,17 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
   2. **Auditoria de Conformidade Windows**:
      - Varredura de todos os 2.884 caminhos rastreados no Git: confirmados 0 caracteres invalidos (: * ? " < > |) e 0 caminhos terminados em ponto ou espaco.
 - **Proxima Acao Segura**: Comitar e sincronizar push com os remotos origin e axet.
+
+### CHECKPOINT-092 (2026-09-24 15:14 - Eliminacao de Blocos de Parenteses no cmd.exe e Deteccao de Desktop via Registro)
+- **Tarefa**: TASK-20260924-1512-ELIMINATE-CMD-PARENTHESES-BLOCKS
+- **Estado**: POST_ACTION / COMPLETED
+- **Causa Raiz Identificada**:
+  - O interpretador do cmd.exe quebrava ao analisar parenteses contidos nos textos de echo dentro de blocos if (ex: '(versao 2004+)' e '(Se o Windows...)'), interpretando ')' como fechamento do bloco e lancando ') was unexpected at this time.' antes de executar qualquer comando.
+- **Acoes Concluidas**:
+  1. **Refatoracao para Labels e Goto**:
+     - O arquivo instalar_windows.bat foi reestruturado de forma totalmente linear com goto e rotulos (:WSL_AVAILABLE, :UBUNTU_AVAILABLE, :PROVISION_OK, :ERROR_EXIT, :END_SCRIPT), com zero blocos if (...) multinivel.
+  2. **Deteccao Universal de Desktop**:
+     - Adicionada consulta a chave HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders para capturar a Area de Trabalho real (mesmo sob OneDrive comercial da NTT DATA).
+  3. **Verificacao CRLF e Sintaxe**:
+     - Validado depth de parenteses estritamente 0 em todo o arquivo e 100% quebras CRLF.
+- **Proxima Acao Segura**: Comitar e subir para os remotes origin e axet.
