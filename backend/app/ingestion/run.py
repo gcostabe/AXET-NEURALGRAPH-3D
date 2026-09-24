@@ -116,6 +116,9 @@ async def run_async(
     client = get_client()
     embedder = get_embedder()
 
+    probe_vector = embedder.embed(["probe"])[0]
+    ensure_collection(client, vector_size=len(probe_vector))
+
     indexed_hashes = {} if mode == "full" else get_indexed_hashes(client)
 
     total_chunks = 0
@@ -125,9 +128,6 @@ async def run_async(
     active_time_spent = 0.0
     active_files_count = 0
     last_report_time = 0.0
-
-    probe_vector = embedder.embed(["probe"])[0]
-    ensure_collection(client, vector_size=len(probe_vector))
 
     for idx, file_path in enumerate(files):
         rel_str = str(file_path.relative_to(root)) if file_path.is_relative_to(root) else file_path.name

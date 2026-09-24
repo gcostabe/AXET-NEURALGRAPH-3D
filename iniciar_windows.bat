@@ -28,7 +28,7 @@ if %errorlevel% equ 0 (
     echo [OK] O aplicativo ja esta ativo e respondendo na porta 3001!
     echo Abrindo o navegador...
     start http://localhost:3001/
-    timeout /t 3 /nobreak >nul
+    powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul 2>&1
     exit /b 0
 )
 
@@ -42,13 +42,13 @@ if %errorlevel% neq 0 (
 :: 4. Subir todos os containers via Docker Compose
 echo [INFO] Inicializando os 5 containers da solucao...
 echo        - Frontend Next.js / Three.js 3D (:3001)
-echo        - Backend FastAPI REST & SSE (:8000)
+echo        - Backend FastAPI REST ^& SSE (:8000)
 echo        - aXet / Okta API Gateway (:8766)
 echo        - PostgreSQL 16 Relacional (:5432)
 echo        - Qdrant Vector Engine (:6333)
 echo.
 
-start "AXET-NEURALGRAPH-3D Docker" /min wsl -d Ubuntu -- bash -c "cd '%WSL_PROJECT_DIR%' && docker compose up -d"
+wsl -d Ubuntu -u root -- bash -c "cd '%WSL_PROJECT_DIR%' && docker compose up -d"
 
 :: 4.1. Verificar se existe pacote de atualizacao pendente da base (Opcao 1)
 if exist "%SCRIPT_DIR%\data\snapshots\auto_import.qpack" (
@@ -62,7 +62,7 @@ echo Aguardando o servico web responder na porta 3001...
 set /a ATTEMPTS=0
 
 :WAIT_LOOP
-timeout /t 1 /nobreak >nul
+powershell -NoProfile -Command "Start-Sleep -Seconds 1" >nul 2>&1
 set /a ATTEMPTS+=1
 
 powershell -Command "$c = New-Object System.Net.Sockets.TcpClient; try { $c.Connect('127.0.0.1', 3001); exit 0 } catch { exit 1 }" >nul 2>&1
@@ -84,6 +84,11 @@ echo   [OK] AXET-NEURALGRAPH-3D pronto e conectado em http://localhost:3001/
 echo ===============================================================================
 echo.
 start http://localhost:3001/
+echo.
+echo [STATUS] A solucao esta em execucao ativa.
+echo Mantenha esta janela aberta (ou minimizada) para manter os servicos ativos.
+echo Para parar e encerrar o AXET-NEURALGRAPH-3D, feche esta janela ou aperte CTRL+C.
+echo.
 
-timeout /t 3 /nobreak >nul
+wsl -d Ubuntu -u root -- bash -c "cd '%WSL_PROJECT_DIR%' && tail -f /dev/null"
 exit /b 0
