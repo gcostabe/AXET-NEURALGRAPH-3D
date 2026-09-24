@@ -2402,11 +2402,28 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
   3. Recomendações de SKUs Azure (`Standard_D4s_v5` e GPU `Standard_NC4as_T4_v3`), segurança de rede (NSG), variáveis de ambiente e rotinas de backup.
   4. Sincronização e push simultâneo para os dois repositórios remotos (`origin` e `axet`).
 
+### CHECKPOINT-075 (2026-09-23 23:55 - Embed do aXet / Okta API Gateway na Instalação da Solução)
+- **Tarefa**: `TASK-20260923-2345-EMBED-GATEWAY-STACK`
+- **Estado**: WRITE_AHEAD / IN_PROGRESS
+- **Ações Realizadas**:
+  1. Transferência dos módulos do Local AI Gateway (`gateway/`) para o repositório local.
+  2. Criação do `gateway/Dockerfile` base Python 3.11-slim com utilitário curl para monitoramento.
+  3. Parametrização dinâmica de host (`0.0.0.0`) e porta (`8766`) via variáveis de ambiente em `gateway/local_ai_gateway.py`.
+  4. Inclusão do serviço `gateway` no `docker-compose.yml`, compartilhando a rede interna do Docker com `backend`.
+  5. Atualização de `GATEWAY_HOST_URL`, `LLM_GATEWAY_URL` e `EMBEDDING_API_URL` para `http://gateway:8766/codex`.
+  6. Proteção de credenciais de sessão (`gateway/tokens.json`, `gateway/user_identity.json`, etc.) no `.gitignore`.
+  7. Desativação do daemon de background no host macOS para liberar a porta 8766 para o container Docker.
+- **Próxima Ação Segura**: Concluir build das imagens Docker, iniciar os serviços e testar endpoints de healthcheck e chat LLM.
 
-
-
-
-
-
-
-
+### CHECKPOINT-076 (2026-09-24 00:25 - Validação e Deploy do Gateway Embedado e Push Dual)
+- **Tarefa**: `TASK-20260923-2345-EMBED-GATEWAY-STACK`
+- **Estado**: POST_ACTION / COMPLETED
+- **Resultados e Validações**:
+  1. Build Docker de `rag-local-reef-gateway` e `rag-local-reef-backend` concluído com sucesso.
+  2. Todos os 5 microsserviços do Docker Compose ativos e saudáveis: `frontend:3001`, `backend:8000`, `gateway:8766`, `postgres:5432` e `qdrant:6333`.
+  3. Healthcheck do gateway (`GET /health`) validado: status OK, slots upstream disponíveis e Okta token ativo.
+  4. Comunicação interna entre containers validada: container `backend` realizou requisições com sucesso para `http://gateway:8766/codex/v1/models` e `/codex/v1/chat/completions`.
+  5. Chat completion executado com modelo `gpt-5.6-terra-high` através do gateway interno retornando resposta 200 OK.
+  6. `README.md` atualizado com arquitetura visual Mermaid de 5 containers, matriz técnica e procedimentos de deploy no Azure.
+  7. `.gitignore` auditado garantindo que credenciais locais de sessão e arquivos transitórios permaneçam estritamente locais.
+- **Próxima Ação Segura**: Git commit e push simultâneo para os dois repositórios remotos (`origin` e `axet`).

@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     okta_scopes: str = "openid profile email offline_access"
     okta_token_url: str = "https://onentt.okta.com/oauth2/ausf3mzucjRGKYWLy417/v1/token"
     okta_device_auth_url: str = "https://onentt.okta.com/oauth2/ausf3mzucjRGKYWLy417/v1/device/authorize"
-    gateway_host_url: str = "http://host.docker.internal:8766"
+    gateway_host_url: str = "http://gateway:8766"
 
     environment: str = "local"
     cors_allowed_origins: str = "http://localhost:3001"

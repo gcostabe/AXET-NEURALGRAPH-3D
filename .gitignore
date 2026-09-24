@@ -9,6 +9,10 @@
 *.crt
 secrets.json
 credentials.json
+gateway/tokens.json
+gateway/tokens.json.lock
+gateway/user_identity.json
+gateway/logs/
 
 # ── Python & Backend ─────────────────────────────────────────
 __pycache__/

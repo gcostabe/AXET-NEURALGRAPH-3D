@@ -1,10 +1,10 @@
 # CURRENT TASK
 
-Task ID: TASK-20260923-1830-TRANSLUCENT-BRAIN-SHELL-3D
+Task ID: TASK-20260923-2345-EMBED-GATEWAY-STACK
 
-Created: 2026-09-23 18:30
+Created: 2026-09-23 23:45
 
-Last Updated: 2026-09-23 18:30
+Last Updated: 2026-09-23 23:58
 
 Status: COMPLETED
 
@@ -14,36 +14,38 @@ Resume Authorization: NO
 
 ## User Request
 
-"é possivel colocar uma imagem translucida 3d de um cerebro encapsulando o grupo de graphos 3d?" -> "tem como fazer um rollback rapido caso nao fique bom?" -> "entao execute"
+"HOJE este app usa uma api gateway para se conectar no axet com token do okta para usar LLMs , contudo o codigo da applicaçao da api nao esta dentro deste rep, ou seja, se outra pessoa for usar nao vai funcionar, precisamos embedar esta api aqui na instalação da solução"
 
 ---
 
 ## Objective
 
-1. Criar cópia de segurança de rollback local em `frontend/components/NeuralGraph3D.tsx.bak`.
-2. Desenvolver a geometria anatômica procedural e material translúcido/holográfico de encéfalo 3D (dois hemisférios com fissura sagital central, sulcos corticais modulados, cerebelo e tronco) em Three.js encapsulando o cluster de nós do grafo.
-3. Garantir `depthWrite: false` e transparência ajustável para que os nós internos, halos bioluminescentes e conexões sinápticas continuem 100% nítidos e visíveis dentro do cérebro.
-4. Garantir que o Raycasting de seleção/foco de nós ignore a casca do cérebro, mantendo a interatividade intacta.
-5. Adicionar botão interativo Toggle de Liga/Desliga (`🧠 Casca: ON/OFF`) e seletor de opacidade no painel de ferramentas do grafo para controle em tempo de execução.
-6. Validar a renderização a 60 FPS, sem regressões de build e atualizar container no Docker Compose (porta 3001).
+1. Integrar o código do Gateway aXet / Okta (OpenAI & Anthropic Proxy) diretamente dentro deste repositório em `gateway/`.
+2. Criar Dockerfile dedicado e incluir o serviço `gateway` no `docker-compose.yml` (porta 8766).
+3. Conectar o serviço `backend` ao `gateway` através da rede interna do Docker (`http://gateway:8766`).
+4. Blindar segredos locais (`tokens.json`, `user_identity.json`, etc.) com `.gitignore` e fornecer `.example.json`.
+5. Validar a subida dos containers, healthcheck do gateway e comunicação do backend/LLM.
+6. Atualizar a documentação arquitetural no `README.md` refletindo os 5 serviços (Frontend, Backend, Gateway, Qdrant, Postgres) e sincronizar via git push nos 2 repositórios remotos (`RAG-LOCAL-REEF` e `AXET-NEURALGRAPH-3D`).
 
 ---
 
 ## Execution Cursor
 
-Phase: VERIFICATION_COMPLETED
+Phase: COMPLETED
 
-Current Step: README.md com documentação e passo a passo de deploy no Microsoft Azure Cloud criado e sincronizado nos 2 repositórios remotos simultaneamente.
+Current Step: All 5 containers verified and running; LLM completions verified end-to-end; README updated and git dual-pushed.
 
-Last Safe Checkpoint: CHECKPOINT-074.
+Last Safe Checkpoint: CHECKPOINT-076.
 
 ---
 
 ## Planned Steps
 
-- [x] Criar backup `frontend/components/NeuralGraph3D.tsx.bak`.
-- [x] Implementar a casca procedural translúcida de cérebro 3D em `frontend/components/NeuralGraph3D.tsx` com shader Fresnel/holográfico.
-- [x] Adicionar botão toggle na barra de ferramentas e estado React `showBrainShell` com slider/ajuste de opacidade.
-- [x] Validar compatibilidade do Raycasting e renderização com nós internos.
-- [x] Testar build do frontend com `npm run build`.
-- [x] Reconstruir e subir o container Docker do frontend (`rag-local-reef-frontend-1` na porta 3001).
+- [x] Copiar código-fonte do gateway para `gateway/` sem carregar segredos em staging.
+- [x] Criar `gateway/Dockerfile` e adaptar `local_ai_gateway.py` para bind em `0.0.0.0` e variáveis de ambiente.
+- [x] Adicionar o serviço `gateway` no `docker-compose.yml` e ajustar o `backend` para apontar para `gateway:8766`.
+- [x] Configurar `.gitignore` e templates de exemplo.
+- [x] Reconstruir e subir os containers (`docker compose up -d gateway backend`).
+- [x] Validar healthcheck e endpoints do gateway (`/auth/status`, `/codex/v1/models`, `/codex/v1/chat/completions`).
+- [x] Atualizar `README.md` com arquitetura atualizada de 5 containers e deploy no Azure.
+- [x] Realizar commit e git push para ambos os repositórios remotos.

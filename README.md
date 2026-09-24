@@ -46,17 +46,18 @@ flowchart TB
     subgraph Azure_Network [Microsoft Azure - Virtual Network / NSG]
         Nginx[Nginx Reverse Proxy / SSL 443]
         
-        subgraph Docker_Compose [Docker Compose Environment]
+        subgraph Docker_Compose [Docker Compose Environment - 5 Serviços Integrados]
             Front[Frontend: Next.js 14 / Three.js 3D]
             Back[Backend: FastAPI / Python 3.11]
+            Gateway[aXet / Okta API Gateway: 8766]
             Qdrant[(Qdrant Vector DB: 6333)]
             Postgres[(PostgreSQL 16: 5432)]
             Whisper[Faster-Whisper / FFmpeg Engine]
         end
     end
 
-    subgraph External_Cloud [Serviços Corporativos / IA]
-        AzureOpenAI[Azure OpenAI Service / aXet Gateway]
+    subgraph External_Cloud [Serviços Corporativos / IA Externa]
+        AzureOpenAI[Azure OpenAI Service / aXet LLMs]
         Okta[Okta SSO / OneNTT]
     end
 
@@ -67,8 +68,9 @@ flowchart TB
     Back <-->|Vectors HNSW| Qdrant
     Back <-->|SQL AsyncPG| Postgres
     Back <-->|Jobs Assíncronos| Whisper
-    Back <-->|Embeddings & Chat Completions| AzureOpenAI
-    Back <-->|OAuth2 Token Verification| Okta
+    Back <-->|Chat Completions & Embeddings / Tokens Sync| Gateway
+    Gateway <-->|Bearer Token Proxy / aXet Endpoints| AzureOpenAI
+    Front <-->|OAuth2 Device Flow Login| Okta
 ```
 
 ---
@@ -107,6 +109,15 @@ flowchart TB
 | **FFmpeg** | Nativo Linux | Extração de áudio 16kHz e amostragem periódica de frames visuais de vídeo |
 | **Pillow (PIL)** | `10.4.0+` | Processamento de imagens capturadas de telas para análise visual multimodal |
 | **PostgreSQL** | `16-alpine` | Banco relacional para usuários, sessões, auditoria e grafo relacional |
+
+### 4. aXet / Okta Local AI Gateway (Embedado na Solução)
+| Componente / Recurso | Detalhes | Finalidade |
+| :--- | :--- | :--- |
+| **`gateway/local_ai_gateway.py`** | Python 3.11 Stdlib | Proxy reverso corporativo autônomo (zero dependências pip externas) |
+| **OpenAI Compatible Endpoint** | `/codex/v1/chat/completions` | Adaptação para modelos aXet (ex.: `gpt-5.6-terra-high`, `gpt-4o`) |
+| **Anthropic Compatible Endpoint** | `/v1/messages` | Proxy para chamadas Bedrock/Claude via aXet |
+| **Sincronização de Tokens Okta** | `/auth/tokens` & `/auth/status` | Ingestão e renovação automática de tokens Bearer corporativos |
+| **Container Dedicado** | `gateway:8766` | Isolamento em microsserviço no Docker Compose conectado ao backend |
 
 ---
 
@@ -258,14 +269,16 @@ POSTGRES_PASSWORD=SuaSenhaForteAzurePostgres2026!
 
 # ── Embeddings ─────────────────────────────────────────────
 # "local" usa o modelo local BAAI/bge-m3; "api" consome gateway
-EMBEDDING_MODE=local
-EMBEDDING_MODEL_LOCAL=BAAI/bge-m3
+EMBEDDING_MODE=api
+EMBEDDING_API_URL=http://gateway:8766/codex
+EMBEDDING_API_KEY=axet-local-adapter
 
-# ── LLM Gateway (Exemplo com Azure OpenAI ou aXet) ─────────
+# ── LLM Gateway (Embedado na Solução via Container 'gateway') ─
 LLM_PROVIDER=openai
-LLM_GATEWAY_URL=https://seu-recurso.openai.azure.com/openai/deployments/gpt-4o
-LLM_GATEWAY_API_KEY=sua-chave-azure-openai-ou-gateway
-LLM_MODEL=gpt-4o
+LLM_GATEWAY_URL=http://gateway:8766/codex
+LLM_GATEWAY_API_KEY=axet-local-adapter
+LLM_MODEL=gpt-5.6-terra-high
+GATEWAY_HOST_URL=http://gateway:8766
 
 # ── Autenticação & Segurança ──────────────────────────────
 JWT_SECRET=gere_uma_chave_aleatoria_longa_com_openssl_rand_hex_32
@@ -291,23 +304,24 @@ NEXT_PUBLIC_API_URL=http://SEU_IP_PUBLICO:8000
 
 ### Fase 5: Inicialização e Subida dos Containers
 
-Compile e suba todos os 4 microserviços (Qdrant, PostgreSQL, Backend FastAPI e Frontend Next.js):
+Compile e suba todos os **5 microserviços** (Qdrant, PostgreSQL, aXet Gateway, Backend FastAPI e Frontend Next.js):
 
 ```bash
 # 1. Compilar imagens locais e inicializar em segundo plano (-d)
 docker compose up -d --build
 
-# 2. Verificar se todos os 4 containers estão "Up"
+# 2. Verificar se todos os 5 containers estão "Up"
 docker compose ps
 
-# 3. Acompanhar os logs de inicialização do backend e ingestão inicial
-docker compose logs -f backend
+# 3. Acompanhar os logs de inicialização do gateway e backend
+docker compose logs -f gateway backend
 ```
 
 Saída esperada:
 ```text
 ✔ Container app-qdrant-1    Running
 ✔ Container app-postgres-1  Running
+✔ Container app-gateway-1   Running
 ✔ Container app-backend-1   Running
 ✔ Container app-frontend-1  Running
 ```

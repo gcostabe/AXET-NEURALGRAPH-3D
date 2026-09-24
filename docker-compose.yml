@@ -17,6 +17,19 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    environment:
+      GATEWAY_HOST: "0.0.0.0"
+      GATEWAY_PORT: "8766"
+    ports:
+      - "8766:8766"
+    volumes:
+      - "./gateway:/app/gateway"
+    restart: unless-stopped
+
   backend:
     build: ./backend
     env_file: .env
@@ -30,9 +43,13 @@ services:
       # do HOST corresponde a /data/sources_root, e possa traduzir automaticamente
       # um caminho absoluto colado pelo admin no painel (ver sources_settings.py).
       SOURCES_ROOT_HOST_PATH: "${SOURCES_ROOT:-./data/sources}"
+      GATEWAY_HOST_URL: "${GATEWAY_HOST_URL:-http://gateway:8766}"
+      LLM_GATEWAY_URL: "${LLM_GATEWAY_URL:-http://gateway:8766/codex}"
+      EMBEDDING_API_URL: "${EMBEDDING_API_URL:-http://gateway:8766/codex}"
     depends_on:
       - qdrant
       - postgres
+      - gateway
     ports:
       - "8000:8000"
     volumes:

@@ -18,13 +18,15 @@ Projeto **RAG-LOCAL-REEF**: sistema RAG local (preparado para deploy online futu
 
 ## Current Architecture
 
-- Backend: FastAPI (Python 3.11, SQLAlchemy, asyncpg, Pydantic, Passlib/Bcrypt, PyJWT, httpx, watchdog)
-- Vector DB: Qdrant
+- Backend: FastAPI (Python 3.11, SQLAlchemy, asyncpg, Pydantic, Passlib/Bcrypt, PyJWT, httpx, watchdog, faster-whisper, ffmpeg)
+- Vector DB: Qdrant (porta 6333)
 - Banco relacional: PostgreSQL 16 (usuários, conversas, mensagens, auditoria, configurações, nós de conhecimento, arestas do grafo e conflitos)
-- Embeddings: Modo dual (Local BGE-m3 ou API via Local AI Gateway)
-- LLM: Adapters OpenAI-compatible (`/codex/v1`) e Anthropic-compatible (`/v1/messages`) com suporte a streaming e chamadas estruturadas para modelos reasoning
-- Frontend: Next.js 14 (React, TypeScript, Tailwind CSS, Lucide icons, SSE stream) com identidade visual NTT DATA e abas de Fontes, Usuários e Grafo/Cognição
-- Orquestração: Docker Compose (`qdrant`, `postgres`, `backend`, `frontend`)
+- aXet / Okta API Gateway: Serviço embedado autônomo Python 3.11 (`gateway:8766`) gerenciando tokens Okta Bearer corporativos para proxy OpenAI e Anthropic
+- Embeddings: Modo dual (Local BGE-m3 ou API via aXet Gateway interno `http://gateway:8766/codex`)
+- LLM: Adapters OpenAI-compatible (`http://gateway:8766/codex/v1`) e Anthropic-compatible (`/v1/messages`) com suporte a streaming e chamadas estruturadas para modelos reasoning
+- Frontend: Next.js 14 / Three.js 3D (porta 3001) com grafo neural encefálico, casca vítrea `brain.glb`, abas de Fontes, Usuários, Grafo/Cognição e Processamento de Vídeo
+- Orquestração: Docker Compose de 5 microsserviços (`qdrant`, `postgres`, `gateway`, `backend`, `frontend`)
+- Sincronização Remota: Push simultâneo automático em dois repositórios remotos (`RAG-LOCAL-REEF` e `AXET-NEURALGRAPH-3D`)
 
 ---
 
