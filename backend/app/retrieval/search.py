@@ -9,6 +9,7 @@ from app.config import settings
 from app.ingestion.embedder import get_embedder
 from app.ingestion.vector_store import get_client
 from app.knowledge.entity_extractor import detect_entities_in_query
+from app.knowledge.graph_embeddings import topological_engine
 from app.knowledge.models import (
     KnowledgeConflict,
     KnowledgeDocument,
@@ -26,6 +27,7 @@ class RetrievedChunk:
     breadcrumb: list[str]
     text: str
     score: float
+    topological_score: float = 0.0
 
 
 def search(
@@ -33,6 +35,7 @@ def search(
     top_k: int = 10,
     enable_rerank: bool = True,
     entity_sources: set[str] | None = None,
+    topological_scores: dict[str, float] | None = None,
 ) -> list[RetrievedChunk]:
     client: QdrantClient = get_client()
     embedder = get_embedder()
@@ -63,7 +66,23 @@ def search(
         )
 
     if enable_rerank:
-        return rerank_chunks(query, chunks, top_k=top_k, entity_sources=entity_sources)
+        # Se topological_scores não foi fornecido explicitamente, calcula atração a partir dos nós semente
+        if topological_scores is None and topological_engine.is_valid():
+            seed_sources = [c.source_path for c in chunks[:3] if c.source_path]
+            candidate_sources = [c.source_path for c in chunks if c.source_path]
+            topological_scores = topological_engine.get_neighborhood_attraction(candidate_sources, seed_sources)
+
+        reranked = rerank_chunks(
+            query,
+            chunks,
+            top_k=top_k,
+            entity_sources=entity_sources,
+            topological_scores=topological_scores,
+        )
+        if topological_scores:
+            for c in reranked:
+                c.topological_score = topological_scores.get(c.source_path, 0.0)
+        return reranked
 
     return chunks[:top_k]
 

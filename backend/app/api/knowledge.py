@@ -15,6 +15,7 @@ from app.knowledge.curator import (
     apply_upload_resolution,
     generate_curator_recommendation,
 )
+from app.knowledge.graph_embeddings import topological_engine
 from app.knowledge.models import KnowledgeConflict, KnowledgeDocument, KnowledgeEdge
 
 
@@ -120,6 +121,23 @@ async def get_knowledge_graph(db: AsyncSession = Depends(get_db)):
             for e in edges
         ],
     )
+
+
+@router.get("/topology-metrics")
+@user_router.get("/topology-metrics")
+async def get_topology_metrics(db: AsyncSession = Depends(get_db)):
+    """Retorna métricas analíticas de centralidade (PageRank, Graus) e densidade topológica."""
+    await topological_engine.get_or_sync(db)
+    metrics = topological_engine.get_metrics()
+    return {
+        "status": "ok",
+        "total_nodes": metrics.total_nodes,
+        "total_edges": metrics.total_edges,
+        "graph_density": metrics.graph_density,
+        "top_pagerank": metrics.top_pagerank,
+        "top_degrees": metrics.top_degrees,
+        "computed_at": metrics.computed_at,
+    }
 
 
 @router.get("/conflicts", response_model=list[ConflictOut])

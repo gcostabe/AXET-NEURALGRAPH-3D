@@ -1,10 +1,10 @@
 # CURRENT TASK
 
-Task ID: TASK-20260924-1301-SUBGRAFO-ENTIDADES-NER-FASE-2
+Task ID: TASK-20260924-1315-GRAPH-AUGMENTED-EMBEDDINGS-FASE-3
 
-Created: 2026-09-24 13:01
+Created: 2026-09-24 13:15
 
-Last Updated: 2026-09-24 13:10
+Last Updated: 2026-09-24 13:18
 
 Status: COMPLETED
 
@@ -14,37 +14,36 @@ Resume Authorization: YES
 
 ## User Request
 
-"execute fase a fase" -> Usuário confirmou avanço para a FASE 2: Subgrafo de Entidades Críticas com NER Leve.
+"execute fase a fase" -> Executar a FASE 3 do roadmap GraphRAG e Estratégia Neural:
+"Graph-Augmented Embeddings (Node2Vec / GNN): Enriquecer o vetor do chunk no Qdrant com a informação da vizinhança topológica, fazendo com que nós densamente conectados no cérebro 3D se atraiam também no espaço vetorial."
 
 ---
 
 ## Objective
 
-1. **Modelagem de Entidades e Menções no Banco de Dados (`backend/app/knowledge/models.py`)**:
-   - Criar `KnowledgeEntity`: `id`, `name`, `entity_type`, `canonical_id` (indexado e normalizado), `description`, `created_at`.
-   - Criar `KnowledgeEntityMention`: `id`, `entity_id` (FK), `source_path` (indexado), `mention_count`, `context_sample`, `created_at`.
+1. **Motor Topológico e Projeção Neural de Vizinhança (`backend/app/knowledge/graph_embeddings.py`)**:
+   - Implementar `GraphTopologicalEngine`:
+     - Cálculo de Centralidade de Grau e PageRank ponderado sobre o grafo relacional (`KnowledgeEdge`).
+     - Matriz de Afinidade Topológica (1-hop e 2-hop) baseada nas arestas do grafo e seus pesos semânticos (`SUBSTITUI`, `DEPENDE_DE`, `ATUALIZA`, etc.).
+     - Suporte a suavização de vizinhança no estilo GCN/Laplacian Smoothing (`blend_topological_vector`) com normalização L2 preservada.
+     - Cálculo em tempo de consulta de atração topológica (`get_neighborhood_attraction`) entre candidatos da busca vetorial e documentos-semente.
+     - Cache em memória com invalidação resiliente.
 
-2. **Módulo de Extração Determinística de Entidades (`backend/app/knowledge/entity_extractor.py`)**:
-   - Desenvolver motor de NER leve, determinístico e de ultra-baixa latência (0 chamadas LLM externas, <30ms por documento).
-   - Cobrir padrões corporativos do ecossistema REEF:
-     - Regulatórios e Normas: Circulares SUSEP, Resoluções CNSP, Leis Federais, Artigos do Código Civil.
-     - Sistemas e Módulos: Códigos TRON (TRON_01, etc.), DEF, BATCH, APIs, REEF Core.
-     - Cláusulas e Regras Contratuais: Cláusulas de apólice, Condições Gerais, Franquia, etc.
-   - Fornecer funções `extract_entities_from_text` e `detect_entities_in_query`.
+2. **Integração no Re-ranker Híbrido (`backend/app/retrieval/reranker.py`)**:
+   - Adicionar parâmetro `topological_scores: dict[str, float] | None = None` em `rerank_chunks`.
+   - Bonificar chunks de documentos que possuem alta afinidade topológica com os nós centrais recuperados (+ até 0.15), fazendo com que documentos vizinhos no cérebro 3D se atraiam e subam juntos no ranking.
 
-3. **Integração na Ingestão (`backend/app/knowledge/analyzer.py`)**:
-   - Conectar o extrator de entidades no ciclo de evolução de documentos (`process_document_cognitive_evolution`).
-   - Persistir/sincronizar entidades e menções no PostgreSQL, e limpar menções em `remove_document_knowledge`.
+3. **Integração no Motor de Busca (`backend/app/retrieval/search.py`)**:
+   - Conectar a busca vetorial inicial do Qdrant com o motor topológico para calcular a atração de vizinhança dos candidatos.
+   - Enviar as pontuações de afinidade topológica para o re-ranker.
 
-4. **Integração no Motor de Busca e Chat (`backend/app/retrieval/search.py` e `backend/app/api/chat.py`)**:
-   - Criar `get_query_entities_context` para resgatar entidades citadas e documentos correlatos.
-   - Injetar no `build_context` um bloco de alta autoridade: `### [ENTIDADES CRÍTICAS RECONHECIDAS NA CONSULTA (Subgrafo NER)]`.
-   - Bonificar os documentos que contêm menção direta à entidade no Re-ranker (+0.18).
+4. **Telemetria e Endpoint da Topologia (`backend/app/api/knowledge.py`)**:
+   - Adicionar rota `GET /knowledge/topology-metrics` para expor métricas do grafo: densidade, nós mais centrais (PageRank/Grau) e diâmetro cognitivo.
 
-5. **Validação & Testes**:
-   - Criar testes em `backend/tests/test_entities.py`.
-   - Validar execução no container Docker e verificar endpoints e integridade.
-   - Registrar CHECKPOINT-086, comitar e realizar push dual para `origin` e `axet`.
+5. **Testes Unitários & Validação**:
+   - Criar `backend/tests/test_graph_embeddings.py` cobrindo PageRank, afinidade topológica, blend de vetores com norma L2 e re-ranking por atração topológica.
+   - Executar todos os testes no container backend e verificar saúde.
+   - Registrar CHECKPOINT-087, comitar e push dual para `origin` e `axet`.
 
 ---
 
@@ -52,20 +51,22 @@ Resume Authorization: YES
 
 Phase: COMPLETED
 
-Current Step: Fase 2 concluída com 100% dos testes aprovados. Pronto para avançar para a FASE 3 (Graph-Augmented Embeddings).
+Current Step: Roadmap completo executado fase a fase (Fases 1, 2 e 3 100% concluídas e validadas).
 
-Last Safe Checkpoint: CHECKPOINT-086.
+Last Safe Checkpoint: CHECKPOINT-087.
 
 ---
 
 ## Planned Steps
 
-- [x] Registrar decisão e iniciar FASE 2.
-- [x] Criar modelos `KnowledgeEntity` e `KnowledgeEntityMention` em `models.py`.
-- [x] Criar módulo `entity_extractor.py` com regex e padrões corporativos do REEF.
-- [x] Integrar no pipeline de ingestão em `analyzer.py`.
-- [x] Integrar detecção na query e injeção contextual em `search.py` e `chat.py`.
-- [x] Criar e executar suite de testes `test_entities.py` (13/13 testes aprovados).
-- [x] Validar saúde do backend e containers Docker (`/health` OK).
-- [x] Registrar CHECKPOINT-086, comitar e push dual para `origin` e `axet`.
+- [x] Registrar início da FASE 3 em `current_task.md` e write-ahead em `execution_journal.md`.
+- [x] Criar motor `backend/app/knowledge/graph_embeddings.py`.
+- [x] Integrar atração topológica no re-ranker `backend/app/retrieval/reranker.py`.
+- [x] Integrar cálculo de afinidade na busca em `backend/app/retrieval/search.py`.
+- [x] Adicionar endpoint `GET /knowledge/topology-metrics` em `backend/app/api/knowledge.py`.
+- [x] Criar testes unitários em `backend/tests/test_graph_embeddings.py` (19/19 testes aprovados).
+- [x] Executar testes no Docker e verificar `/health`.
+- [x] Registrar CHECKPOINT-087, comitar e push dual para `origin` e `axet`.
+
+
 

@@ -13,6 +13,7 @@ from app.auth.database import get_db
 from app.auth.dependencies import get_current_user
 from app.auth.models import Conversation, Message, MessageFeedback, User
 from app.config import settings
+from app.knowledge.graph_embeddings import topological_engine
 from app.llm.base import Message as LLMMessage
 from app.llm.factory import get_llm_client
 from app.retrieval.search import (
@@ -91,8 +92,12 @@ async def chat(
 
     history = await _load_history(db, conversation.id)
 
-    # 0. Reconhecimento de Entidades Críticas da Consulta (Subgrafo NER)
+    # 0. Reconhecimento de Entidades Críticas da Consulta (Subgrafo NER) e Topologia Neural
     query_entities, entity_sources = await get_query_entities_context(db, request.message)
+    try:
+        await topological_engine.get_or_sync(db)
+    except Exception as exc:
+        logger.warning(f"[chat] Não foi possível sincronizar motor topológico: {exc}")
 
     try:
         chunks = search(request.message, top_k=request.top_k, entity_sources=entity_sources)

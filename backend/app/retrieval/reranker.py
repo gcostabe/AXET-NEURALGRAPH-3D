@@ -80,11 +80,12 @@ def rerank_chunks(
     lexical_weight: float = 0.35,
     structural_weight: float = 0.15,
     entity_sources: set[str] | None = None,
+    topological_scores: dict[str, float] | None = None,
 ) -> list[RetrievedChunk]:
     """Reclassifica os candidatos recuperados da busca vetorial usando pontuação composta híbrida.
 
     Pondera similaridade vetorial densa, correspondência lexical exata, metadados
-    estruturais e bônus para documentos que mencionam entidades críticas da consulta.
+    estruturais, bônus para entidades críticas e atração topológica de vizinhança no cérebro 3D.
     """
     if not candidates:
         return []
@@ -117,6 +118,12 @@ def rerank_chunks(
         # 5. Bônus para documentos com menção direta a entidades críticas da consulta (Subgrafo NER)
         if entity_sources and chunk.source_path in entity_sources:
             final_score = min(1.0, final_score + 0.18)
+
+        # 6. Bônus de Atração Topológica (Graph-Augmented Embeddings / Vizinhança Neural 3D)
+        if topological_scores:
+            topo_aff = topological_scores.get(chunk.source_path, 0.0)
+            if topo_aff > 0.0:
+                final_score = min(1.0, final_score + (topo_aff * 0.15))
 
         chunk.score = round(final_score, 4)
 
