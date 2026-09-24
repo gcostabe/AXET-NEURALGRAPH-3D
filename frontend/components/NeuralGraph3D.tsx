@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { useRouter } from "next/navigation";
 import {
   Maximize2,
   Minimize2,
@@ -17,8 +18,18 @@ import {
   Zap,
   Activity,
   Layers,
+  Sliders,
+  ChevronUp,
+  ChevronDown,
+  MessageSquare,
 } from "lucide-react";
-import { KnowledgeGraph, KnowledgeNode, KnowledgeEdge } from "@/lib/api";
+import {
+  KnowledgeGraph,
+  KnowledgeNode,
+  KnowledgeEdge,
+  conversationsApi,
+  SmartGreetingResponse,
+} from "@/lib/api";
 
 interface NeuralGraph3DProps {
   data: KnowledgeGraph;
@@ -442,6 +453,7 @@ interface NodePositionData {
 
 export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const [selectedNode, setSelectedNode] = useState<KnowledgeNode | null>(null);
   const [hoveredNode, setHoveredNode] = useState<KnowledgeNode | null>(null);
   const [autoRotate, setAutoRotate] = useState(true);
@@ -454,9 +466,20 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
   const [layoutMode, setLayoutMode] = useState<"brain" | "sphere">("brain");
   const [showBrainShell, setShowBrainShell] = useState<boolean>(true);
   const [shellOpacity, setShellOpacity] = useState<number>(0.30);
+  const [showVisualControls, setShowVisualControls] = useState<boolean>(false);
+  const [greetingData, setGreetingData] = useState<SmartGreetingResponse | null>(null);
+  const [greetingDismissed, setGreetingDismissed] = useState<boolean>(false);
   const brainShellGroupRef = useRef<THREE.Group | null>(null);
   const brainShellMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
   const brainShellWireframeMatRef = useRef<THREE.LineBasicMaterial | null>(null);
+
+  // Carrega a saudação dinâmica e ultra-humanizada do copiloto baseada na última interação
+  useEffect(() => {
+    conversationsApi
+      .getGreeting()
+      .then(setGreetingData)
+      .catch((err) => console.warn("Could not load smart greeting:", err));
+  }, []);
 
   // Seleção de dados: reais ou benchmark de 10.000 nós
   const data = useMemo(() => {
@@ -1645,119 +1668,83 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
           )}
         </div>
 
-        {/* Toolbar de Controles e Alternadores */}
-        <div className="pointer-events-auto flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-900/85 p-1 backdrop-blur-md shadow-lg">
-          {/* Botão Alternador Cérebro vs Esfera */}
-          <button
-            onClick={() => setLayoutMode(layoutMode === "brain" ? "sphere" : "brain")}
-            title={layoutMode === "brain" ? "Alternar para modo esférico clássico" : "Alternar para anatomia de cérebro 3D"}
-            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
-              layoutMode === "brain"
-                ? "bg-gradient-to-r from-purple-500/25 to-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-[0_0_12px_rgba(34,211,238,0.2)]"
-                : "text-slate-300 hover:bg-slate-800 hover:text-cyan-300"
-            }`}
-          >
-            <span className="text-sm leading-none">🧠</span>
-            <span className="hidden sm:inline">
-              {layoutMode === "brain" ? "Cérebro 3D" : "Esférico"}
-            </span>
-          </button>
+        {/* Card de Saudação Dinâmica e Ultra-Humanizada do Copiloto no Topo Direito */}
+        {greetingData && (
+          <div className="pointer-events-auto max-w-sm sm:max-w-md w-full">
+            {!greetingDismissed ? (
+              <div className="rounded-2xl border border-cyan-500/35 bg-slate-900/90 p-3.5 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-500 shadow-md shadow-cyan-500/30">
+                      <Sparkles className="h-4 w-4 text-white animate-pulse" />
+                      <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-slate-900" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
+                        <span>Assistente Cognitivo AXET</span>
+                        <span className="rounded bg-cyan-400/15 px-1.5 py-0.2 font-mono text-[9px] font-bold text-cyan-300 border border-cyan-400/30">
+                          {greetingData.time_greeting}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-cyan-300/80 font-mono">
+                        {greetingData.has_history ? "Retomada Inteligente de Sessão" : "Boas-vindas ao Grafo Neural"}
+                      </div>
+                    </div>
+                  </div>
 
-          {/* Botão Casca 3D Translúcida (Encapsulamento do Encéfalo) */}
-          {layoutMode === "brain" && (
-            <div className="flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-slate-950/60 p-0.5">
-              <button
-                onClick={() => setShowBrainShell(!showBrainShell)}
-                title={showBrainShell ? "Ocultar casca translúcida 3D" : "Exibir casca translúcida 3D encapsulando o grafo"}
-                className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold transition ${
-                  showBrainShell
-                    ? "bg-gradient-to-r from-cyan-500/30 to-purple-500/30 text-cyan-200 border border-cyan-400/50 shadow-[0_0_12px_rgba(0,240,255,0.3)]"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                }`}
-              >
-                <Layers className={`h-3.5 w-3.5 ${showBrainShell ? "text-cyan-400 animate-pulse" : "text-slate-400"}`} />
-                <span className="hidden sm:inline">Casca 3D</span>
-                <span className={`text-[10px] font-mono font-bold px-1 rounded ${showBrainShell ? "bg-cyan-400/25 text-cyan-300" : "bg-slate-800 text-slate-500"}`}>
-                  {showBrainShell ? "ON" : "OFF"}
-                </span>
-              </button>
-
-              {showBrainShell && (
-                <div className="flex items-center gap-0.5 border-l border-slate-700/60 pl-1 pr-0.5">
-                  {[
-                    { label: "Suave", val: 0.18 },
-                    { label: "Cristal", val: 0.30 },
-                    { label: "Vívido", val: 0.45 },
-                  ].map((lvl) => (
-                    <button
-                      key={lvl.val}
-                      onClick={() => setShellOpacity(lvl.val)}
-                      title={`Opacidade da casca de vidro: ${lvl.label}`}
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-mono transition ${
-                        Math.abs(shellOpacity - lvl.val) < 0.05
-                          ? "bg-cyan-400 text-slate-950 font-bold shadow-sm"
-                          : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                      }`}
-                    >
-                      {lvl.label}
-                    </button>
-                  ))}
+                  <button
+                    onClick={() => setGreetingDismissed(true)}
+                    className="text-slate-400 hover:text-slate-200 rounded-lg p-1 hover:bg-slate-800 transition"
+                    title="Minimizar saudação"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* Botão Benchmark 10.000 Nós */}
-          <button
-            onClick={() => {
-              setIs10kBenchmark(!is10kBenchmark);
-              setSelectedNode(null);
-            }}
-            title={is10kBenchmark ? "Voltar aos dados reais" : "Testar escala máxima com 10.000 nós e 25.000 sinapses"}
-            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
-              is10kBenchmark
-                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"
-                : "text-slate-300 hover:bg-slate-800 hover:text-cyan-300"
-            }`}
-          >
-            <Zap className="h-3.5 w-3.5 text-amber-400" />
-            <span className="hidden sm:inline">
-              {is10kBenchmark ? "10.000 Nós Ativo" : "🧪 Testar 10k Nós"}
-            </span>
-          </button>
+                <p className="text-xs text-slate-200 leading-relaxed font-sans mb-3">
+                  {greetingData.greeting}
+                </p>
 
-          {/* Botão Auto-Rotação */}
-          <button
-            onClick={() => setAutoRotate(!autoRotate)}
-            title={autoRotate ? "Pausar auto-giro" : "Ativar auto-giro (cérebro vivo)"}
-            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
-              autoRotate
-                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-            }`}
-          >
-            <RotateCw className={`h-3.5 w-3.5 ${autoRotate ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Auto-Giro</span>
-          </button>
+                <div className="flex items-center justify-between gap-2 border-t border-slate-800/80 pt-2.5">
+                  {greetingData.subject ? (
+                    <span className="text-[10px] text-slate-400 font-mono truncate max-w-[210px]" title={greetingData.subject}>
+                      📌 {greetingData.subject}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      Exploração Neural 3D
+                    </span>
+                  )}
 
-          {/* Recentralizar Câmera */}
-          <button
-            onClick={resetCamera}
-            title="Recentralizar visão panorâmica"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-          </button>
-
-          {/* Fullscreen */}
-          <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            title={isFullscreen ? "Sair da tela cheia" : "Modo Tela Cheia"}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
-          >
-            {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-          </button>
-        </div>
+                  <button
+                    onClick={() => {
+                      if (greetingData.conversation_id) {
+                        router.push(`/chat?c=${greetingData.conversation_id}`);
+                      } else {
+                        router.push("/chat");
+                      }
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-lg shadow-cyan-500/25 hover:from-cyan-400 hover:to-blue-500 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span>Conversar</span>
+                    <ArrowUpRight className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setGreetingDismissed(false)}
+                className="flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-slate-900/85 px-3 py-1.5 text-xs font-semibold text-cyan-300 shadow-lg backdrop-blur-md hover:bg-slate-800 transition group ml-auto"
+                title="Reabrir mensagem do Copiloto"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-cyan-400 group-hover:rotate-12 transition-transform" />
+                <span>Fala, {greetingData.user_name}!</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Controles Flutuantes no Canto Superior Esquerdo: Lobos Cerebrais & Filtros */}
@@ -2014,9 +2001,164 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
         );
       })()}
 
-      {/* Bottom HUD: Legenda de Navegação */}
-      <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
-        <div className="flex items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/85 px-3 py-1.5 backdrop-blur-md">
+      {/* Bottom HUD: Legenda de Navegação e Controles de Visualização Colapsáveis */}
+      <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex flex-col gap-2.5 z-20">
+        <div className="flex items-end justify-between gap-3">
+          {/* Item Colapsável: Opções de Visualização no Canto Inferior Esquerdo */}
+          <div className="pointer-events-auto">
+            {!showVisualControls ? (
+              <button
+                onClick={() => setShowVisualControls(true)}
+                className="flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-900/90 px-3.5 py-2 text-xs font-semibold text-slate-200 shadow-xl backdrop-blur-md transition-all hover:border-cyan-400/60 hover:text-cyan-300 hover:shadow-cyan-950/40 group"
+                title="Abrir opções de visualização do Grafo 3D"
+              >
+                <div className="flex h-5 w-5 items-center justify-center rounded-lg bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 group-hover:scale-105 transition-transform">
+                  <Sliders className="h-3.5 w-3.5" />
+                </div>
+                <span>Opções de Visualização</span>
+                <ChevronUp className="h-3.5 w-3.5 text-slate-400 group-hover:text-cyan-300 transition-colors" />
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2 rounded-2xl border border-slate-700/80 bg-slate-950/95 p-2.5 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-3 duration-200 max-w-2xl">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5 px-1">
+                  <span className="text-[11px] font-semibold tracking-wide text-cyan-300 uppercase flex items-center gap-1.5">
+                    <Sliders className="h-3.5 w-3.5" />
+                    Opções de Visualização 3D
+                  </span>
+                  <button
+                    onClick={() => setShowVisualControls(false)}
+                    className="flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-200 px-2 py-0.5 rounded-lg hover:bg-slate-800 transition"
+                    title="Recolher opções de visualização"
+                  >
+                    <span>Recolher</span>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  {/* Botão Alternador Cérebro vs Esfera */}
+                  <button
+                    onClick={() => setLayoutMode(layoutMode === "brain" ? "sphere" : "brain")}
+                    title={layoutMode === "brain" ? "Alternar para modo esférico clássico" : "Alternar para anatomia de cérebro 3D"}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                      layoutMode === "brain"
+                        ? "bg-gradient-to-r from-purple-500/25 to-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-[0_0_12px_rgba(34,211,238,0.2)]"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-cyan-300"
+                    }`}
+                  >
+                    <span className="text-sm leading-none">🧠</span>
+                    <span>{layoutMode === "brain" ? "Cérebro 3D" : "Esférico"}</span>
+                  </button>
+
+                  {/* Botão Casca 3D Translúcida (Encapsulamento do Encéfalo) */}
+                  {layoutMode === "brain" && (
+                    <div className="flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-slate-950/60 p-0.5">
+                      <button
+                        onClick={() => setShowBrainShell(!showBrainShell)}
+                        title={showBrainShell ? "Ocultar casca translúcida 3D" : "Exibir casca translúcida 3D encapsulando o grafo"}
+                        className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold transition ${
+                          showBrainShell
+                            ? "bg-gradient-to-r from-cyan-500/30 to-purple-500/30 text-cyan-200 border border-cyan-400/50 shadow-[0_0_12px_rgba(0,240,255,0.3)]"
+                            : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                        }`}
+                      >
+                        <Layers className={`h-3.5 w-3.5 ${showBrainShell ? "text-cyan-400 animate-pulse" : "text-slate-400"}`} />
+                        <span>Casca 3D</span>
+                        <span className={`text-[10px] font-mono font-bold px-1 rounded ${showBrainShell ? "bg-cyan-400/25 text-cyan-300" : "bg-slate-800 text-slate-500"}`}>
+                          {showBrainShell ? "ON" : "OFF"}
+                        </span>
+                      </button>
+
+                      {showBrainShell && (
+                        <div className="flex items-center gap-0.5 border-l border-slate-700/60 pl-1 pr-0.5">
+                          {[
+                            { label: "Suave", val: 0.18 },
+                            { label: "Cristal", val: 0.30 },
+                            { label: "Vívido", val: 0.45 },
+                          ].map((lvl) => (
+                            <button
+                              key={lvl.val}
+                              onClick={() => setShellOpacity(lvl.val)}
+                              title={`Opacidade da casca de vidro: ${lvl.label}`}
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-mono transition ${
+                                Math.abs(shellOpacity - lvl.val) < 0.05
+                                  ? "bg-cyan-400 text-slate-950 font-bold shadow-sm"
+                                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                              }`}
+                            >
+                              {lvl.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Botão Benchmark 10.000 Nós */}
+                  <button
+                    onClick={() => {
+                      setIs10kBenchmark(!is10kBenchmark);
+                      setSelectedNode(null);
+                    }}
+                    title={is10kBenchmark ? "Voltar aos dados reais" : "Testar escala máxima com 10.000 nós e 25.000 sinapses"}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                      is10kBenchmark
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-cyan-300"
+                    }`}
+                  >
+                    <Zap className="h-3.5 w-3.5 text-amber-400" />
+                    <span>{is10kBenchmark ? "10.000 Nós Ativo" : "🧪 Testar 10k Nós"}</span>
+                  </button>
+
+                  {/* Botão Auto-Rotação */}
+                  <button
+                    onClick={() => setAutoRotate(!autoRotate)}
+                    title={autoRotate ? "Pausar auto-giro" : "Ativar auto-giro (cérebro vivo)"}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                      autoRotate
+                        ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
+                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    <RotateCw className={`h-3.5 w-3.5 ${autoRotate ? "animate-spin" : ""}`} />
+                    <span>Auto-Giro</span>
+                  </button>
+
+                  {/* Recentralizar Câmera */}
+                  <button
+                    onClick={resetCamera}
+                    title="Recentralizar visão panorâmica"
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </button>
+
+                  {/* Fullscreen */}
+                  <button
+                    onClick={() => setIsFullscreen(!isFullscreen)}
+                    title={isFullscreen ? "Sair da tela cheia" : "Modo Tela Cheia"}
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+                  >
+                    {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {selectedNode && (
+            <button
+              onClick={resetCamera}
+              className="pointer-events-auto rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-1.5 text-slate-300 hover:bg-slate-700 transition text-[11px]"
+            >
+              Fechar Inspeção (Restaurar Todos)
+            </button>
+          )}
+        </div>
+
+        {/* Legenda de Navegação */}
+        <div className="flex items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/85 px-3 py-1.5 backdrop-blur-md text-[11px] text-slate-400 w-fit">
           <span className="text-cyan-400 font-medium">🖱️ Arrastar Mouse:</span>
           <span>Girar 360° em todos os eixos</span>
           <span className="text-slate-600">•</span>
@@ -2029,15 +2171,6 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
           <span className="text-emerald-400 font-medium">Arquitetura GPU Instanced:</span>
           <span>Fluido a 60 FPS</span>
         </div>
-
-        {selectedNode && (
-          <button
-            onClick={resetCamera}
-            className="pointer-events-auto rounded-lg border border-slate-700 bg-slate-800/90 px-3 py-1.5 text-slate-300 hover:bg-slate-700 transition"
-          >
-            Fechar Inspeção (Restaurar Todos)
-          </button>
-        )}
       </div>
 
       {/* Inspector Drawer Lateral do Nó Selecionado */}

@@ -1,63 +1,78 @@
 # CURRENT TASK
 
-Task ID: TASK-20260924-0535-STRICT-ADMIN-WHITELIST
+Task ID: TASK-20260924-0630-3D-HOME-GREETING-COLLAPSIBLE-CONTROLS
 
-Created: 2026-09-24 05:35
+Created: 2026-09-24 06:30
 
-Last Updated: 2026-09-24 05:35
+Last Updated: 2026-09-24 06:30
 
-Status: IN_PROGRESS
+Status: COMPLETED
 
-Resume Authorization: YES
+Resume Authorization: NO
 
 ---
 
 ## User Request
 
-"garanta que todo novo usuário diferente do login gcostabe@emeal.nttdata.com somentee se loguem como user comum sem acesso adm"
+"ao logar abra a aplicação sempre na tela 3d nesta proporção de zoom, torne as opções de visualização marcadas na imgem um item colapsavel e abra a tela sempre com ele colapsado, mova este botao para o canto inferior esquerdo.
+
+esta tela deve ter um texto dinamico que o sistema comprimenta de forma ultra humanizada e descontraida, se baseando sempre no historico de ultimas interações , por exemplo perguntando se conseguiu todas as informações de um determinado assunto que ele tinha falado na ultima interação. e um botao conversar que leva para o chat bot."
 
 ---
 
 ## Objective
 
-1. Restringir estritamente o papel de Administrador (`UserRole.ADMIN`) exclusivamente ao login `gcostabe@emeal.nttdata.com` (e ao seu alias de e-mail corporativo Okta `gustavo.costa.berbert@nttdata.com`).
-2. Remover completamente quaisquer heurísticas genéricas anteriores (como `"gustavo" in email` ou `startswith("admin@")` ou `"gcostabe" in email`), substituindo-as por validação estrita baseada em whitelist oficial.
-3. No endpoint de registro `/auth/register`:
-   - Todo novo usuário diferente de `gcostabe@emeal.nttdata.com` / `gustavo.costa.berbert@nttdata.com` é cadastrado compulsoriamente como `UserRole.USER` com status `PENDING`.
-4. No endpoint de autenticação Okta `/auth/okta/poll`:
-   - Todo usuário autenticado cujo login/e-mail corporativo for diferente da whitelist recebe compulsoriamente o papel `UserRole.USER`.
-   - Usuários existentes não autorizados que porventura possuam `ADMIN` são automaticamente rebaixados para `USER`.
-5. No endpoint de login padrão `/auth/login`:
-   - Usuários não autorizados são validados para garantir que nunca emitam JWT com role `ADMIN`.
-6. No endpoint de alteração de papel `/admin/users/{user_id}/role`:
-   - Bloquear promoção de qualquer usuário para `ADMIN` caso seu e-mail/login não pertença à whitelist autorizada.
-7. Atualizar configurações padrão:
-   - `backend/app/config.py`: `bootstrap_admin_email = "gcostabe@emeal.nttdata.com"`
-   - `.env` e `.env.example`: `BOOTSTRAP_ADMIN_EMAIL=gcostabe@emeal.nttdata.com`
-8. Sanitizar a base Postgres em execução:
-   - Rebaixar `admin@example.com` para `USER`.
-   - Garantir que apenas `gcostabe@emeal.nttdata.com` e `gustavo.costa.berbert@nttdata.com` possuam `ADMIN`.
-9. Reiniciar containers, validar testes funcionais e executar commit e push dual para ambos os repositórios remotos.
+1. **Abertura Padrão na Tela 3D**:
+   - Alterar fluxo pós-login (`frontend/app/login/page.tsx`) e redirecionamento inicial (`frontend/app/page.tsx`) para direcionar SEMPRE para a tela do Grafo Neural 3D (`/graph`).
+   - Garantir a proporção de enquadramento/zoom ideal do cérebro conforme exibido na imagem (câmera com proporções e ângulos idênticos, centralizado com respiro periférico).
+
+2. **Opções de Visualização Colapsáveis no Canto Inferior Esquerdo**:
+   - Mover os controles de visualização marcados na imagem (Cérebro 3D vs Esférico, Casca 3D ON/OFF + opacidades, Testar 10k nós, Auto-Giro, Recentralizar e Tela Cheia) para o **canto inferior esquerdo** da viewport 3D, posicionado diretamente acima da barra de instruções do mouse.
+   - Tornar o conjunto colapsável, abrindo SEMPRE colapsado por padrão.
+   - Em estado colapsado: exibir botão compacto e elegante ("Opções de Visualização" com ícone e chevron para cima).
+   - Ao expandir: exibir a barra de ferramentas completa com botão para recolher.
+
+3. **Saudação Dinâmica Ultra-Humanizada e Descontraída baseada no Histórico**:
+   - Criar endpoint no backend (`GET /conversations/greeting` em `backend/app/api/conversations.py`) que:
+     - Identifica o nome do usuário (ex.: "Gustavo").
+     - Identifica a saudação temporal adequada (Bom dia / Boa tarde / Boa noite) para o fuso local.
+     - Recupera a última conversa e última mensagem do usuário no Postgres.
+     - Extrai o tópico/assunto pesquisado e formula uma saudação contextualizada, descontraída e amigável (ex.: "E aí, Gustavo! Tudo bem por aí? ☕ Na nossa última conversa estávamos falando sobre [assunto]. Conseguiu tirar todas as informações que precisava ou quer aprofundar mais um pouco?").
+     - Se for o primeiro acesso sem histórico, gera mensagem acolhedora de boas-vindas ao universo neural.
+   - Adicionar método `conversationsApi.getGreeting()` em `frontend/lib/api.ts`.
+   - Renderizar na tela 3D um card flutuante moderno de vidro (glassmorphism) no topo direito (onde antes ficava a toolbar), com o texto dinâmico, avatar do copiloto e botão proeminente **"Conversar"** que leva ao chat bot (abrindo a conversa anterior ou nova sessão).
+
+4. **Correção Par Dourado na Curadoria**:
+   - Ajustar enum `AuditAction` para incluir `CREATE_GOLD_ANSWER` e `RESOLVE_CONFLICT`.
+   - Atualizar `FeedbackAuditPanel.tsx` para filtrar itens ativos por padrão e atualizar a lista ao indexar o par dourado.
+
+5. **Testes, Compilação e Git Dual-Remote**:
+   - Validar build dos containers do frontend e backend.
+   - Validar visual e funcionalmente no navegador.
+   - Registrar checkpoint e realizar commit e push simultâneo para os dois repositórios remotos (`origin` e `axet`).
 
 ---
 
 ## Execution Cursor
 
-Phase: IMPLEMENTATION
+Phase: COMPLETED
 
-Current Step: Updating backend auth logic, settings, and database sanitization.
+Current Step: All tasks completed, validated in browser, and ready for dual git push.
 
-Last Safe Checkpoint: CHECKPOINT-078.
+Last Safe Checkpoint: CHECKPOINT-080.
 
 ---
 
 ## Planned Steps
 
-- [ ] Criar função de validação estrita `is_authorized_admin(email_or_login)` em `backend/app/auth/security.py` ou `backend/app/api/auth.py`.
-- [ ] Atualizar `backend/app/api/auth.py` (`/register`, `/login`, `/okta/poll`) com a validação estrita de RBAC.
-- [ ] Atualizar `backend/app/api/admin.py` (`change_role`) para impedir promoção de contas não autorizadas.
-- [ ] Atualizar `backend/app/config.py`, `.env` e `.env.example` definindo `BOOTSTRAP_ADMIN_EMAIL=gcostabe@emeal.nttdata.com`.
-- [ ] Executar sanitização no banco PostgreSQL (`docker compose exec postgres psql...`).
-- [ ] Reiniciar backend e validar autenticações de teste (novo usuário comum vs login de admin).
-- [ ] Registrar checkpoint CHECKPOINT-079 em `.agent/execution_journal.md`.
-- [ ] Realizar commit e push para ambos os repositórios (`origin` e `axet`).
+- [x] Implementar endpoint `GET /conversations/greeting` em `backend/app/api/conversations.py`.
+- [x] Atualizar `frontend/lib/api.ts` com o tipo `SmartGreetingResponse` e método `conversationsApi.getGreeting()`.
+- [x] Atualizar redirecionamentos em `frontend/app/page.tsx` e `frontend/app/login/page.tsx` para direcionar sempre para `/graph`.
+- [x] Modificar `frontend/components/NeuralGraph3D.tsx`:
+  - Mover opções de visualização para o canto inferior esquerdo como item colapsável (inicia fechado).
+  - Incluir card flutuante de saudação ultra-humanizada no topo direito com botão "Conversar".
+- [x] Atualizar `frontend/app/chat/page.tsx` para carregar a conversa selecionada via URL se informada.
+- [x] Corrigir enum `AuditAction` no PostgreSQL e backend e ajustar remoção de item na curadoria do frontend.
+- [x] Compilar frontend e backend em containers Docker (`docker compose build frontend && docker compose up -d`).
+- [x] Validar visual e funcionalmente no navegador via browser subagent.
+- [x] Registrar CHECKPOINT-080 em `.agent/execution_journal.md`, comitar e efetuar push nos 2 remotes.

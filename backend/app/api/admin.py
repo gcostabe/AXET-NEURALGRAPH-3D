@@ -686,7 +686,7 @@ async def create_gold_answer_from_feedback(
     db.add(
         AuditLog(
             actor_user_id=admin.id,
-            action=AuditAction.RESOLVE_CONFLICT,
+            action=AuditAction.CREATE_GOLD_ANSWER,
             metadata_json={"action": "CREATE_GOLD_ANSWER", "source_path": source_path, "feedback_id": feedback_id},
         )
     )

@@ -55,7 +55,7 @@ export default function FeedbackAuditPanel() {
   const [allFeedbacks, setAllFeedbacks] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterRating, setFilterRating] = useState<string>("dislike");
-  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<string>("active");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -86,13 +86,29 @@ export default function FeedbackAuditPanel() {
 
   const totalCount = allFeedbacks.length;
   const likesCount = allFeedbacks.filter((f) => f.rating === "like").length;
-  const dislikesCount = allFeedbacks.filter((f) => f.rating === "dislike").length;
+  const pendingDislikesCount = allFeedbacks.filter(
+    (f) =>
+      f.rating === "dislike" &&
+      f.curation_status !== "GOLD_ANSWER_CREATED" &&
+      f.curation_status !== "RESOLVED" &&
+      f.curation_status !== "REJECTED",
+  ).length;
   const goldCount = allFeedbacks.filter((f) => f.curation_status === "GOLD_ANSWER_CREATED").length;
 
   const displayedFeedbacks = useMemo(() => {
     return allFeedbacks.filter((f) => {
       if (filterRating && f.rating !== filterRating) return false;
-      if (filterStatus && f.curation_status !== filterStatus) return false;
+      if (filterStatus === "active") {
+        if (
+          f.curation_status === "GOLD_ANSWER_CREATED" ||
+          f.curation_status === "RESOLVED" ||
+          f.curation_status === "REJECTED"
+        ) {
+          return false;
+        }
+      } else if (filterStatus && f.curation_status !== filterStatus) {
+        return false;
+      }
       return true;
     });
   }, [allFeedbacks, filterRating, filterStatus]);
@@ -117,8 +133,8 @@ export default function FeedbackAuditPanel() {
       const res = await adminApi.createGoldAnswer(activeFeedback.id, goldQuestion, goldAnswer);
       setSuccessMsg(res.message || "Par Dourado gerado e indexado com sucesso!");
       setGoldModalOpen(false);
-      loadFeedbacks();
-      setTimeout(() => setSuccessMsg(null), 5000);
+      await loadFeedbacks();
+      setTimeout(() => setSuccessMsg(null), 6000);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro ao criar Resposta Dourada.");
     } finally {
@@ -163,8 +179,10 @@ export default function FeedbackAuditPanel() {
             <ThumbsDown className="h-3.5 w-3.5" />
             <span>Auditoria (Dislikes)</span>
           </div>
-          <div className="text-2xl font-bold text-rose-300 mt-1">{dislikesCount}</div>
-          <div className="text-[11px] text-rose-400/80 mt-1">Para curadoria e ajuste</div>
+          <div className="text-2xl font-bold text-rose-300 mt-1">{pendingDislikesCount}</div>
+          <div className="text-[11px] text-rose-400/80 mt-1">
+            {pendingDislikesCount === 0 ? "Fila de curadoria limpa!" : "Para curadoria e ajuste"}
+          </div>
         </div>
 
         <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 shadow-md">
@@ -238,11 +256,12 @@ export default function FeedbackAuditPanel() {
             onChange={(e) => setFilterStatus(e.target.value)}
             className="rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
           >
-            <option value="">Status: Todos</option>
-            <option value="PENDING">Pendentes de Curadoria</option>
+            <option value="active">Fila Ativa (Pendentes de Curadoria)</option>
+            <option value="">Status: Todos (Histórico Completo)</option>
+            <option value="PENDING">Novos Pendentes</option>
             <option value="ANALYZED">Analisados pela IA</option>
             <option value="RESOLVED">Resolvidos</option>
-            <option value="GOLD_ANSWER_CREATED">Par Dourado Criado</option>
+            <option value="GOLD_ANSWER_CREATED">Pares Dourados Criados</option>
             <option value="REJECTED">Descartados</option>
           </select>
         </div>
@@ -348,14 +367,21 @@ export default function FeedbackAuditPanel() {
 
                   {/* Ações Rápidas */}
                   <div className="flex items-center gap-2">
-                    {isDislike && fb.curation_status !== "GOLD_ANSWER_CREATED" && (
-                      <button
-                        onClick={() => openGoldAnswerModal(fb)}
-                        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-yellow-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md hover:from-amber-500 hover:to-yellow-500 transition"
-                      >
-                        <Award className="h-3.5 w-3.5" />
-                        <span>Criar Par Dourado</span>
-                      </button>
+                    {fb.curation_status === "GOLD_ANSWER_CREATED" ? (
+                      <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 text-xs font-semibold text-amber-300 shadow-sm">
+                        <Award className="h-3.5 w-3.5 text-amber-400" />
+                        <span>Par Dourado Indexado</span>
+                      </div>
+                    ) : (
+                      isDislike && (
+                        <button
+                          onClick={() => openGoldAnswerModal(fb)}
+                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-yellow-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md hover:from-amber-500 hover:to-yellow-500 transition"
+                        >
+                          <Award className="h-3.5 w-3.5" />
+                          <span>Criar Par Dourado</span>
+                        </button>
+                      )
                     )}
 
                     <button

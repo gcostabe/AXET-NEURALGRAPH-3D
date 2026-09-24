@@ -61,6 +61,12 @@ function ChatInner() {
     try {
       const list = await conversationsApi.list();
       setConversations(list);
+      if (typeof window !== "undefined") {
+        const targetId = new URLSearchParams(window.location.search).get("c");
+        if (targetId && list.some((c) => c.id === targetId)) {
+          openConversation(targetId);
+        }
+      }
     } catch {
       // silent — sidebar é não-bloqueante
     }

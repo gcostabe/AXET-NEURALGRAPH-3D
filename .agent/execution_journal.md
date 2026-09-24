@@ -2469,6 +2469,31 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
   9. Testes de integração via `curl`:
      - Cadastro de `colaborador1@nttdata.com` retornou `role: "USER"`, `status: "PENDING"`.
      - Login gerou token com `role: "USER"`.
-     - Tentativa de acesso a rotas administrativas (`/admin/users`) foi bloqueada com `403 Forbidden`.
-- **Próxima Ação Segura**: Commit e push simultâneo para os dois repositórios remotos (`origin` e `axet`).
+### CHECKPOINT-080 (2026-09-24 07:25 - Tela 3D Padrão, Controles Colapsáveis Inferior Esquerdo, Saudação Dinâmica e Correção Par Dourado)
+- **Tarefa**: `TASK-20260924-0630-3D-HOME-GREETING-COLLAPSIBLE-CONTROLS`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. **Abertura Padrão na Tela 3D (`/graph`)**:
+     - Atualizado `frontend/app/page.tsx` para redirecionar usuários autenticados diretamente para `/graph`.
+     - Atualizado `frontend/app/login/page.tsx` para que tanto login por senha quanto Okta SSO naveguem diretamente para `/graph`.
+     - `frontend/components/NeuralGraph3D.tsx` mantém a proporção de zoom e ângulo de visualização solicitados (`fitDistance * 0.35, fitDistance * 0.42, fitDistance * 0.85`).
+  2. **Opções de Visualização Colapsáveis no Canto Inferior Esquerdo**:
+     - Removida barra do topo direito.
+     - Posicionada barra no canto inferior esquerdo, acima da barra de instruções do mouse.
+     - Inicia colapsada por padrão (`showVisualControls = false`) com botão elegante `[ ⚙️ Opções de Visualização ⌃ ]`.
+     - Ao clicar, expande suavemente com todos os controles (Cérebro 3D, Casca 3D, Opacidades, 10k nós, auto-giro, recentralizar, tela cheia, e `Recolher ⌄`).
+  3. **Saudação Dinâmica Ultra-Humanizada e Descontraída baseada no Histórico**:
+     - Criado endpoint `GET /conversations/greeting` em `backend/app/api/conversations.py` que identifica o nome do usuário, horário local (Bom dia/Boa tarde/Boa noite), última conversa e tópico/pergunta recente no Postgres, gerando uma mensagem amigável e descontraída.
+     - Adicionado `SmartGreetingResponse` e `conversationsApi.getGreeting()` em `frontend/lib/api.ts`.
+     - Inserido card flutuante em glassmorphism no topo direito com avatar, saudação contextualizada, tag do assunto recente e botão de ação `[ 💬 Conversar ➔ ]`.
+     - Atualizado `frontend/app/chat/page.tsx` para carregar a conversa informada via parâmetro de URL (`?c=UUID`).
+  4. **Correção do Par Dourado na Curadoria**:
+     - Corrigido erro HTTP 500 no `POST /admin/feedbacks/{id}/create-gold-answer`: adicionados os valores `CREATE_GOLD_ANSWER` e `RESOLVE_CONFLICT` ao enum `audit_action` do PostgreSQL e `AuditAction` em `backend/app/auth/models.py`.
+     - Ajustado `backend/app/api/admin.py` para registrar a auditoria com `AuditAction.CREATE_GOLD_ANSWER`.
+     - Atualizado `frontend/components/FeedbackAuditPanel.tsx`: filtro padrão alterado para `"active"` (apenas pendentes e em análise), recarregamento automático da lista via `await loadFeedbacks()` e mensagem de sucesso `✅ Par Dourado gerado e indexado com sucesso!`. O item sai automaticamente da fila ativa ao ser indexado.
+  5. **Compilação e Validação**:
+     - Rebuild completo dos containers Docker do frontend e backend.
+     - Validação visual e interativa realizada via browser: 3D graph (2.683 nós, 7.931 sinapses a ~120 FPS), saudação inteligente personalizada no topo direito, botão colapsável de visualização abrindo e recolhendo no canto inferior esquerdo, e navegação via "Conversar" para `/chat`. Screenshot salvo em `graph_3d_greeting_controls_1790245383397.png`.
+- **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push simultâneo para os 2 repositórios remotos (`origin` e `axet`).
+
 

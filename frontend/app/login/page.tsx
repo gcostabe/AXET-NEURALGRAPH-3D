@@ -34,8 +34,7 @@ export default function LoginPage() {
     try {
       const res = await authApi.login(email, password);
       setToken(res.access_token, res.role);
-      const isAdm = (res.role || "").toLowerCase() === "admin";
-      router.push(isAdm ? "/admin" : "/chat");
+      router.push("/graph");
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403 && /pending/i.test(err.message)) {
@@ -53,8 +52,7 @@ export default function LoginPage() {
 
   function handleOktaSuccess(data: OktaPollResponse) {
     setShowOktaModal(false);
-    const isAdm = (data.role || "").toLowerCase() === "admin";
-    router.push(isAdm ? "/admin" : "/chat");
+    router.push("/graph");
   }
 
   return (

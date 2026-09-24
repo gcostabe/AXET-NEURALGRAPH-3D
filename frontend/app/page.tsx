@@ -8,7 +8,7 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace(getToken() ? "/chat" : "/login");
+    router.replace(getToken() ? "/graph" : "/login");
   }, [router]);
 
   return null;
