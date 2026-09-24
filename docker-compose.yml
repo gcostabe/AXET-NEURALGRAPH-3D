@@ -5,6 +5,7 @@ services:
       - "6333:6333"
     volumes:
       - qdrant_storage:/qdrant/storage
+      - ./data/snapshots:/qdrant/snapshots
 
   postgres:
     image: postgres:16-alpine
@@ -54,6 +55,7 @@ services:
       - "8000:8000"
     volumes:
       - "${SOURCES_ROOT:-./data/sources}:/data/sources_root"
+      - "./data/snapshots:/data/snapshots"
       - "./backend/app:/app/app"
 
   frontend:

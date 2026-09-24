@@ -7,6 +7,7 @@ import { clearToken, isAdmin as checkIsAdmin } from "@/lib/auth";
 import NttDataLogo from "./NttDataLogo";
 import OktaSsoModal from "./OktaSsoModal";
 import OktaCorporateSessionModal from "./OktaCorporateSessionModal";
+import { KnowledgeSnapshotModal } from "./KnowledgeSnapshotModal";
 import { 
   ShieldCheck, 
   User as UserIcon, 
@@ -28,6 +29,7 @@ export default function AppHeader() {
   const [oktaStatus, setOktaStatus] = useState<GatewayAuthStatusResponse | null>(null);
   const [showOktaModal, setShowOktaModal] = useState(false);
   const [showCorporateModal, setShowCorporateModal] = useState(false);
+  const [showSnapshotModal, setShowSnapshotModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -160,6 +162,16 @@ export default function AppHeader() {
                 : "Okta SSO"}
             </span>
           </button>
+
+          {/* Sincronização da Base Local (Snapshots) */}
+          <button
+            onClick={() => setShowSnapshotModal(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/80 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:border-blue-500/50 hover:text-blue-300 hover:bg-slate-800/90 transition-all shadow-sm"
+            title="Sincronizar Base de Conhecimento Local (Snapshots Qdrant)"
+          >
+            <span className="text-xs">📦</span>
+            <span className="hidden sm:inline text-[11px]">Base Local</span>
+          </button>
           {/* Acesso ao Grafo Neural 3D para Todos os Usuários */}
           <button
             onClick={() => router.push(isOnGraphPage ? "/chat" : "/graph")}
@@ -272,6 +284,17 @@ export default function AppHeader() {
                   >
                     <span className="text-xs">🏢</span>
                     <span>Sessão Okta & Gateway</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setShowSnapshotModal(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 transition"
+                  >
+                    <span className="text-xs">📦</span>
+                    <span>Sincronizar Base Local</span>
                   </button>
 
                   <button
@@ -414,6 +437,12 @@ export default function AppHeader() {
         onClose={() => setShowCorporateModal(false)}
         initialStatus={oktaStatus}
         onStatusUpdate={(updated) => setOktaStatus(updated)}
+      />
+
+      {/* Sincronização Segura da Base de Conhecimento Local (Opção 1) */}
+      <KnowledgeSnapshotModal
+        isOpen={showSnapshotModal}
+        onClose={() => setShowSnapshotModal(false)}
       />
     </>
   );

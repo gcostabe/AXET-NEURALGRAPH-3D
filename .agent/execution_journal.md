@@ -2492,8 +2492,33 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
      - Ajustado `backend/app/api/admin.py` para registrar a auditoria com `AuditAction.CREATE_GOLD_ANSWER`.
      - Atualizado `frontend/components/FeedbackAuditPanel.tsx`: filtro padrão alterado para `"active"` (apenas pendentes e em análise), recarregamento automático da lista via `await loadFeedbacks()` e mensagem de sucesso `✅ Par Dourado gerado e indexado com sucesso!`. O item sai automaticamente da fila ativa ao ser indexado.
   5. **Compilação e Validação**:
-     - Rebuild completo dos containers Docker do frontend e backend.
-     - Validação visual e interativa realizada via browser: 3D graph (2.683 nós, 7.931 sinapses a ~120 FPS), saudação inteligente personalizada no topo direito, botão colapsável de visualização abrindo e recolhendo no canto inferior esquerdo, e navegação via "Conversar" para `/chat`. Screenshot salvo em `graph_3d_greeting_controls_1790245383397.png`.
+### CHECKPOINT-081 (2026-09-24 09:20 - Implementação da Opção 1: Snapshots Qdrant, UI de Sincronização, Scripts e README.md)
+- **Tarefa**: `TASK-20260924-0740-LOCAL-SNAPSHOT-SYNC-OPTION1`
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. **Infraestrutura Docker & Volumes**:
+     - Mapeados volumes persistentes de snapshots (`./data/snapshots:/qdrant/snapshots` e `./data/snapshots:/data/snapshots`) em `docker-compose.yml`.
+     - Adicionado `data/snapshots/`, `*.snapshot` e `*.qpack` ao `.gitignore` para prevenir commits de arquivos pesados de dados locais.
+  2. **Backend de Snapshots (`backend/app/api/snapshots.py`)**:
+     - Implementado endpoint `POST /admin/snapshots/export` com criação de snapshot no Qdrant, extração do grafo neural (PostgreSQL), compressão inteligente em pacote `.qpack`, geração de assinatura criptográfica SHA-256 e manifesto de metadados. Testado: pacote de 504 MB gerado com 87.270 pontos vetoriais, 2.683 documentos e 7.931 arestas relacionais.
+     - Implementados `GET /admin/snapshots`, `GET /admin/snapshots/{name}/download`, `DELETE /admin/snapshots/{name}`.
+     - Implementado `POST /snapshots/import` com validação de hash SHA-256 contra adulterações e recuperação atômica no Qdrant com `priority="snapshot"`. Testado: detecção de integridade violada em caso de hash incorreto e restauração com sucesso total.
+     - Implementado `GET /snapshots/status` para telemetria da base vetorial local.
+     - Registradas rotas em `backend/app/main.py`.
+  3. **Frontend**:
+     - Atualizado `frontend/lib/api.ts` com interfaces `SnapshotItem`, `SnapshotStatus`, `ImportResult` e cliente `snapshotsApi`.
+     - Criado modal `frontend/components/KnowledgeSnapshotModal.tsx` com drag-and-drop, indicador de checksum e feedback de restauração.
+     - Integrado botão "📦 Base Local" e modal no `frontend/components/AppHeader.tsx`.
+     - Criado painel administrativo `frontend/components/AdminSnapshotsPanel.tsx` e integrado como nova aba "📦 Base & Snapshots" em `frontend/app/admin/page.tsx`.
+     - Build de produção compilado com sucesso (`npm run build`) e container `rag-local-reef-frontend` reconstruído no Docker.
+  4. **Scripts One-Click**:
+     - Criados `atualizar_base.sh` (macOS/Linux) e `atualizar_base.bat` (Windows). Testado `./atualizar_base.sh`: restauração concluída com sucesso em 54 segundos com 100% de integridade confirmada.
+     - Atualizados `iniciar_mac.command` e `iniciar_windows.bat` com detecção de `data/snapshots/auto_import.qpack`.
+  5. **Documentação Exaustiva no `README.md`**:
+     - Atualizado sumário e inserida Seção 3: "🛡️ Arquitetura Local Estrita & Sincronização Segura de Dados (Opção 1)".
+     - Diagrama Mermaid de fluxo corporativo seguro.
+     - Guias passo a passo completos para Administradores e Usuários Finais (Métodos A, B e C).
+     - Garantias criptográficas de integridade SHA-256 e isolamento 100% localhost (zero vazamento de dados).
 - **Próxima Ação Segura**: Atualizar `.agent/current_task.md`, realizar commit das alterações e push simultâneo para os 2 repositórios remotos (`origin` e `axet`).
 
 

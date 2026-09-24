@@ -27,6 +27,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!frontend/lib/
 lib64/
 parts/
 sdist/
@@ -90,6 +91,9 @@ qdrant_storage/
 data/storage/
 data/qdrant/
 data/postgres/
+data/snapshots/
+*.snapshot
+*.qpack
 
 # ── Logs & Temporary Files ───────────────────────────────────
 *.log

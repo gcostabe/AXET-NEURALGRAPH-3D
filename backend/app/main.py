@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import admin, auth, chat, conversations, health, knowledge
+from app.api import admin, auth, chat, conversations, health, knowledge, snapshots
 from app.auth.database import engine
 from app.auth.models import Base, MessageFeedback  # noqa: F401
 from app.config import settings
@@ -84,3 +84,5 @@ app.include_router(conversations.router)
 app.include_router(admin.router)
 app.include_router(knowledge.router)
 app.include_router(knowledge.user_router)
+app.include_router(snapshots.router)
+app.include_router(snapshots.admin_router)

@@ -8,6 +8,7 @@ import SourcesPanel from "@/components/SourcesPanel";
 import { KnowledgePanel } from "@/components/KnowledgePanel";
 import FeedbackAuditPanel from "@/components/FeedbackAuditPanel";
 import TokenUsagePanel from "@/components/TokenUsagePanel";
+import AdminSnapshotsPanel from "@/components/AdminSnapshotsPanel";
 import {
   adminApi,
   UserOut,
@@ -26,7 +27,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 function AdminInner() {
   const router = useRouter();
-  const [adminTab, setAdminTab] = useState<"knowledge" | "quality" | "sources" | "tokens" | "users">("knowledge");
+  const [adminTab, setAdminTab] = useState<"knowledge" | "quality" | "sources" | "snapshots" | "tokens" | "users">("knowledge");
   const [users, setUsers] = useState<UserOut[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
@@ -163,6 +164,16 @@ function AdminInner() {
             <span>📁 Fontes & Ingestão</span>
           </button>
           <button
+            onClick={() => setAdminTab("snapshots")}
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+              adminTab === "snapshots"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>📦 Base & Snapshots</span>
+          </button>
+          <button
             onClick={() => setAdminTab("tokens")}
             className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
               adminTab === "tokens"
@@ -189,6 +200,8 @@ function AdminInner() {
         {adminTab === "quality" && <FeedbackAuditPanel />}
 
         {adminTab === "sources" && <SourcesPanel />}
+
+        {adminTab === "snapshots" && <AdminSnapshotsPanel />}
 
         {adminTab === "tokens" && <TokenUsagePanel />}
 

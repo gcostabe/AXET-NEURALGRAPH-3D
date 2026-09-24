@@ -52,6 +52,13 @@ fi
 echo "[INFO] Subindo containers da solução via Docker Compose..."
 docker compose up -d
 
+# 3.1. Verificar se existe pacote de atualização pendente da base (Opção 1)
+if [ -f "data/snapshots/auto_import.qpack" ]; then
+    echo "[INFO] Pacote de atualização pendente detectado em data/snapshots/auto_import.qpack..."
+    ./atualizar_base.sh "data/snapshots/auto_import.qpack" || true
+    mv "data/snapshots/auto_import.qpack" "data/snapshots/auto_import.qpack.imported" || true
+fi
+
 # 4. Aguardar o frontend responder
 echo "Aguardando o Frontend 3D responder na porta 3001..."
 ATTEMPTS=0

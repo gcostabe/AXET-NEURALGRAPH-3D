@@ -1,0 +1,87 @@
+import { API_URL } from "./api";
+import { getToken } from "./auth";
+
+export interface ChatStreamHandlers {
+  onSources?: (sources: string[]) => void;
+  onConversation?: (conversationId: string) => void;
+  onMessageId?: (messageId: string) => void;
+  onToken?: (token: string) => void;
+  onDone?: () => void;
+  onError?: (message: string) => void;
+}
+
+export async function streamChat(
+  message: string,
+  conversationId: string | null,
+  handlers: ChatStreamHandlers,
+) {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      message,
+      conversation_id: conversationId,
+    }),
+  });
+
+  if (!res.ok || !res.body) {
+    let detail = res.statusText;
+    try {
+      const body = await res.json();
+      detail = body.detail || detail;
+    } catch {
+      // ignore
+    }
+    handlers.onError?.(detail);
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let currentEvent = "message";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (line.startsWith("event:")) {
+        currentEvent = line.slice(6).trim();
+      } else if (line.startsWith("data:")) {
+        const data = line.slice(5).trim();
+        switch (currentEvent) {
+          case "sources": {
+            const parsed: Array<{ source_path: string; title?: string }> =
+              JSON.parse(data);
+            handlers.onSources?.(parsed.map((s) => s.source_path));
+            break;
+          }
+          case "conversation":
+            handlers.onConversation?.(JSON.parse(data).conversation_id);
+            break;
+          case "token":
+            handlers.onToken?.(JSON.parse(data).text);
+            break;
+          case "message_id":
+            handlers.onMessageId?.(JSON.parse(data).message_id);
+            break;
+          case "done":
+            handlers.onDone?.();
+            break;
+          case "error":
+            handlers.onError?.(data);
+            break;
+        }
+      }
+    }
+  }
+}

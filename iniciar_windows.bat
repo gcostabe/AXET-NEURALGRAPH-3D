@@ -49,6 +49,13 @@ echo.
 
 start "AXET-NEURALGRAPH-3D Docker" /min wsl -d Ubuntu -- bash -c "cd '%WSL_PROJECT_DIR%' && docker compose up -d"
 
+:: 4.1. Verificar se existe pacote de atualização pendente da base (Opção 1)
+if exist "%SCRIPT_DIR%\data\snapshots\auto_import.qpack" (
+    echo [INFO] Pacote de atualizacao pendente detectado em data\snapshots\auto_import.qpack...
+    call "%SCRIPT_DIR%\atualizar_base.bat" "%SCRIPT_DIR%\data\snapshots\auto_import.qpack"
+    ren "%SCRIPT_DIR%\data\snapshots\auto_import.qpack" auto_import.qpack.imported >nul 2>&1
+)
+
 :: 5. Aguardar inicialização e abrir o navegador automaticamente
 echo Aguardando o serviço web responder na porta 3001...
 set /a ATTEMPTS=0

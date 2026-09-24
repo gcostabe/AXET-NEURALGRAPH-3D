@@ -8,19 +8,24 @@
 ## 📋 Sumário
 1. [Visão Geral](#-visão-geral)
 2. [Instalação e Execução Local Rápida (Windows & Mac)](#-instalação-e-execução-local-rápida)
-3. [Arquitetura da Solução](#-arquitetura-da-solução)
-4. [Matriz de Tecnologias & Dependências](#-matriz-de-tecnologias--dependências)
-5. [Dimensionamento Recomendado no Azure Cloud](#-dimensionamento-recomendado-no-azure-cloud)
-6. [Guia de Instalação Passo a Passo no Azure](#-guia-de-instalação-passo-a-passo-no-azure)
+3. [Arquitetura Local Estrita & Sincronização Segura de Dados (Opção 1)](#-arquitetura-local-estrita--sincronização-segura-de-dados-opção-1)
+   - [Por que a Opção 1 Protege Contra Vazamento de Informação](#por-que-a-opção-1-protege-contra-vazamento-de-informação)
+   - [Fluxo de Trabalho do Administrador (Exportação & Assinatura)](#fluxo-de-trabalho-do-administrador-exportação--assinatura)
+   - [Fluxo de Trabalho do Usuário Local (Sincronização & Restauração)](#fluxo-de-trabalho-do-usuário-local-sincronização--restauração)
+   - [Garantias Criptográficas e Integridade SHA-256](#garantias-criptográficas-e-integridade-sha-256)
+4. [Arquitetura Geral da Solução](#-arquitetura-geral-da-solução)
+5. [Matriz de Tecnologias & Dependências](#-matriz-de-tecnologias--dependências)
+6. [Dimensionamento Recomendado no Azure Cloud](#-dimensionamento-recomendado-no-azure-cloud)
+7. [Guia de Instalação Passo a Passo no Azure](#-guia-de-instalação-passo-a-passo-no-azure)
    - [Fase 1: Provisionamento da Máquina Virtual (Azure CLI)](#fase-1-provisionamento-da-máquina-virtual-azure-cli)
    - [Fase 2: Instalação das Ferramentas Base (Docker, Compose, Git)](#fase-2-instalação-das-ferramentas-base-docker-compose-git)
    - [Fase 3: Clonagem e Configuração do Repositório](#fase-3-clonagem-e-configuração-do-repositório)
    - [Fase 4: Configuração de Variáveis de Ambiente (.env)](#fase-4-configuração-de-variáveis-de-ambiente-env)
    - [Fase 5: Inicialização e Subida dos Containers](#fase-5-inicialização-e-subida-dos-containers)
    - [Fase 6: Proxy Reverso Nginx & Certificado SSL HTTPS Gratuito](#fase-6-proxy-reverso-nginx--certificado-ssl-https-gratuito)
-7. [Primeiro Acesso & Validação do Sistema](#-primeiro-acesso--validação-do-sistema)
-8. [Rotinas de Operação, Logs & Backup](#-rotinas-de-operação-logs--backup)
-9. [Estratégia de Sincronização Dual Git](#-estratégia-de-sincronização-dual-git)
+8. [Primeiro Acesso & Validação do Sistema](#-primeiro-acesso--validação-do-sistema)
+9. [Rotinas de Operação, Logs & Backup](#-rotinas-de-operação-logs--backup)
+10. [Estratégia de Sincronização Dual Git](#-estratégia-de-sincronização-dual-git)
 
 ---
 
@@ -75,7 +80,115 @@ O macOS executa a solução de forma nativa e conteinerizada:
 
 ---
 
-## 🏗️ Arquitetura da Solução
+## 🛡️ Arquitetura Local Estrita & Sincronização Segura de Dados (Opção 1)
+
+### Por que a Opção 1 Protege Contra Vazamento de Informação
+
+Para organizações que lidam com propriedade intelectual confidencial, regras de negócio sigilosas ou conformidade com LGPD/GDPR, o **AXET-NEURALGRAPH-3D** implementa uma arquitetura **100% Local-First (Air-Gapped Ready)**:
+
+1. **Isolamento Total no Localhost**:
+   - Toda a pilha (Frontend, Backend, PostgreSQL, Qdrant e Gateway) roda com binds locais estritos (`127.0.0.1`). Nenhuma porta é exposta para a rede pública.
+   - Perguntas, chats, sinapses cognitivas e histórico de navegação **jamais saem da máquina do usuário**.
+2. **Zero Textos Brutos Distribuídos**:
+   - Os usuários finais **não precisam receber os arquivos de texto puro (`.md`)**.
+   - Eles recebem exclusivamente a **base vetorial compactada e pré-indexada (`.qpack`)**, contendo apenas vetores multidimensionais, representações semânticas e metadados estruturados.
+3. **Zero Consumo de Tokens/Custo de Embedding no Cliente**:
+   - As máquinas dos clientes não precisam de GPU, CPU pesada ou créditos de API para calcular embeddings ao receber uma atualização. A restauração no Qdrant é atômica e instantânea (média de 5 a 50 segundos para dezenas de milhares de pontos).
+
+---
+
+### Diagrama de Fluxo: Distribuição Segura de Conhecimento (Opção 1)
+
+```mermaid
+flowchart LR
+    subgraph Admin_Machine [🖥️ Máquina do Administrador]
+        AdminMD[Novos Documentos .md] -->|Indexação| AdminQdrant[(Qdrant Local)]
+        AdminQdrant -->|Exportar Snapshot| Packager[Gerador de Pacotes .qpack]
+        Packager -->|Calcula SHA-256| QPack[📦 axet_knowledge_base.qpack]
+    end
+
+    subgraph Corporate_Share [🏢 Repositório Corporativo Seguro]
+        QPack -->|Upload HTTPS / VPN| SecureStorage[(SharePoint / Azure Blob / Rede NTT)]
+    end
+
+    subgraph User_Machine [💻 Máquina do Usuário Local]
+        SecureStorage -->|Download| LocalImport[Importador Local]
+        LocalImport -->|Valida SHA-256| IntegrityCheck{Integridade Válida?}
+        IntegrityCheck -->|Sim| UserQdrant[(Qdrant Localhost)]
+        IntegrityCheck -->|Não| Blocked[⛔ Abortado: Risco de Adulteração]
+        UserQdrant -->|Alimenta| Local3D[🧠 Grafo Neural 3D & Chat Local]
+    end
+```
+
+---
+
+### Fluxo de Trabalho do Administrador (Exportação & Assinatura)
+
+O Administrador (`gcostabe@emeal.nttdata.com` ou `gustavo.costa.berbert@nttdata.com`) é a autoridade central de curadoria da base:
+
+1. **Indexar Novos Documentos**:
+   - Adicione ou atualize arquivos `.md` na pasta `data/sources/` ou pelo painel **"📁 Fontes & Ingestão"**.
+   - O pipeline processa e gera os embeddings no Qdrant local da máquina do Admin.
+2. **Gerar o Pacote Assinado (`.qpack`)**:
+   - No Painel Admin, acesse a aba **"📦 Base & Snapshots"** (`/admin`).
+   - Clique em **"🚀 Gerar Novo Pacote (.qpack)"**.
+   - O sistema realiza um snapshot atômico do Qdrant, extrai os nós/sinapses do grafo neural do Postgres, empacota com compressão inteligente (redução de até 85% do tamanho original) e calcula a assinatura **SHA-256**.
+3. **Disponibilizar o Pacote**:
+   - Na tabela de pacotes, clique em **"⬇️ Baixar"** e copie o **SHA-256**.
+   - Salve o arquivo na rede corporativa segura, Teams, SharePoint ou Azure Blob interno da NTT DATA.
+
+> **💡 Via Linha de Comando (CLI):**
+> O Admin também pode gerar o pacote diretamente via terminal:
+> ```bash
+> curl -X POST http://localhost:8000/admin/snapshots/export \
+>   -H "Authorization: Bearer <TOKEN_ADMIN>"
+> ```
+
+---
+
+### Fluxo de Trabalho do Usuário Local (Sincronização & Restauração)
+
+O usuário comum tem três formas extremamente simples e seguras de aplicar a atualização:
+
+#### Método A: Pela Interface Web (Recomendado — 1 Clique)
+1. Com a aplicação aberta em `http://localhost:3001/`, clique no botão **"📦 Base Local"** no cabeçalho superior (ou abra pelo menu do perfil: *"Sincronizar Base Local"*).
+2. Arraste e solte o arquivo `.qpack` recebido (ou selecione-o no disco).
+3. *(Opcional)* Cole o checksum SHA-256 fornecido pelo Admin para verificação estrita.
+4. Clique em **"🚀 Restaurar e Sincronizar"**.
+5. Em segundos, o sistema restaura o Qdrant, reconecta o grafo neural 3D e exibe a confirmação de pontos atualizados.
+
+#### Método B: Via Script One-Click (macOS / Linux / Windows)
+Se o usuário preferir atualizar via terminal:
+- **No macOS / Linux:**
+  ```bash
+  ./atualizar_base.sh caminho/do/arquivo.qpack
+  ```
+- **No Windows:**
+  Dê duplo clique no script `atualizar_base.bat` ou execute no CMD:
+  ```cmd
+  atualizar_base.bat caminho\do\arquivo.qpack
+  ```
+O script verifica o status do Docker, valida o pacote, autentica localmente e aplica a restauração exibindo telemetria completa.
+
+#### Método C: Atualização Automática na Inicialização
+Basta colocar o arquivo de atualização com o nome `auto_import.qpack` na pasta:
+```text
+data/snapshots/auto_import.qpack
+```
+Ao dar duplo clique no atalho da Área de Trabalho (**`Iniciar AXET-NEURALGRAPH-3D`**), o lançador detecta o pacote, aplica a sincronização silenciosa antes de abrir o navegador e renomeia o arquivo para `.imported`.
+
+---
+
+### Garantias Criptográficas e Integridade SHA-256
+
+- **Prevenção de Man-in-the-Middle (MitM) & Adulteração**:
+  Cada pacote contém um manifesto interno com o hash SHA-256 exato dos vetores e metadados. Se qualquer byte do arquivo for alterado ou corrompido durante o download, a rotina de importação detecta a discrepância e **rejeita imediatamente a operação**, preservando a integridade da base local existente.
+- **Transação Atômica**:
+  A restauração do Qdrant utiliza o modo `priority="snapshot"`, garantindo que a base antiga continue atendendo normalmente até que o novo snapshot esteja 100% verificado e carregado na memória.
+
+---
+
+## 🏗️ Arquitetura Geral da Solução
 
 ```mermaid
 flowchart TB
