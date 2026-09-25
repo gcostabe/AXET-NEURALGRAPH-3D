@@ -150,7 +150,8 @@ async def change_password(
     await db.commit()
 
 
-@router.post("/okta/start", response_model=OktaDeviceAuthStartResponse)
+@router.api_route("/okta/start", methods=["GET", "POST"], response_model=OktaDeviceAuthStartResponse)
+@router.api_route("/okta/start/", methods=["GET", "POST"], response_model=OktaDeviceAuthStartResponse)
 async def okta_device_auth_start():
     """Inicia o fluxo OAuth 2.0 Device Authorization com o Okta corporativo."""
     try:
@@ -189,12 +190,18 @@ async def okta_device_auth_start():
         )
 
 
-@router.post("/okta/poll", response_model=OktaPollResponse)
+@router.api_route("/okta/poll", methods=["GET", "POST"], response_model=OktaPollResponse)
+@router.api_route("/okta/poll/", methods=["GET", "POST"], response_model=OktaPollResponse)
 async def okta_device_auth_poll(
-    request: OktaPollRequest,
+    request: OktaPollRequest | None = None,
+    device_code: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Consulta o Okta se o usuário autorizou o device code e emite o token da aplicação."""
+    code = (request.device_code if request else device_code) or ""
+    if not code:
+        return OktaPollResponse(status="error", detail="Parâmetro device_code ausente.")
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
@@ -202,7 +209,7 @@ async def okta_device_auth_poll(
                 data={
                     "client_id": settings.okta_client_id,
                     "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                    "device_code": request.device_code,
+                    "device_code": code,
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
@@ -315,7 +322,8 @@ async def okta_device_auth_poll(
     )
 
 
-@router.get("/okta/status", response_model=GatewayAuthStatusResponse)
+@router.api_route("/okta/status", methods=["GET", "POST"], response_model=GatewayAuthStatusResponse)
+@router.api_route("/okta/status/", methods=["GET", "POST"], response_model=GatewayAuthStatusResponse)
 async def okta_gateway_status():
     """Consulta o status de autenticação da API Gateway local com identidade corporativa completa."""
     try:
@@ -363,7 +371,8 @@ async def okta_gateway_status():
     )
 
 
-@router.post("/okta/refresh", response_model=GatewayAuthStatusResponse)
+@router.api_route("/okta/refresh", methods=["GET", "POST"], response_model=GatewayAuthStatusResponse)
+@router.api_route("/okta/refresh/", methods=["GET", "POST"], response_model=GatewayAuthStatusResponse)
 async def okta_gateway_refresh():
     """Força renovação e sincronização de sessão com o Okta e API Gateway."""
     try:

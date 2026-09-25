@@ -103,7 +103,14 @@ export default function OktaSsoModal({
     } catch (err: any) {
       if (!isCancelledRef.current) {
         setLoading(false);
-        setError(err.message || "Não foi possível iniciar o login via Okta.");
+        const errMsg = err?.message || "";
+        if (errMsg.includes("Method Not Allowed") || err?.status === 405) {
+          setError("Erro 405 (Method Not Allowed): O backend local em http://localhost:8000 precisa ser atualizado ou reiniciado para aceitar o login SSO.");
+        } else if (errMsg.includes("Failed to fetch") || errMsg.includes("NetworkError")) {
+          setError("Não foi possível conectar ao backend local em http://localhost:8000. Certifique-se de que os serviços (iniciar_windows.bat ou Docker) estão em execução.");
+        } else {
+          setError(errMsg || "Não foi possível iniciar o login via Okta.");
+        }
       }
     }
   }

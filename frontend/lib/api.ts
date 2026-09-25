@@ -233,20 +233,43 @@ export const authApi = {
         new_password: newPassword,
       }),
     }),
-  oktaStart: () =>
-    request<OktaDeviceAuthStartResponse>("/auth/okta/start", {
-      method: "POST",
-    }),
-  oktaPoll: (device_code: string) =>
-    request<OktaPollResponse>("/auth/okta/poll", {
-      method: "POST",
-      body: JSON.stringify({ device_code }),
-    }),
+  oktaStart: async () => {
+    try {
+      return await request<OktaDeviceAuthStartResponse>("/auth/okta/start", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+    } catch (err: any) {
+      if (err?.status === 405) {
+        return await request<OktaDeviceAuthStartResponse>("/auth/okta/start", {
+          method: "GET",
+        });
+      }
+      throw err;
+    }
+  },
+  oktaPoll: async (device_code: string) => {
+    try {
+      return await request<OktaPollResponse>("/auth/okta/poll", {
+        method: "POST",
+        body: JSON.stringify({ device_code }),
+      });
+    } catch (err: any) {
+      if (err?.status === 405) {
+        return await request<OktaPollResponse>(
+          `/auth/okta/poll?device_code=${encodeURIComponent(device_code)}`,
+          { method: "GET" },
+        );
+      }
+      throw err;
+    }
+  },
   oktaStatus: () =>
     request<GatewayAuthStatusResponse>("/auth/okta/status"),
   oktaRefresh: () =>
     request<GatewayAuthStatusResponse>("/auth/okta/refresh", {
       method: "POST",
+      body: JSON.stringify({}),
     }),
 };
 
