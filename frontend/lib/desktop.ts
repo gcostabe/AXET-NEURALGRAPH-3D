@@ -49,3 +49,33 @@ export async function pickNativeFolder(promptTitle: string = "Selecione a pasta 
 
   return data.path;
 }
+
+export async function openExternalUrl(url: string): Promise<void> {
+  if (isDesktopApp()) {
+    try {
+      const tauri = (window as any).__TAURI__;
+      const tauriInternals = (window as any).__TAURI_INTERNALS__;
+
+      // 1. Comando customizado nativo do backend Rust
+      if (tauri?.core?.invoke) {
+        await tauri.core.invoke("open_browser", { url });
+        return;
+      } else if (tauriInternals?.invoke) {
+        await tauriInternals.invoke("open_browser", { url });
+        return;
+      }
+
+      // 2. Plugin Shell do Tauri v2
+      const { open } = await import("@tauri-apps/plugin-shell");
+      await open(url);
+      return;
+    } catch (err) {
+      console.warn("[desktop] Erro ao abrir URL nativa, tentando fallback de janela:", err);
+    }
+  }
+
+  // 3. Fallback Web padrão
+  if (typeof window !== "undefined") {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}

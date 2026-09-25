@@ -39,6 +39,34 @@ fn get_system_environment() -> serde_json::Value {
     })
 }
 
+#[tauri::command]
+fn open_browser(url: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(&["/c", "start", "", &url])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -70,7 +98,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             pick_onedrive_folder,
             get_service_ports,
-            get_system_environment
+            get_system_environment,
+            open_browser
         ])
         .run(tauri::generate_context!())
         .expect("Erro ao inicializar o aplicativo desktop AXET");

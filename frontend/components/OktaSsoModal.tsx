@@ -7,6 +7,7 @@ import {
   OktaPollResponse,
 } from "@/lib/api";
 import { setToken } from "@/lib/auth";
+import { openExternalUrl } from "@/lib/desktop";
 import {
   Check,
   CheckCircle2,
@@ -131,9 +132,9 @@ export default function OktaSsoModal({
     }
   }
 
-  function handleOpenOkta() {
+  async function handleOpenOkta() {
     if (deviceData?.verification_uri_complete) {
-      window.open(deviceData.verification_uri_complete, "_blank", "noopener,noreferrer");
+      await openExternalUrl(deviceData.verification_uri_complete);
     }
   }
 
@@ -250,6 +251,19 @@ export default function OktaSsoModal({
                 <span>Abrir página do Okta</span>
                 <ExternalLink className="h-4 w-4" />
               </button>
+
+              <div className="text-center">
+                <p className="text-[11px] text-slate-400">
+                  Ou acesse no seu navegador:{" "}
+                  <button
+                    type="button"
+                    onClick={handleOpenOkta}
+                    className="text-sky-400 hover:underline font-mono"
+                  >
+                    {deviceData.verification_uri}
+                  </button>
+                </p>
+              </div>
 
               {/* Polling Indicator */}
               <div className="flex items-center justify-center gap-2 pt-2 text-[11px] text-slate-400">
