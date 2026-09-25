@@ -21,6 +21,13 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            frontend
+            src-tauri
+            package.json
+            package-lock.json
+            .github
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -80,8 +87,18 @@ jobs:
     name: Build Windows Corporate (.msi)
     runs-on: windows-latest
     steps:
+      - name: Enable Long Paths on Windows
+        run: git config --system core.longpaths true
+
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            frontend
+            src-tauri
+            package.json
+            package-lock.json
+            .github
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
