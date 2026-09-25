@@ -10,8 +10,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.database import get_db
-from app.auth.dependencies import get_current_user
-from app.auth.models import User, UserRole, UserStatus
+from app.auth.dependencies import get_current_user, get_effective_user_role
+from app.auth.models import AppUserRole, User, UserRole, UserStatus
 from app.auth.schemas import (
     ChangePasswordRequest,
     GatewayAuthStatusResponse,
@@ -22,6 +22,7 @@ from app.auth.schemas import (
     RegisterRequest,
     TokenResponse,
     UserOut,
+    UserProfileOut,
 )
 from app.auth.security import (
     create_access_token,
@@ -119,9 +120,21 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(access_token=access_token, role=user.role, status=user.status)
 
 
-@router.get("/me", response_model=UserOut)
-async def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+@router.get("/me", response_model=UserProfileOut)
+async def get_me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    eff_role = await get_effective_user_role(current_user, db)
+    return UserProfileOut(
+        id=current_user.id,
+        email=current_user.email,
+        status=current_user.status,
+        role=current_user.role,
+        effective_role=eff_role.value,
+        is_master_admin=(eff_role == AppUserRole.MASTER_ADMIN),
+        created_at=current_user.created_at,
+    )
 
 
 @router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)

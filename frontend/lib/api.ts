@@ -815,6 +815,40 @@ export interface SyncOneDriveResponse {
   output?: string;
 }
 
+export interface RbacUserItem {
+  email: string;
+  role: string;
+  granted_by?: string | null;
+  notes?: string | null;
+  created_at: string;
+  is_master: boolean;
+}
 
+export interface GrantAdminRequest {
+  email: string;
+  notes?: string;
+}
 
+export interface UserProfileOut {
+  id: string;
+  email: string;
+  status: string;
+  role: string;
+  effective_role: string;
+  is_master_admin: boolean;
+  created_at: string;
+}
 
+export const rbacApi = {
+  listUsers: () => request<RbacUserItem[]>("/admin/rbac/users"),
+  grantAdmin: (email: string, notes?: string) =>
+    request<RbacUserItem>("/admin/rbac/users", {
+      method: "POST",
+      body: JSON.stringify({ email, notes }),
+    }),
+  revokeAdmin: (email: string) =>
+    request<void>(`/admin/rbac/users/${encodeURIComponent(email)}`, {
+      method: "DELETE",
+    }),
+  getMe: () => request<UserProfileOut>("/auth/me"),
+};

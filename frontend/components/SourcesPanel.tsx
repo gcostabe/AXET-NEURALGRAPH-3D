@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { adminApi, SourcesConfig, ReindexStatus, ApiError, SyncOneDriveResponse } from "@/lib/api";
+import { pickNativeFolder } from "@/lib/desktop";
 import { DefragMatrixVisualizer } from "./DefragMatrixVisualizer";
 import CountryLegislationPanel from "./CountryLegislationPanel";
 import RegulatoryGlossaryPanel from "./RegulatoryGlossaryPanel";
@@ -119,25 +120,25 @@ export default function SourcesPanel() {
     browse(next);
   }
 
-  // Aciona o seletor nativo do Finder no macOS via daemon bridge local
+  // Aciona o seletor nativo do Finder (Mac) ou Explorer (Windows) via Tauri ou daemon bridge local
   async function handlePickFolderWithFinder() {
     setPickingFolder(true);
     setError(null);
     try {
-      const prompt = encodeURIComponent(
+      const selected = await pickNativeFolder(
         "Selecione a pasta no seu computador ou OneDrive contendo arquivos .md para importar:"
       );
-      const res = await fetch(`http://localhost:8765/pick-folder?prompt=${prompt}`);
-      const data = await res.json();
-      if (data.path) {
-        setSelectedPath(data.path);
-        // Sincroniza e importa automaticamente os arquivos da pasta escolhida no Finder
-        await handleSyncOneDrive(data.path);
+      if (selected) {
+        setSelectedPath(selected);
+        // Sincroniza e importa automaticamente os arquivos da pasta escolhida
+        await handleSyncOneDrive(selected);
       }
-    } catch {
-      setError(
-        "Para abrir a janela do Finder nativa, certifique-se de que o assistente local está ativo na porta 8765. Você também pode colar o caminho diretamente no campo abaixo."
-      );
+    } catch (err: any) {
+      if (err.message && !err.message.includes("cancelada")) {
+        setError(
+          "Não foi possível abrir o seletor nativo. Você também pode colar o caminho diretamente no campo abaixo."
+        );
+      }
     } finally {
       setPickingFolder(false);
     }

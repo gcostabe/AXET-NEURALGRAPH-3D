@@ -27,6 +27,7 @@ import {
   PublishOneDriveResult,
   ApiError,
 } from "@/lib/api";
+import { pickNativeFolder } from "@/lib/desktop";
 
 export default function AdminSnapshotsPanel() {
   const [snapshots, setSnapshots] = useState<SnapshotItem[]>([]);
@@ -75,27 +76,27 @@ export default function AdminSnapshotsPanel() {
     setPickingFolder(true);
     setMessage(null);
     try {
-      const prompt = encodeURIComponent(
+      const selected = await pickNativeFolder(
         "Selecione a pasta do OneDrive onde o pacote oficial (.qpack) sera publicado:"
       );
-      const res = await fetch(`http://localhost:8765/pick-folder?prompt=${prompt}`);
-      const data = await res.json();
-      if (data.path) {
-        const clean = data.path.trim();
+      if (selected) {
+        const clean = selected.trim();
         setOnedrivePathInput(clean);
         // Salva imediatamente no banco de dados
         const saved = await snapshotsApi.updateDistributionConfig(clean);
         setDistConfig(saved);
         setMessage({
-          text: `✅ Pasta do OneDrive vinculada com sucesso no Finder: ${clean}`,
+          text: `✅ Pasta do OneDrive vinculada com sucesso: ${clean}`,
           type: "success",
         });
       }
-    } catch {
-      setMessage({
-        text: "Para abrir a janela nativa do Finder, certifique-se de que o assistente local está ativo na porta 8765. Você também pode colar o caminho manualmente no campo abaixo.",
-        type: "error",
-      });
+    } catch (err: any) {
+      if (err.message && !err.message.includes("cancelada")) {
+        setMessage({
+          text: "Não foi possível abrir o seletor nativo. Você também pode colar o caminho manualmente no campo abaixo.",
+          type: "error",
+        });
+      }
     } finally {
       setPickingFolder(false);
     }

@@ -2883,4 +2883,24 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
      - Contêineres Docker atualizados e ativos na porta 3001 e 8000.
 - **Proxima Acao Segura**: Apresentar solução ao usuário e comitar alterações.
 
+### CHECKPOINT-098 (2026-09-25 08:43 - Início da Execução do App Desktop Unificado com Okta RBAC)
+- **Tarefa**: TASK-20260925-0650-UNIFIED-DESKTOP-APP-DMG-MSI-OKTA
+- **Estado**: WRITE_AHEAD / PLANNING_TO_ACTION
+- **Diretório Ativo**: `/Users/gcostabe/dev/RAG-LOCAL-REEF/worktrees/desktop` (Branch `feat/unified-desktop-dmg-msi`)
+- **Ações Planejadas**:
+  1. **Fase 1 (Backend & Frontend RBAC)**:
+     - Adicionar modelo `AppUserRbac` e papéis `MASTER_ADMIN`, `ADMIN`, `VIEWER`.
+     - Definir `gcostabe@emeal.nttdata.com` como Master Admin imutável.
+     - Criar rotas RBAC (`/admin/rbac/users`, `/auth/me`).
+     - Proteger rotas de ingestão e snapshot (`require_admin_or_master`).
+     - Adicionar aba e tela de gestão de administradores delegados no frontend para o Master Admin.
+  2. **Fase 2 (Desktop Tauri v2 Core & Fallbacks)**:
+     - Scaffolding de Tauri v2 com comandos nativos Rust para abrir o seletor de arquivos (eliminando o `host_picker.py`).
+     - Scanner dinâmico de portas efêmeras.
+  3. **Fase 3 (Instaladores .dmg e .msi)**:
+     - Configuração de bundling para macOS e Windows (Userspace `ALLUSERS=0`).
+  4. **Fase 4 (GitHub Actions CI/CD)**:
+     - Criar workflow `.github/workflows/desktop-release.yml` para compilar e anexar `.dmg` e `.msi` nas releases.
+
+
 

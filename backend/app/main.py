@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import admin, auth, chat, conversations, health, knowledge, snapshots
+from app.api import admin, auth, chat, conversations, health, knowledge, rbac, snapshots
 from app.auth.database import engine
 from app.auth.models import Base, MessageFeedback  # noqa: F401
 from app.config import settings
@@ -14,7 +14,7 @@ from app.knowledge.models import KnowledgeConflict, KnowledgeDocument, Knowledge
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Garante que as tabelas (incluindo knowledge) existam
+    # Garante que as tabelas (incluindo knowledge e rbac) existam
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         from sqlalchemy import text
@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS completion_tokens INTEGER DEFAULT 0;",
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS total_tokens INTEGER DEFAULT 0;",
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS model VARCHAR(100);",
+            "CREATE TABLE IF NOT EXISTS app_users_rbac (email VARCHAR(255) PRIMARY KEY, role VARCHAR(50) NOT NULL DEFAULT 'VIEWER', granted_by VARCHAR(255), notes VARCHAR(255), created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());",
         ]:
             await conn.execute(text(sql))
 
@@ -86,3 +87,4 @@ app.include_router(knowledge.router)
 app.include_router(knowledge.user_router)
 app.include_router(snapshots.router)
 app.include_router(snapshots.admin_router)
+app.include_router(rbac.router)
