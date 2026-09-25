@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import random
@@ -13,6 +14,7 @@ from app.auth.database import get_db
 from app.auth.dependencies import get_current_user
 from app.auth.models import Conversation, Message, MessageFeedback, User
 from app.config import settings
+from app.knowledge.document_parsers import parse_attachment
 from app.knowledge.graph_embeddings import topological_engine
 from app.llm.base import Message as LLMMessage
 from app.llm.factory import get_llm_client
@@ -55,10 +57,17 @@ SYSTEM_PROMPT = (
 )
 
 
+class AttachmentPayload(BaseModel):
+    name: str
+    mime_type: str = ""
+    data: str  # Base64 data ou DataURL (data:...;base64,...)
+
+
 class ChatRequest(BaseModel):
     message: str
     conversation_id: str | None = None
     top_k: int = 10
+    attachments: list[AttachmentPayload] | None = None
 
 
 def is_refusal_or_not_found(text: str) -> bool:
@@ -100,82 +109,184 @@ async def chat(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    conversation = await _get_or_create_conversation(db, request.conversation_id, current_user, request.message)
-
-    history = await _load_history(db, conversation.id)
-
-    # 0. Reconhecimento de Entidades Críticas da Consulta (Subgrafo NER) e Topologia Neural
-    query_entities, entity_sources = await get_query_entities_context(db, request.message)
-    try:
-        await topological_engine.get_or_sync(db)
-    except Exception as exc:
-        logger.warning(f"[chat] Não foi possível sincronizar motor topológico: {exc}")
-
-    try:
-        chunks = search(request.message, top_k=request.top_k, entity_sources=entity_sources)
-    except Exception as exc:
-        logger.error(f"[chat] Falha no serviço de busca/embeddings: {exc}")
-        chunks = []
-
-    unique_paths = list({c.source_path for c in chunks if c.source_path})
-    hop1_edges, conflicts, hop2_edges, hop2_docs = await get_graph_context_for_sources(db, unique_paths)
-    doc_summaries = await get_document_summaries_for_sources(db, unique_paths, query=request.message)
-
-    # 1. Filtro estrito de relevância semântica:
-    # Apenas chunks com score confiável (>= 0.40) são considerados como fonte factual.
-    # Scores inferiores a 0.40 representam ruído de aproximação forçada pelo top_k.
-    max_score = max((c.score for c in chunks), default=0.0)
-    relevant_chunks = [c for c in chunks if c.score >= 0.40]
-    has_relevant_docs = len(relevant_chunks) > 0 and max_score >= 0.40
-
-    if not has_relevant_docs:
-        context = (
-            "[AVISO DO SISTEMA: A consulta realizada NÃO possui correspondência ou suporte factual nos documentos da base local do REEF. "
-            "Você é TERMINANTEMENTE PROIBIDO de utilizar conhecimentos externos ou fatos da internet. "
-            "Responda única e exclusivamente informando que esta informação não consta na base de conhecimento local do REEF.]"
-        )
-        sources = []
-    else:
-        context = build_context(
-            relevant_chunks,
-            edges=hop1_edges,
-            conflicts=conflicts,
-            doc_summaries=doc_summaries,
-            hop2_edges=hop2_edges,
-            hop2_docs=hop2_docs,
-            query_entities=query_entities,
-        )
-        sources = [{"source_path": c.source_path, "title": c.title} for c in relevant_chunks]
-        for s in doc_summaries:
-            if not any(src["source_path"] == s.source_path for src in sources):
-                sources.append({"source_path": s.source_path, "title": s.title})
-        for s in hop2_docs:
-            if not any(src["source_path"] == s.source_path for src in sources):
-                sources.append({"source_path": s.source_path, "title": f"🔗 {s.title} (Via Grafo)"})
-
-    messages: list[LLMMessage] = [
-        {"role": "system", "content": f"{SYSTEM_PROMPT}\n\nContexto:\n{context}"},
-        *history,
-        {"role": "user", "content": request.message},
-    ]
-
-    user_prompt_tokens = max(1, len(request.message) // 4)
-    user_message = Message(
-        conversation_id=conversation.id,
-        role="user",
-        content=request.message,
-        prompt_tokens=user_prompt_tokens,
-        total_tokens=user_prompt_tokens,
+    # Validação preliminar do teto estrito de imagens (máx 3)
+    raw_attachments = request.attachments or []
+    image_count = sum(
+        1 for a in raw_attachments
+        if ("image" in (a.mime_type or "").lower())
+        or any(a.name.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"])
     )
-    db.add(user_message)
-    await db.commit()
+    if image_count > 3:
+        raise HTTPException(
+            status_code=422,
+            detail="Limite excedido: é permitido o envio de no máximo 3 imagens por interação.",
+        )
 
+    has_attachments = len(raw_attachments) > 0
+
+    conversation = await _get_or_create_conversation(db, request.conversation_id, current_user, request.message)
+    history = await _load_history(db, conversation.id)
     llm = get_llm_client()
 
     async def event_stream():
+        yield f"event: conversation\ndata: {json.dumps({'conversation_id': str(conversation.id)})}\n\n"
+
+        # 1. Processamento e extração de anexos com feedback dinâmico
+        parsed_docs = []
+        image_parts = []
+        user_attachments_meta = []
+
+        for att in raw_attachments:
+            lower_name = att.name.lower()
+            mime_lower = (att.mime_type or "").lower()
+
+            if any(lower_name.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]) or "image" in mime_lower:
+                yield f"event: status\ndata: {json.dumps({'step': 'analyzing_image', 'label': f'Otimizando e analisando imagem ({att.name})...'})}\n\n"
+            elif lower_name.endswith(".pdf") or "pdf" in mime_lower:
+                yield f"event: status\ndata: {json.dumps({'step': 'reading_pdf', 'label': f'Lendo e extraindo texto do PDF ({att.name})...'})}\n\n"
+            elif lower_name.endswith(".docx") or "word" in mime_lower:
+                yield f"event: status\ndata: {json.dumps({'step': 'reading_docx', 'label': f'Lendo documento Word ({att.name})...'})}\n\n"
+            elif lower_name.endswith(".pptx") or "presentation" in mime_lower:
+                yield f"event: status\ndata: {json.dumps({'step': 'reading_pptx', 'label': f'Lendo slides do PowerPoint ({att.name})...'})}\n\n"
+            else:
+                yield f"event: status\ndata: {json.dumps({'step': 'reading_file', 'label': f'Processando arquivo ({att.name})...'})}\n\n"
+
+            try:
+                b64_str = att.data
+                if "," in b64_str:
+                    b64_str = b64_str.split(",", 1)[1]
+                raw_bytes = base64.b64decode(b64_str)
+
+                parsed = parse_attachment(att.name, att.mime_type, raw_bytes)
+                if parsed.get("type") == "image":
+                    image_parts.append(parsed)
+                    user_attachments_meta.append({
+                        "name": att.name,
+                        "type": "image",
+                        "width": parsed.get("width"),
+                        "height": parsed.get("height"),
+                        "size_bytes": parsed.get("size_bytes"),
+                    })
+                else:
+                    parsed_docs.append(parsed)
+                    user_attachments_meta.append({
+                        "name": att.name,
+                        "type": parsed.get("type", "doc"),
+                        "pages": parsed.get("pages"),
+                        "slides_count": parsed.get("slides_count"),
+                        "total_chars": parsed.get("total_chars"),
+                    })
+            except Exception as p_err:
+                logger.warning(f"[chat] Erro ao extrair anexo '{att.name}': {p_err}")
+
+        # 2. Status: Busca na Base de Conhecimento e Grafo Neural
+        yield f"event: status\ndata: {json.dumps({'step': 'retrieving', 'label': 'Consultando base de conhecimento e grafo neural...'})}\n\n"
+
+        query_entities, entity_sources = await get_query_entities_context(db, request.message)
+        try:
+            await topological_engine.get_or_sync(db)
+        except Exception as exc:
+            logger.warning(f"[chat] Não foi possível sincronizar motor topológico: {exc}")
+
+        try:
+            chunks = search(request.message, top_k=request.top_k, entity_sources=entity_sources)
+        except Exception as exc:
+            logger.error(f"[chat] Falha no serviço de busca/embeddings: {exc}")
+            chunks = []
+
+        unique_paths = list({c.source_path for c in chunks if c.source_path})
+        hop1_edges, conflicts, hop2_edges, hop2_docs = await get_graph_context_for_sources(db, unique_paths)
+        doc_summaries = await get_document_summaries_for_sources(db, unique_paths, query=request.message)
+
+        max_score = max((c.score for c in chunks), default=0.0)
+        relevant_chunks = [c for c in chunks if c.score >= 0.40]
+        has_relevant_docs = len(relevant_chunks) > 0 and max_score >= 0.40
+
+        if not has_relevant_docs and not has_attachments:
+            context = (
+                "[AVISO DO SISTEMA: A consulta realizada NÃO possui correspondência ou suporte factual nos documentos da base local do REEF. "
+                "Você é TERMINANTEMENTE PROIBIDO de utilizar conhecimentos externos ou fatos da internet. "
+                "Responda única e exclusivamente informando que esta informação não consta na base de conhecimento local do REEF.]"
+            )
+            sources = []
+        else:
+            context = build_context(
+                relevant_chunks,
+                edges=hop1_edges,
+                conflicts=conflicts,
+                doc_summaries=doc_summaries,
+                hop2_edges=hop2_edges,
+                hop2_docs=hop2_docs,
+                query_entities=query_entities,
+            )
+            sources = [{"source_path": c.source_path, "title": c.title} for c in relevant_chunks]
+            for s in doc_summaries:
+                if not any(src["source_path"] == s.source_path for src in sources):
+                    sources.append({"source_path": s.source_path, "title": s.title})
+            for s in hop2_docs:
+                if not any(src["source_path"] == s.source_path for src in sources):
+                    sources.append({"source_path": s.source_path, "title": f"🔗 {s.title} (Via Grafo)"})
+
+        # 3. Formatação do Prompt com Anexos e Instruções de Blindagem Epistêmica
+        system_instructions = f"{SYSTEM_PROMPT}\n\nContexto:\n{context}"
+        if has_attachments:
+            system_instructions += (
+                "\n\n[BLINDAGEM EPISTÊMICA DE ANEXOS TEMPORÁRIOS]:\n"
+                "O usuário enviou arquivos/imagens anexadas para análise nesta interação pontual. "
+                "Responda às dúvidas com base nestes arquivos, correlacionando-os com as normas canônicas quando aplicável.\n"
+                "REGRA DE GOVERNANÇA: Estes anexos são efêmeros e NÃO COMPÕEM a base canônica homologada. "
+                "NÃO emita bloco técnico de aprendizado cognitivo (json:cognitive_learning) nem retifique o Grafo Neural a partir de arquivos ad-hoc enviados por usuários."
+            )
+
+        doc_blocks = []
+        for d in parsed_docs:
+            doc_blocks.append(f"### [DOCUMENTO ANEXADO PELO USUÁRIO: {d['name']}]\n{d['text']}\n")
+
+        if doc_blocks:
+            user_prompt_text = (
+                f"{request.message}\n\n"
+                f"[CONTEÚDO DOS ARQUIVOS ANEXADOS PELO USUÁRIO NESTA INTERAÇÃO]:\n"
+                + "\n".join(doc_blocks)
+            )
+        else:
+            user_prompt_text = request.message
+
+        if image_parts:
+            user_content = [
+                {"type": "text", "text": user_prompt_text},
+                *[
+                    {"type": "image_url", "image_url": {"url": img["data_url"]}}
+                    for img in image_parts
+                ],
+            ]
+        else:
+            user_content = user_prompt_text
+
+        messages: list[LLMMessage] = [
+            {"role": "system", "content": system_instructions},
+            *history,
+            {"role": "user", "content": user_content},
+        ]
+
+        # Salva a mensagem do usuário no banco com metadados de anexos
+        user_prompt_tokens = max(1, len(request.message) // 4)
+        user_message = Message(
+            conversation_id=conversation.id,
+            role="user",
+            content=request.message,
+            prompt_tokens=user_prompt_tokens,
+            total_tokens=user_prompt_tokens,
+            attachments_metadata=user_attachments_meta if user_attachments_meta else None,
+        )
+        db.add(user_message)
+        await db.commit()
+
+        # 4. Status: Pensando e Elaborando Resposta
+        yield f"event: status\ndata: {json.dumps({'step': 'thinking', 'label': 'Pensando sobre a solicitação e elaborando resposta...'})}\n\n"
+
         collected = []
         candidate_sources = sources if has_relevant_docs else []
-        yield f"event: conversation\ndata: {json.dumps({'conversation_id': str(conversation.id)})}\n\n"
+
         try:
             async for token in llm.chat_stream(messages):
                 collected.append(token)
@@ -192,30 +303,32 @@ async def chat(
 
         full_response = "".join(collected)
 
-        # 4. Detecção de Auto-Correção e Aprendizado Cognitivo Autônomo
-        from app.knowledge.learning_synapse import extract_cognitive_learning, persist_cognitive_learning
-        clean_response, learning_data = extract_cognitive_learning(full_response)
+        # 5. Detecção de Auto-Correção e Aprendizado Cognitivo com Blindagem Epistêmica
+        clean_response = full_response
         persisted_learning = None
 
-        if learning_data:
-            try:
-                persisted_learning = await persist_cognitive_learning(learning_data, db)
-                yield f"event: learning_occurred\ndata: {json.dumps(persisted_learning)}\n\n"
-            except Exception as learn_err:
-                logger.error(f"[chat] Erro ao persistir aprendizado cognitivo autônomo: {learn_err}")
+        if not has_attachments:
+            from app.knowledge.learning_synapse import extract_cognitive_learning, persist_cognitive_learning
+            extracted_clean, learning_data = extract_cognitive_learning(full_response)
+            if learning_data:
+                try:
+                    persisted_learning = await persist_cognitive_learning(learning_data, db)
+                    yield f"event: learning_occurred\ndata: {json.dumps(persisted_learning)}\n\n"
+                    clean_response = extracted_clean
+                except Exception as learn_err:
+                    logger.error(f"[chat] Erro ao persistir aprendizado cognitivo autônomo: {learn_err}")
+        else:
+            logger.info("[chat] Blindagem Epistêmica Ativa: aprendizado cognitivo desativado para interação com anexos de usuário.")
 
-        # Conteúdo limpo para o usuário caso haja bloco técnico
-        user_facing_content = clean_response if learning_data else full_response
+        user_facing_content = clean_response
 
-        # Regra mandatória: os documentos de referência SÓ devem ser informados
-        # se as informações foram efetivamente encontradas na base de conhecimento.
-        # Se a resposta indicar recusa ou falta de dados, sources deve ser terminantemente vazio [].
-        if not has_relevant_docs or is_refusal_or_not_found(user_facing_content):
+        # Se houver anexos ou se a resposta contiver recusa
+        if (not has_relevant_docs and not has_attachments) or is_refusal_or_not_found(user_facing_content):
             final_sources = []
         else:
             final_sources = candidate_sources
 
-        # Emite sources definitivas para o frontend após a conclusão da resposta
+        # Emite sources definitivas para o frontend
         yield f"event: sources\ndata: {json.dumps(final_sources)}\n\n"
 
         # Cálculo de tokens consumidos
@@ -234,6 +347,7 @@ async def chat(
                     content=user_facing_content,
                     sources=final_sources,
                     learning_metadata=persisted_learning,
+                    attachments_metadata=user_attachments_meta if user_attachments_meta else None,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,

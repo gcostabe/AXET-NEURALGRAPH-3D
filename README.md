@@ -30,7 +30,12 @@
     - [Federação via GitHub com Zero Impacto de Permissões](#federação-via-github-com-zero-impacto-de-permissões-cenário-1)
     - [Curadoria pelo Master Admin & Compilação de Pacotes (.pack)](#curadoria-pelo-master-admin--compilação-de-pacotes-pack)
     - [Distribuição Global Instantânea via Releases (< 2s)](#distribuição-global-instantânea-via-releases--2s)
-11. [Estratégia de Sincronização Dual Git](#-estratégia-de-sincronização-dual-git)
+11. [Suporte Multimodal de Anexos no Chat & Indicador Dinâmico com Blindagem Epistêmica](#-suporte-multimodal-de-anexos-no-chat--indicador-dinâmico-com-blindagem-epistêmica)
+    - [Processamento de Documentos Corporativos (PDF, PPT, Word)](#processamento-de-documentos-corporativos-pdf-ppt-word)
+    - [Visão Computacional Multimodal (Até 3 Imagens)](#visão-computacional-multimodal-até-3-imagens)
+    - [Indicador de Progresso em Tempo Real no Balão de Resposta](#indicador-de-progresso-em-tempo-real-no-balão-de-resposta)
+    - [Blindagem Epistêmica: Prevenção de Envenenamento do Grafo](#blindagem-epistêmica-prevenção-de-envenenamento-do-grafo)
+12. [Estratégia de Sincronização Dual Git](#-estratégia-de-sincronização-dual-git)
 
 ---
 
@@ -703,6 +708,82 @@ No Painel Administrativo (`/admin` -> Aba **🧠 Curadoria de Sinapses Cognitiva
    - O ciclo completo de sincronização de dezenas de aprendizados ocorre em **menos de 2 segundos**, com zero consumo de tokens e sem reprocessar documentos brutos.
 3. **Importação Manual Offline**:
    - Em redes restritas ou sem acesso à internet, o usuário ou administrador pode usar o botão **"Importar Arquivo .pack / .json"** para carregar o delta manualmente via pendrive ou pasta corporativa.
+
+## 📎 Suporte Multimodal de Anexos no Chat & Indicador Dinâmico com Blindagem Epistêmica
+
+O **AXET-NEURALGRAPH-3D** incorpora uma esteira de análise documental in-session e visão computacional multimodal diretamente no balão de chat, permitindo que usuários anexem arquivos locais e imagens para raciocínio contextual imediato.
+
+```
+                    [Usuário anexa até 3 imagens ou PDF / PPT / Word]
+                                         │
+                                         ▼
+               ┌──────────────────────────────────────────────────┐
+               │    In-Memory File Parser & Vision Transformer     │
+               ├─────────────────────────┬────────────────────────┤
+               │ 📄 PDF / DOCX / PPTX    │ 🖼️ Imagens (PNG/JPG)   │
+               │ Extração semântica de   │ Redimensionamento máx. │
+               │ texto, tabelas e notas  │ 1080p e Base64 DataUrl │
+               └─────────────────────────┴────────────────────────┘
+                                         │
+                                         ▼
+                 [Indicador de Progresso Dinâmico via SSE]
+          "📄 Lendo PDF..." ➔ "🧠 Consultando Grafo..." ➔ "⚡ Elaborando resposta..."
+                                         │
+                                         ▼
+                 [BLINDAGEM EPISTÊMICA (EPISTEMIC SANDBOXING)]
+          ⚠️ Proibição Absoluta de Contaminação da Memória Cognitiva:
+          Anexos de chat são contexto volátil e NÃO geram nós nem arestas
+          no Grafo Neural nem pacotes federados (.pack).
+```
+
+---
+
+### Processamento de Documentos Corporativos (PDF, PPT, Word)
+
+A análise ocorre inteiramente em memória no backend local, sem persistência residual de arquivos temporários em disco:
+
+1. **PDFs Corporativos (`pypdf`)**:
+   - Extrai texto contínuo preservando cabeçalhos e numeração de páginas.
+   - Emite métricas no balão (`pages`, `total_chars`).
+2. **Apresentações PowerPoint (`python-pptx`)**:
+   - Varre todos os slides, formas de texto, tabelas estruturadas e **anotações do apresentador** (`notes_slide`).
+3. **Documentos Word (`python-docx`)**:
+   - Extrai hierarquia de títulos, parágrafos e células tabulares para interpretação de relatórios técnicos e atas de reunião.
+
+---
+
+### Visão Computacional Multimodal (Até 3 Imagens)
+
+- **Teto Estrito de 3 Imagens por Interação**: Impede estouro de contexto e exaustão de GPU/CPU local. O limite é validado tanto na interface (bloqueio reativo) quanto na API (HTTP 422 caso excedido).
+- **Otimização de Resolução com Pillow**: Imagens em resoluções excessivas (4K/8K) são reamostradas proporcionalmente em memória mantendo a proporção de aspecto (máximo 1920x1080) e codificadas como data URLs Base64.
+- **Preview Interativo no Chat**: Badges visuais com miniaturas e botões de remoção (`X`) antes do envio, e galeria de miniaturas com zoom dentro do histórico da conversa.
+
+---
+
+### Indicador de Progresso em Tempo Real no Balão de Resposta
+
+Substituindo a tradicional espera estática de "3 pontos", o assistente comunica transparentemente cada etapa do pipeline cognitivo via Server-Sent Events (`event: status`):
+
+- 📄 `{"step": "reading_pdf", "label": "Lendo e extraindo texto do PDF (arquivo.pdf)..."}`
+- 📊 `{"step": "reading_pptx", "label": "Lendo slides e notas de apresentação (slides.pptx)..."}`
+- 📝 `{"step": "reading_docx", "label": "Lendo documento Word e tabelas (doc.docx)..."}`
+- 🖼️ `{"step": "analyzing_image", "label": "Otimizando e analisando imagem (foto.png)..."}`
+- 🧠 `{"step": "retrieving", "label": "Consultando base de conhecimento e grafo neural..."}`
+- ⚡ `{"step": "thinking", "label": "Pensando sobre a solicitação e elaborando resposta..."}`
+
+---
+
+### Blindagem Epistêmica: Prevenção de Envenenamento do Grafo
+
+> [!IMPORTANT]
+> **Salvaguarda de Segurança contra Envenenamento de Memória (*Data Poisoning*)**:  
+> Arquivos e imagens anexados por usuários em conversas são **fontes pontuais, não-auditadas e epistemologicamente não-verificadas**.
+
+Para assegurar integridade inquebrável da base de conhecimento corporativa:
+1. **Sandboxing Hermético**: As informações contidas em anexos de chat são usadas **exclusivamente como contexto efêmero daquela conversa específica**.
+2. **Imunidade do Grafo Neural**: Se a requisição contiver anexos (`has_attachments: true`), o gatilho de retificação autônoma (`json:cognitive_learning`) é **rigorosamente desativado**.
+3. **Zero Poluição de Pacotes Federados**: Nenhuma afirmação ou dado extraído de um anexo de chat pode originar uma nova sinapse (`RETIFICA_CONCEITO`), contaminar o Qdrant nem compor um pacote `.pack` distribuído para outros colaboradores.
+4. **Isenção de Refugação Contextual**: Quando o usuário anexa um documento ou imagem, o sistema é autorizado a responder com base no arquivo anexado mesmo que o RAG não encontre documentos equivalentes na base canônica indexada.
 
 ---
 

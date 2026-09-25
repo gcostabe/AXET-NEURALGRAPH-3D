@@ -143,6 +143,7 @@ async def get_conversation_messages(
             "created_at": m.created_at.isoformat() if m.created_at else None,
             "feedback": fb_map.get(m.id),
             "learning": m.learning_metadata,
+            "attachments": m.attachments_metadata,
         }
         for m in messages
     ]

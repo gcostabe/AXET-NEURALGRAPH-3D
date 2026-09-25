@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
 import AppHeader from "@/components/AppHeader";
-import ChatMessageItem, { ChatMessage } from "@/components/ChatMessageItem";
+import ChatMessageItem, { ChatMessage, AttachmentMeta } from "@/components/ChatMessageItem";
 import ChatWelcomeScreen from "@/components/ChatWelcomeScreen";
 import { conversationsApi, Conversation, MessageOut, authApi, UserOut } from "@/lib/api";
-import { streamChat } from "@/lib/chatStream";
+import { streamChat, ChatAttachmentPayload } from "@/lib/chatStream";
 import { 
   Plus, 
   MessageSquare, 
@@ -20,8 +20,20 @@ import {
   FileText,
   Search,
   Network,
-  ArrowUpRight
+  ArrowUpRight,
+  Paperclip,
+  X,
+  Image as ImageIcon,
+  Presentation
 } from "lucide-react";
+
+interface PendingAttachment {
+  file: File;
+  name: string;
+  mime_type: string;
+  dataUrl: string;
+  isImage: boolean;
+}
 
 function ChatInner() {
   const router = useRouter();
@@ -29,6 +41,7 @@ function ChatInner() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [sending, setSending] = useState(false);
   const [waitingFirstToken, setWaitingFirstToken] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +52,7 @@ function ChatInner() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const initialCheckDoneRef = useRef(false);
 
   useEffect(() => {
@@ -92,6 +106,7 @@ function ChatInner() {
           created_at: m.created_at,
           feedback: m.feedback,
           learning: (m as any).learning || null,
+          attachments: (m as any).attachments || null,
         })),
       );
     } catch {
@@ -103,6 +118,7 @@ function ChatInner() {
     if (sending) return;
     setConversationId(null);
     setMessages([]);
+    setPendingAttachments([]);
     setError(null);
     if (typeof window !== "undefined") {
       window.history.replaceState(null, "", "/chat");
@@ -129,11 +145,71 @@ function ChatInner() {
     }
   }
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const currentImageCount = pendingAttachments.filter((a) => a.isImage).length;
+    let newImageCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const isImg = file.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(file.name);
+
+      if (isImg) {
+        if (currentImageCount + newImageCount >= 3) {
+          setError("Limite máximo de 3 imagens por interação atingido.");
+          continue;
+        }
+        newImageCount++;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = (event.target?.result as string) || "";
+        setPendingAttachments((prev) => [
+          ...prev,
+          {
+            file,
+            name: file.name,
+            mime_type: file.type || (isImg ? "image/jpeg" : "application/octet-stream"),
+            dataUrl,
+            isImage: isImg,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setPendingAttachments((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
   async function handleSend(userPromptText?: string) {
     const textToSend = (userPromptText || input).trim();
-    if (!textToSend || sending) return;
+    if ((!textToSend && pendingAttachments.length === 0) || sending) return;
+
+    const promptText = textToSend || "Por favor, analise os arquivos anexados.";
+
+    const attachmentsToSend: ChatAttachmentPayload[] = pendingAttachments.map((a) => ({
+      name: a.name,
+      mime_type: a.mime_type,
+      data: a.dataUrl,
+    }));
+
+    const attachmentsMeta: AttachmentMeta[] = pendingAttachments.map((a) => ({
+      name: a.name,
+      type: a.isImage ? "image" : a.name.toLowerCase().endsWith(".pdf") ? "pdf" : a.name.toLowerCase().endsWith(".pptx") ? "pptx" : "docx",
+      data_url: a.isImage ? a.dataUrl : undefined,
+    }));
 
     setInput("");
+    setPendingAttachments([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -143,14 +219,16 @@ function ChatInner() {
 
     const userMessage: ChatMessage = {
       role: "user",
-      content: textToSend,
+      content: promptText,
       created_at: nowIso,
+      attachments: attachmentsMeta.length > 0 ? attachmentsMeta : undefined,
     };
 
     const initialAssistantMessage: ChatMessage = {
       role: "assistant",
       content: "",
       created_at: nowIso,
+      statusText: attachmentsToSend.length > 0 ? "Processando anexos..." : "Pensando sobre a solicitação...",
     };
 
     setMessages((prev) => [...prev, userMessage, initialAssistantMessage]);
@@ -160,103 +238,123 @@ function ChatInner() {
     let assistantText = "";
     let sources: string[] = [];
 
-    await streamChat(textToSend, conversationId, {
-      onSources: (s) => {
-        sources = s;
-        setMessages((prev) => {
-          const next = [...prev];
-          const lastIdx = next.length - 1;
-          if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
-            next[lastIdx] = {
-              ...next[lastIdx],
-              sources: s && s.length > 0 ? s : undefined,
-            };
+    await streamChat(
+      promptText,
+      conversationId,
+      {
+        onSources: (s) => {
+          sources = s;
+          setMessages((prev) => {
+            const next = [...prev];
+            const lastIdx = next.length - 1;
+            if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+              next[lastIdx] = {
+                ...next[lastIdx],
+                sources: s && s.length > 0 ? s : undefined,
+              };
+            }
+            return next;
+          });
+        },
+        onStatus: (status) => {
+          setMessages((prev) => {
+            const next = [...prev];
+            const lastIdx = next.length - 1;
+            if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+              next[lastIdx] = {
+                ...next[lastIdx],
+                statusText: status.label,
+              };
+            }
+            return next;
+          });
+        },
+        onConversation: (id) => {
+          setConversationId(id);
+          if (typeof window !== "undefined") {
+            window.history.replaceState(null, "", `/chat?c=${id}`);
           }
-          return next;
-        });
+        },
+        onToken: (token) => {
+          setWaitingFirstToken(false);
+          assistantText += token;
+          setMessages((prev) => {
+            const next = [...prev];
+            const lastIdx = next.length - 1;
+            if (lastIdx >= 0) {
+              next[lastIdx] = {
+                ...next[lastIdx],
+                role: "assistant",
+                content: assistantText,
+                sources: sources && sources.length > 0 ? sources : undefined,
+              };
+            }
+            return next;
+          });
+        },
+        onMessageId: (mid) => {
+          setMessages((prev) => {
+            const next = [...prev];
+            const lastIdx = next.length - 1;
+            if (lastIdx >= 0) {
+              next[lastIdx] = {
+                ...next[lastIdx],
+                id: mid,
+              };
+            }
+            return next;
+          });
+        },
+        onLearning: (learningData) => {
+          setMessages((prev) => {
+            const next = [...prev];
+            const lastIdx = next.length - 1;
+            if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+              next[lastIdx] = {
+                ...next[lastIdx],
+                learning: learningData,
+              };
+            }
+            return next;
+          });
+        },
+        onDone: () => {
+          setSending(false);
+          setWaitingFirstToken(false);
+          setMessages((prev) => {
+            const next = [...prev];
+            const lastIdx = next.length - 1;
+            if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+              next[lastIdx] = {
+                ...next[lastIdx],
+                sources: sources && sources.length > 0 ? sources : undefined,
+                statusText: undefined,
+              };
+            }
+            return next;
+          });
+          loadConversations();
+        },
+        onError: (msg) => {
+          setSending(false);
+          setWaitingFirstToken(false);
+          setMessages((prev) => {
+            const next = [...prev];
+            const lastIdx = next.length - 1;
+            if (lastIdx >= 0 && next[lastIdx].role === "assistant" && !next[lastIdx].content) {
+              next[lastIdx] = {
+                ...next[lastIdx],
+                content: `⚠️ **Falha na comunicação**: ${msg || "O Gateway de IA local não respondeu. Verifique se o serviço local está ativo e com a sessão corporativa válida."}`,
+                statusText: undefined,
+              };
+            }
+            return next;
+          });
+          setError(msg || "Ocorreu uma falha na geração da resposta pelo gateway.");
+        },
       },
-      onConversation: (id) => {
-        setConversationId(id);
-        if (typeof window !== "undefined") {
-          window.history.replaceState(null, "", `/chat?c=${id}`);
-        }
-      },
-      onToken: (token) => {
-        setWaitingFirstToken(false);
-        assistantText += token;
-        setMessages((prev) => {
-          const next = [...prev];
-          const lastIdx = next.length - 1;
-          if (lastIdx >= 0) {
-            next[lastIdx] = {
-              ...next[lastIdx],
-              role: "assistant",
-              content: assistantText,
-              sources: sources && sources.length > 0 ? sources : undefined,
-            };
-          }
-          return next;
-        });
-      },
-      onMessageId: (mid) => {
-        setMessages((prev) => {
-          const next = [...prev];
-          const lastIdx = next.length - 1;
-          if (lastIdx >= 0) {
-            next[lastIdx] = {
-              ...next[lastIdx],
-              id: mid,
-            };
-          }
-          return next;
-        });
-      },
-      onLearning: (learningData) => {
-        setMessages((prev) => {
-          const next = [...prev];
-          const lastIdx = next.length - 1;
-          if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
-            next[lastIdx] = {
-              ...next[lastIdx],
-              learning: learningData,
-            };
-          }
-          return next;
-        });
-      },
-      onDone: () => {
-        setSending(false);
-        setWaitingFirstToken(false);
-        setMessages((prev) => {
-          const next = [...prev];
-          const lastIdx = next.length - 1;
-          if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
-            next[lastIdx] = {
-              ...next[lastIdx],
-              sources: sources && sources.length > 0 ? sources : undefined,
-            };
-          }
-          return next;
-        });
-        loadConversations();
-      },
-      onError: (msg) => {
-        setSending(false);
-        setWaitingFirstToken(false);
-        setMessages((prev) => {
-          const next = [...prev];
-          const lastIdx = next.length - 1;
-          if (lastIdx >= 0 && next[lastIdx].role === "assistant" && !next[lastIdx].content) {
-            next[lastIdx] = {
-              ...next[lastIdx],
-              content: `⚠️ **Falha na comunicação**: ${msg || "O Gateway de IA local não respondeu. Verifique se o serviço local está ativo e com a sessão corporativa válida."}`,
-            };
-          }
-          return next;
-        });
-        setError(msg || "Ocorreu uma falha na geração da resposta pelo gateway.");
-      },
-    });
+      attachmentsToSend
+    );
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -467,13 +565,55 @@ function ChatInner() {
                 }}
                 className="relative flex flex-col rounded-2xl border border-slate-700/80 bg-slate-900/90 shadow-2xl focus-within:border-blue-500/80 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all duration-200"
               >
+                {/* Preview de Anexos Pendentes */}
+                {pendingAttachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2 px-4 pt-3 pb-1 border-b border-slate-800/60">
+                    {pendingAttachments.map((att, idx) => (
+                      <div
+                        key={idx}
+                        className="group relative flex items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-800/90 pl-2.5 pr-1.5 py-1 text-xs text-slate-200 shadow-sm"
+                      >
+                        {att.isImage ? (
+                          <div className="flex items-center gap-1.5">
+                            <img
+                              src={att.dataUrl}
+                              alt={att.name}
+                              className="h-6 w-6 rounded object-cover border border-slate-600"
+                            />
+                            <span className="max-w-[120px] truncate text-[11px] font-medium">{att.name}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            {att.name.toLowerCase().endsWith(".pdf") ? (
+                              <FileText className="h-4 w-4 text-rose-400 flex-shrink-0" />
+                            ) : att.name.toLowerCase().endsWith(".pptx") ? (
+                              <Presentation className="h-4 w-4 text-amber-400 flex-shrink-0" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                            )}
+                            <span className="max-w-[140px] truncate text-[11px] font-medium">{att.name}</span>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(idx)}
+                          className="ml-1 rounded p-0.5 text-slate-400 hover:bg-slate-700 hover:text-white transition"
+                          title="Remover anexo"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Textarea auto-expansível */}
                 <textarea
                   ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Faça uma pergunta sobre sua base de documentos Markdown (ex.: arquitetura, deploy, endpoints)..."
+                  placeholder="Faça uma pergunta ou anexe documentos (PDF, PPT, Word ou até 3 imagens)..."
                   disabled={sending}
                   rows={1}
                   className="w-full resize-none bg-transparent px-4 pt-3.5 pb-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none disabled:opacity-60 max-h-44 min-h-[48px]"
@@ -482,6 +622,25 @@ function ChatInner() {
                 {/* Footer do Input Box */}
                 <div className="flex items-center justify-between px-3.5 pb-2.5 pt-1 text-xs text-slate-400">
                   <div className="flex items-center gap-2 text-[11px]">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept=".pdf,.docx,.pptx,.png,.jpg,.jpeg,.webp"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={sending}
+                      className="flex items-center gap-1.5 rounded-lg border border-slate-700/60 bg-slate-800/60 px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700/80 hover:text-white disabled:opacity-40 transition"
+                      title="Anexar arquivos (PDF, DOCX, PPTX ou até 3 imagens)"
+                    >
+                      <Paperclip className="h-3.5 w-3.5 text-blue-400" />
+                      <span>Anexar</span>
+                    </button>
+
                     <span className="hidden sm:inline-flex items-center gap-1 text-slate-400">
                       <kbd className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-400 border border-slate-700">Enter</kbd>
                       para enviar
@@ -496,7 +655,7 @@ function ChatInner() {
                   <div className="flex items-center gap-2 ml-auto">
                     <button
                       type="submit"
-                      disabled={sending || !input.trim()}
+                      disabled={sending || (!input.trim() && pendingAttachments.length === 0)}
                       className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-r from-[#0072BC] to-sky-500 text-white shadow-md shadow-blue-500/20 hover:opacity-90 active:scale-95 disabled:opacity-30 disabled:hover:opacity-30 transition-all"
                       title="Enviar mensagem"
                     >

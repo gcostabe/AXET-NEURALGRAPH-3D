@@ -19,8 +19,20 @@ import {
   Zap,
   GitCommit,
   CheckCircle2,
+  Presentation,
+  Image as ImageIcon,
+  Paperclip,
 } from "lucide-react";
 import { chatApi, MessageFeedback } from "@/lib/api";
+
+export interface AttachmentMeta {
+  name: string;
+  type: string;
+  data_url?: string;
+  pages?: number;
+  slides_count?: number;
+  total_chars?: number;
+}
 
 export interface CognitiveLearningEvent {
   detected: boolean;
@@ -41,6 +53,8 @@ export interface ChatMessage {
   created_at?: string;
   feedback?: MessageFeedback | null;
   learning?: CognitiveLearningEvent | null;
+  attachments?: AttachmentMeta[] | null;
+  statusText?: string;
 }
 
 export function isRefusalOrNotFound(text?: string): boolean {
@@ -195,6 +209,52 @@ export default function ChatMessageItem({
             </div>
           </div>
 
+          {/* Anexos da Mensagem (Imagens e Documentos) */}
+          {message.attachments && message.attachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2 pt-1">
+              {message.attachments.map((att, idx) => {
+                if (att.type === "image" && att.data_url) {
+                  return (
+                    <div
+                      key={idx}
+                      className="group relative overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-md"
+                    >
+                      <img
+                        src={att.data_url}
+                        alt={att.name}
+                        className="h-20 w-24 object-cover transition-transform duration-200 group-hover:scale-105"
+                      />
+                      <span className="absolute bottom-0 inset-x-0 bg-slate-950/85 px-1.5 py-0.5 text-[9px] font-mono text-slate-300 truncate">
+                        {att.name}
+                      </span>
+                    </div>
+                  );
+                }
+                const isPdf = att.name.toLowerCase().endsWith(".pdf") || att.type === "pdf";
+                const isDocx = att.name.toLowerCase().endsWith(".docx") || att.type === "docx";
+                const isPptx = att.name.toLowerCase().endsWith(".pptx") || att.type === "pptx";
+
+                return (
+                  <div
+                    key={idx}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-800/80 px-2.5 py-1.5 text-xs text-slate-200 shadow-sm"
+                  >
+                    {isPdf && <FileText className="h-4 w-4 text-rose-400 flex-shrink-0" />}
+                    {isDocx && <FileText className="h-4 w-4 text-blue-400 flex-shrink-0" />}
+                    {isPptx && <Presentation className="h-4 w-4 text-amber-400 flex-shrink-0" />}
+                    {!isPdf && !isDocx && !isPptx && <FileText className="h-4 w-4 text-sky-400 flex-shrink-0" />}
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-[11px] truncate max-w-[180px]">{att.name}</span>
+                      <span className="text-[9px] text-slate-400 font-mono">
+                        {att.pages ? `${att.pages} pág.` : att.slides_count ? `${att.slides_count} slides` : "Documento"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Corpo da Mensagem com Markdown ou Streaming */}
           <div className="text-sm leading-relaxed text-slate-100 prose-chat pt-1">
             {message.content ? (
@@ -252,13 +312,15 @@ export default function ChatMessageItem({
                 {message.content}
               </ReactMarkdown>
             ) : isStreaming ? (
-              <div className="flex items-center gap-2 py-1 text-xs text-slate-400">
+              <div className="flex items-center gap-2.5 py-1.5 text-xs text-slate-300 animate-in fade-in duration-200">
                 <span className="flex gap-1">
                   <span className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.3s]" />
                   <span className="h-2 w-2 animate-bounce rounded-full bg-sky-400 [animation-delay:-0.15s]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-blue-500" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-indigo-500" />
                 </span>
-                <span>Consultando base de conhecimento local e gerando resposta...</span>
+                <span className="font-medium text-sky-200 animate-pulse">
+                  {message.statusText || "Pensando sobre a solicitação..."}
+                </span>
               </div>
             ) : null}
           </div>

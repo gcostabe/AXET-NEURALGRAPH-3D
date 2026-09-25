@@ -305,6 +305,9 @@ def build_context(
 ) -> str:
     """Monta o bloco de contexto contendo resumos executivos, trechos de documentos,
     conexões do grafo (1-Hop direto e 2-Hop Multi-Hop), entidades do subgrafo NER e alertas de obsolescência."""
+    parts = []
+    total = 0
+
     # 0. Sinapses de Aprendizado Cognitivo Autônomo (Prioridade Máxima de Assimilação)
     learning_chunks = [c for c in chunks if c.source_path.startswith("learning://") or "APRENDIZADO COGNITIVO" in c.text]
     if learning_chunks:

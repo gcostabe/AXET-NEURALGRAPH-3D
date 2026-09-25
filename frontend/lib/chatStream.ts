@@ -1,11 +1,18 @@
 import { API_URL } from "./api";
 import { getToken } from "./auth";
 
+export interface ChatAttachmentPayload {
+  name: string;
+  mime_type: string;
+  data: string;
+}
+
 export interface ChatStreamHandlers {
   onSources?: (sources: string[]) => void;
   onConversation?: (conversationId: string) => void;
   onMessageId?: (messageId: string) => void;
   onToken?: (token: string) => void;
+  onStatus?: (status: { step: string; label: string }) => void;
   onLearning?: (learningData: any) => void;
   onDone?: () => void;
   onError?: (message: string) => void;
@@ -15,6 +22,7 @@ export async function streamChat(
   message: string,
   conversationId: string | null,
   handlers: ChatStreamHandlers,
+  attachments?: ChatAttachmentPayload[],
 ) {
   const token = getToken();
   const res = await fetch(`${API_URL}/chat`, {
@@ -26,6 +34,7 @@ export async function streamChat(
     body: JSON.stringify({
       message,
       conversation_id: conversationId,
+      attachments: attachments && attachments.length > 0 ? attachments : undefined,
     }),
   });
 
@@ -80,6 +89,14 @@ export async function streamChat(
               handlers.onLearning?.(JSON.parse(data));
             } catch (err) {
               console.warn("Failed to parse learning_occurred data", err);
+            }
+            break;
+          }
+          case "status": {
+            try {
+              handlers.onStatus?.(JSON.parse(data));
+            } catch {
+              handlers.onStatus?.({ step: "general", label: data });
             }
             break;
           }
