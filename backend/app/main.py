@@ -70,9 +70,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AXET-NEURALGRAPH-3D", lifespan=lifespan)
 
+cors_origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
+for default_desktop in ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost", "http://localhost:3000", "http://localhost:3001"]:
+    if default_desktop not in cors_origins:
+        cors_origins.append(default_desktop)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_allowed_origins.split(","),
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
