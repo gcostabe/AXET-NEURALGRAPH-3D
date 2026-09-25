@@ -122,12 +122,9 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2.0.0" --locked
-
       - name: Build Windows MSI (WiX Toolset)
         run: |
-          cargo tauri build --bundles msi
+          npx --prefix frontend tauri build --bundles msi
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
