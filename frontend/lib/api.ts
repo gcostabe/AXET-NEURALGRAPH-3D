@@ -891,3 +891,68 @@ export const rbacApi = {
       actions_page: string;
     }>("/admin/rbac/desktop/build-status"),
 };
+
+export interface CognitiveLearningItem {
+  canonical_id: string;
+  concept: string;
+  mistake: string;
+  correction: string;
+  synapse_type: string;
+  created_at: string;
+  status: "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "RESOLVED";
+  reviewed_at?: string;
+  github_issue_number?: number;
+  github_issue_url?: string;
+  github_issue_state?: string;
+}
+
+export const learningsApi = {
+  getIncoming: () =>
+    request<{ items: CognitiveLearningItem[]; count: number }>("/learnings/incoming"),
+  review: (
+    canonical_id: string,
+    action: "approve" | "reject",
+    refined_concept?: string,
+    refined_correction?: string
+  ) =>
+    request<{ status: string; learning: CognitiveLearningItem }>(
+      `/learnings/${canonical_id}/review`,
+      {
+        method: "POST",
+        body: JSON.stringify({ action, refined_concept, refined_correction }),
+      }
+    ),
+  publishPack: () =>
+    request<{
+      status: string;
+      pack: {
+        pack_file: string;
+        filename: string;
+        version: string;
+        synapses_count: number;
+        generated_at: string;
+      };
+    }>("/learnings/publish-pack", {
+      method: "POST",
+    }),
+  syncGlobalPack: () =>
+    request<{
+      status: string;
+      imported_count: number;
+      version: string;
+      synapses_count: number;
+    }>("/learnings/sync-global-pack", {
+      method: "POST",
+    }),
+  importPack: (packData: any) =>
+    request<{
+      status: string;
+      imported_count: number;
+      version: string;
+      synapses_count: number;
+    }>("/learnings/import-pack", {
+      method: "POST",
+      body: JSON.stringify(packData),
+    }),
+  downloadPackUrl: `${API_URL}/learnings/download-pack`,
+};

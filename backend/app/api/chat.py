@@ -39,7 +39,19 @@ SYSTEM_PROMPT = (
     "   'Esta informação não consta na base de conhecimento local do REEF. Como assistente corporativo local e privado, não realizo buscas na internet e meu escopo é restrito exclusivamente aos manuais técnicos, sistemas e normas regulatórias indexadas no ambiente.'\n"
     "3. Síntese Técnica & Profundidade: Para dúvidas legítimas sobre o sistema REEF, seus módulos (TRON, Sinistros, Tesouraria, Contabilidade, etc.) e regulação de seguros presentes na base, forneça respostas completas, didáticas e bem estruturadas.\n"
     "4. Citação Elegante de Fontes: Cite sempre os documentos locais de referência consultados.\n"
-    "5. Espelhamento de Idioma: Responda sempre no mesmo idioma em que a pergunta foi feita."
+    "5. Espelhamento de Idioma: Responda sempre no mesmo idioma em que a pergunta foi feita.\n"
+    "6. Auto-Monitoramento Cognitivo e Retificação Autônoma:\n"
+    "   Se durante sua geração você perceber que uma suposição inicial, premissa ou dado anterior continha um equívoco ou contradição em relação aos manuais e regras da base, declare expressamente na resposta que identificou o equívoco e retifique a explicação (ex.: 'Retificando meu raciocínio anterior: ...' ou 'Cometi um equívoco ao considerar que X; analisando as regras canônicas, o correto é Y').\n"
+    "   Sempre que você identificar e retificar um erro de forma autônoma (sem o interlocutor ter apontado), anexe ao final da resposta o seguinte bloco técnico:\n"
+    "   ```json:cognitive_learning\n"
+    "   {\n"
+    "     \"concept\": \"Nome do Conceito ou Regra\",\n"
+    "     \"mistake\": \"O equívoco identificado no raciocínio\",\n"
+    "     \"correction\": \"A regra canônica corrigida e definitiva\",\n"
+    "     \"source_entity\": \"Módulo ou Documento de Referência\",\n"
+    "     \"synapse_type\": \"RETIFICA_CONCEITO\"\n"
+    "   }\n"
+    "   ```"
 )
 
 
@@ -180,10 +192,25 @@ async def chat(
 
         full_response = "".join(collected)
 
+        # 4. Detecção de Auto-Correção e Aprendizado Cognitivo Autônomo
+        from app.knowledge.learning_synapse import extract_cognitive_learning, persist_cognitive_learning
+        clean_response, learning_data = extract_cognitive_learning(full_response)
+        persisted_learning = None
+
+        if learning_data:
+            try:
+                persisted_learning = await persist_cognitive_learning(learning_data, db)
+                yield f"event: learning_occurred\ndata: {json.dumps(persisted_learning)}\n\n"
+            except Exception as learn_err:
+                logger.error(f"[chat] Erro ao persistir aprendizado cognitivo autônomo: {learn_err}")
+
+        # Conteúdo limpo para o usuário caso haja bloco técnico
+        user_facing_content = clean_response if learning_data else full_response
+
         # Regra mandatória: os documentos de referência SÓ devem ser informados
         # se as informações foram efetivamente encontradas na base de conhecimento.
         # Se a resposta indicar recusa ou falta de dados, sources deve ser terminantemente vazio [].
-        if not has_relevant_docs or is_refusal_or_not_found(full_response):
+        if not has_relevant_docs or is_refusal_or_not_found(user_facing_content):
             final_sources = []
         else:
             final_sources = candidate_sources
@@ -204,8 +231,9 @@ async def chat(
                     id=assistant_msg_id,
                     conversation_id=conversation.id,
                     role="assistant",
-                    content=full_response,
+                    content=user_facing_content,
                     sources=final_sources,
+                    learning_metadata=persisted_learning,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,

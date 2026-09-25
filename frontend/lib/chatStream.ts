@@ -6,6 +6,7 @@ export interface ChatStreamHandlers {
   onConversation?: (conversationId: string) => void;
   onMessageId?: (messageId: string) => void;
   onToken?: (token: string) => void;
+  onLearning?: (learningData: any) => void;
   onDone?: () => void;
   onError?: (message: string) => void;
 }
@@ -74,6 +75,14 @@ export async function streamChat(
           case "message_id":
             handlers.onMessageId?.(JSON.parse(data).message_id);
             break;
+          case "learning_occurred": {
+            try {
+              handlers.onLearning?.(JSON.parse(data));
+            } catch (err) {
+              console.warn("Failed to parse learning_occurred data", err);
+            }
+            break;
+          }
           case "done":
             handlers.onDone?.();
             break;

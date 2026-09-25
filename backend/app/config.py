@@ -61,6 +61,13 @@ class Settings(BaseSettings):
     # Sincronização remota da base de conhecimento (1 clique - .qpack)
     knowledge_base_sync_url: str = ""
 
+    # Sincronização federada de aprendizados e neuroplasticidade (GitHub Issues e Releases)
+    github_repo: str = "gcostabe/AXET-NEURALGRAPH-3D"
+    github_token: str = ""
+    cognitive_pack_sync_url: str = (
+        "https://github.com/gcostabe/AXET-NEURALGRAPH-3D/releases/latest/download/axet_cognitive_synapses_latest.pack"
+    )
+
     # Processamento de vídeo para geração de .md (multimodal_ocr vs audio_only)
     video_processing_mode_default: str = "multimodal_ocr"  # "multimodal_ocr" | "audio_only"
     video_frame_interval_seconds: int = 10

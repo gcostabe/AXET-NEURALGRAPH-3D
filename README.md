@@ -25,7 +25,12 @@
    - [Fase 6: Proxy Reverso Nginx & Certificado SSL HTTPS Gratuito](#fase-6-proxy-reverso-nginx--certificado-ssl-https-gratuito)
 8. [Primeiro Acesso & Validação do Sistema](#-primeiro-acesso--validação-do-sistema)
 9. [Rotinas de Operação, Logs & Backup](#-rotinas-de-operação-logs--backup)
-10. [Estratégia de Sincronização Dual Git](#-estratégia-de-sincronização-dual-git)
+10. [Neuroplasticidade Sintética & Aprendizado Cognitivo Autônomo (Cenário 1)](#-neuroplasticidade-sintética--aprendizado-cognitivo-autônomo-cenário-1)
+    - [Auto-Correção Cognitiva em Tempo Real](#auto-correção-cognitiva-em-tempo-real-durante-o-chat)
+    - [Federação via GitHub com Zero Impacto de Permissões](#federação-via-github-com-zero-impacto-de-permissões-cenário-1)
+    - [Curadoria pelo Master Admin & Compilação de Pacotes (.pack)](#curadoria-pelo-master-admin--compilação-de-pacotes-pack)
+    - [Distribuição Global Instantânea via Releases (< 2s)](#distribuição-global-instantânea-via-releases--2s)
+11. [Estratégia de Sincronização Dual Git](#-estratégia-de-sincronização-dual-git)
 
 ---
 
@@ -601,6 +606,103 @@ rm -rf "$BACKUP_DIR"
 echo "Backup concluído: $BACKUP_DIR.tar.gz"
 # Opcional: Enviar para Azure Blob Storage via azcopy ou az storage blob upload
 ```
+
+---
+
+## 🧠 Neuroplasticidade Sintética & Aprendizado Cognitivo Autônomo (Cenário 1)
+
+O **AXET-NEURALGRAPH-3D** implementa uma capacidade pioneira de **Neuroplasticidade Sintética**: a habilidade do assistente inteligente de identificar falhas em seu próprio raciocínio em tempo real, auto-retificar-se e mutar a estrutura do Grafo Neural e da Memória Vetorial local imediatamente — sem necessidade de re-ingestão manual ou intervenção do usuário.
+
+```
+       [Conversa com Usuário]
+                 │
+                 ▼
+     [Auto-Reflexão Autônoma]
+  "Identifiquei um equívoco preliminar..."
+                 │
+        ┌────────┴────────┐
+        ▼                 ▼
+[Grafo Relacional]  [Memória Vetorial Qdrant]
+Novo Nó ⚡           Chunk Vetorizado com
+Aresta RETIFICA_    Prioridade Canônica Absoluta
+CONCEITO            no Topo do Contexto RAG
+        │
+        ▼
+[Visualização Instantânea no Chat]
+"🧠 Aprendizado Ocorrido • Nova Sinapse no Grafo Neural"
+        │
+        ▼ (Cenário 1: Federação Git Sem Permissões)
+ ┌────────────────────────────────────────────────────────┐
+ │ 1. Outbox Local & GitHub Issues (Zero Permissões)      │
+ │ 2. Curadoria & Aprovação pelo Master Admin             │
+ │ 3. Compilação do Pacote Global (.pack)                 │
+ │ 4. Distribuição Pública via Releases (< 2s p/ Todos)   │
+ └────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Auto-Correção Cognitiva em Tempo Real durante o Chat
+
+1. **Detecção Intrínseca (Sem Indução do Interlocutor)**:
+   - Se o modelo detectar inconsistência entre seu raciocínio e a base canônica, ele expressa a retificação e emite internamente um bloco de aprendizado neural.
+   - O backend extrai o conceito retificado, o equívoco superado e a diretriz canônica consolidada.
+2. **Mutação Dinâmica do Grafo**:
+   - Cria um nó permanente em `KnowledgeEntity` (`APRENDIZADO_COGNITIVO` com prefixo `⚡`).
+   - Conecta uma aresta em `KnowledgeEdge` com a relação de alta voltagem `RETIFICA_CONCEITO` (peso `2.5+`).
+   - Vetoriza a sinapse diretamente no Qdrant com metadados `is_cognitive_learning: true`.
+3. **Card Visual Interativo no Chat**:
+   - Imediatamente abaixo da resposta do assistente surge o card elegante:  
+     `🧠 Aprendizado ocorrido • Nova Sinapse no Grafo Neural`
+   - O card exibe o conceito, o equívoco superado (tachado) e a nova regra canônica em destaque.
+4. **Prioridade Absoluta nas Próximas Perguntas**:
+   - Em perguntas subsequentes (feitas pelo mesmo usuário ou qualquer usuário da máquina), o buscador RAG injeta as sinapses consolidadas no topo absoluto do prompt (`### [APRENDIZADOS E RETIFICAÇÕES CONSOLIDADAS PELO SISTEMA]`). A retificação se sobrepõe a documentos legados ou diretrizes anteriores.
+
+---
+
+### Federação via GitHub com Zero Impacto de Permissões (Cenário 1)
+
+O maior desafio em ambientes corporativos com centenas de estações instaladas é como **coletar aprendizados de todos os apps e redistribuí-los sem exigir que colaboradores sejam adicionados como desenvolvedores no repositório Git**.
+
+O **Cenário 1** resolve essa governança com impacto zero de credenciais:
+
+| Vetor de Fluxo | Mecanismo de Transporte | Requisito de Permissão do Usuário Final | Garantia de Governança |
+| :--- | :--- | :--- | :--- |
+| **Outgoing (Envio de Aprendizado)** | Outbox local `data/learnings/outbox/` + GitHub Issues API (label `cognitive-learning`) | **ZERO permissões**. Não precisa de conta no GitHub, nem commit, nem acesso de colaborador. | Telemetria estrita e auditável. Bloqueio total a escritas no código fonte. |
+| **Curadoria & Aprovação** | Painel Administrativo -> Aba "Curadoria de Sinapses" | Restrito exclusivamente ao **Master Admin** (`gcostabe@emeal.nttdata.com` / `gustavo.costa.berbert@nttdata.com`). | Nenhuma sinapse duvidosa é propagada sem validação técnica humana. |
+| **Incoming (Propagação Global)** | Download de `axet_cognitive_synapses_latest.pack` via GitHub Releases Assets (HTTP GET público) | **ZERO autenticação**. Pure HTTP GET anônimo. | Atualização instantânea em < 2 segundos para todas as máquinas clientes. |
+
+---
+
+### Curadoria pelo Master Admin & Compilação de Pacotes (.pack)
+
+No Painel Administrativo (`/admin` -> Aba **🧠 Curadoria de Sinapses Cognitivas**):
+1. **Quadro de Triagem**:
+   - Lista todas as sinapses reportadas pelas instâncias clientes ou capturadas das GitHub Issues.
+   - Permite visualizar o conceito, equívoco e a correção canônica.
+2. **Aprovação & Refinamento**:
+   - O Master Admin pode editar o texto canônico para garantir redação formal corporativa.
+   - Ao clicar em **"Aprovar Sinapse"**, o nó e a aresta são promovidos a canônicos no banco relacional e a Issue correspondente no GitHub é encerrada automaticamente com comentário de homologação.
+3. **Compilação de Pacote 1-Clique**:
+   - O botão **"📦 Compilar Pacote Global (.pack)"** consolida todas as sinapses aprovadas em um arquivo delta leve (`axet_cognitive_synapses_latest.pack`, tipicamente menor que 100 KB).
+   - O arquivo pode ser publicado diretamente como asset nas Releases corporativas do GitHub ou baixado localmente.
+
+---
+
+### Distribuição Global Instantânea via Releases (< 2s)
+
+1. **Sincronização 1-Clique no Cliente**:
+   - No painel administrativo ou em rotinas de inicialização agendadas, a aplicação executa um `GET` contra a URL de release oficial:
+     ```
+     https://github.com/gcostabe/AXET-NEURALGRAPH-3D/releases/latest/download/axet_cognitive_synapses_latest.pack
+     ```
+2. **Injeção Atômica sem Overhead**:
+   - A máquina cliente decodifica o arquivo `.pack` (JSON estruturado);
+   - Grava as entidades e arestas no PostgreSQL local;
+   - Realiza upsert vetorial no Qdrant local;
+   - O ciclo completo de sincronização de dezenas de aprendizados ocorre em **menos de 2 segundos**, com zero consumo de tokens e sem reprocessar documentos brutos.
+3. **Importação Manual Offline**:
+   - Em redes restritas ou sem acesso à internet, o usuário ou administrador pode usar o botão **"Importar Arquivo .pack / .json"** para carregar o delta manualmente via pendrive ou pasta corporativa.
 
 ---
 

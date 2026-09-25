@@ -91,6 +91,7 @@ function ChatInner() {
           sources: m.sources?.map((s) => s.source_path) ?? undefined,
           created_at: m.created_at,
           feedback: m.feedback,
+          learning: (m as any).learning || null,
         })),
       );
     } catch {
@@ -205,6 +206,19 @@ function ChatInner() {
             next[lastIdx] = {
               ...next[lastIdx],
               id: mid,
+            };
+          }
+          return next;
+        });
+      },
+      onLearning: (learningData) => {
+        setMessages((prev) => {
+          const next = [...prev];
+          const lastIdx = next.length - 1;
+          if (lastIdx >= 0 && next[lastIdx].role === "assistant") {
+            next[lastIdx] = {
+              ...next[lastIdx],
+              learning: learningData,
             };
           }
           return next;

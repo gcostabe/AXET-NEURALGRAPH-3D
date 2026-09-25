@@ -305,8 +305,24 @@ def build_context(
 ) -> str:
     """Monta o bloco de contexto contendo resumos executivos, trechos de documentos,
     conexões do grafo (1-Hop direto e 2-Hop Multi-Hop), entidades do subgrafo NER e alertas de obsolescência."""
-    parts = []
-    total = 0
+    # 0. Sinapses de Aprendizado Cognitivo Autônomo (Prioridade Máxima de Assimilação)
+    learning_chunks = [c for c in chunks if c.source_path.startswith("learning://") or "APRENDIZADO COGNITIVO" in c.text]
+    if learning_chunks:
+        learn_lines = [
+            "### [APRENDIZADOS E RETIFICAÇÕES CONSOLIDADAS PELO SISTEMA (Sinapses Cognitivas)]",
+            "ATENÇÃO MÁXIMA: O assistente identificou e retificou anteriormente o(s) seguinte(s) conceito(s).",
+            "Estas retificações representam a verdade canônica atualizada e DEVEM ter prevalência absoluta sobre afirmações anteriores ou regras divergentes:",
+        ]
+        for lc in learning_chunks:
+            learn_lines.append(f"- {lc.text.strip()}")
+        learn_lines.append(
+            "(Diretriz para resposta: Incorpore diretamente este aprendizado consolidado, garantindo a aplicação estrita da regra canônica retificada).\n"
+        )
+        learn_block = "\n".join(learn_lines)
+        parts.append(learn_block)
+        total += len(learn_block)
+        # Remove os chunks de aprendizado da lista padrão para evitar redundância
+        chunks = [c for c in chunks if c not in learning_chunks]
 
     # 1. Alertas de Conflito e Obsolescência (Alta prioridade)
     if conflicts:

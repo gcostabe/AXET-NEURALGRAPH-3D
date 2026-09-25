@@ -14,9 +14,24 @@ import {
   ThumbsUp,
   ThumbsDown,
   Sparkles,
-  X
+  X,
+  Brain,
+  Zap,
+  GitCommit,
+  CheckCircle2,
 } from "lucide-react";
 import { chatApi, MessageFeedback } from "@/lib/api";
+
+export interface CognitiveLearningEvent {
+  detected: boolean;
+  node_id?: string;
+  canonical_id?: string;
+  concept?: string;
+  mistake?: string;
+  correction?: string;
+  synapse_type?: string;
+  created_at?: string;
+}
 
 export interface ChatMessage {
   id?: string;
@@ -25,6 +40,7 @@ export interface ChatMessage {
   sources?: string[];
   created_at?: string;
   feedback?: MessageFeedback | null;
+  learning?: CognitiveLearningEvent | null;
 }
 
 export function isRefusalOrNotFound(text?: string): boolean {
@@ -246,6 +262,61 @@ export default function ChatMessageItem({
               </div>
             ) : null}
           </div>
+
+          {/* Card de Aprendizado Ocorrido / Neuroplasticidade Sintética */}
+          {message.learning && message.learning.detected && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-950/40 via-purple-950/30 to-slate-900/60 p-3.5 shadow-lg shadow-amber-950/20 backdrop-blur-sm animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center justify-between gap-2 border-b border-amber-500/20 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400">
+                    <Brain className="h-3.5 w-3.5 animate-pulse" />
+                  </div>
+                  <span className="text-xs font-semibold text-amber-300">
+                    Aprendizado ocorrido • Nova Sinapse no Grafo Neural
+                  </span>
+                </div>
+                <div className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-950/40 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                  <Zap className="h-2.5 w-2.5" />
+                  <span>Prioridade Canônica Ativa</span>
+                </div>
+              </div>
+
+              <div className="mt-2.5 space-y-1.5 text-xs">
+                {message.learning.concept && (
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-semibold text-slate-300">Conceito Retificado:</span>
+                    <span className="font-mono text-amber-200">{message.learning.concept}</span>
+                  </div>
+                )}
+                {message.learning.mistake && (
+                  <div className="text-slate-400">
+                    <span className="font-medium text-rose-300/80">Equívoco Superado: </span>
+                    <span className="line-through opacity-70">{message.learning.mistake}</span>
+                  </div>
+                )}
+                {message.learning.correction && (
+                  <div className="text-slate-200 bg-slate-900/60 border border-slate-800 rounded-lg p-2 mt-1">
+                    <span className="font-semibold text-emerald-400 flex items-center gap-1 mb-0.5">
+                      <CheckCircle2 className="h-3 w-3" /> Regra Canônica Consolidada:
+                    </span>
+                    <span className="text-[11px] leading-relaxed text-slate-300">
+                      {message.learning.correction}
+                    </span>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <GitCommit className="h-3 w-3 text-sky-400" />
+                    Sinapse: <code className="text-sky-300 font-mono">{message.learning.synapse_type || "RETIFICA_CONCEITO"}</code>
+                  </span>
+                  {message.learning.canonical_id && (
+                    <span>ID: <code className="text-slate-400 font-mono">{message.learning.canonical_id}</code></span>
+                  )}
+                  <span className="text-amber-400/90 font-medium">⚡ Próximas perguntas utilizarão esta sinapse imediatamente</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Fontes / Citações Consultadas (apenas no Assistente e quando a informação foi encontrada) */}
           {message.sources && message.sources.length > 0 && !isRefusalOrNotFound(message.content) && (

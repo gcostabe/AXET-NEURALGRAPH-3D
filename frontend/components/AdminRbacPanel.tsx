@@ -14,8 +14,17 @@ import {
   Rocket,
   Download,
   ExternalLink,
+  Brain,
+  Zap,
+  GitCommit,
+  Upload,
+  Check,
+  X,
+  FileBox,
+  Filter,
+  Sparkles,
 } from "lucide-react";
-import { rbacApi, RbacUserItem } from "@/lib/api";
+import { rbacApi, RbacUserItem, learningsApi, CognitiveLearningItem } from "@/lib/api";
 import { isMasterAdmin, MASTER_ADMIN_EMAIL } from "@/lib/auth";
 
 export default function AdminRbacPanel() {
@@ -34,7 +43,107 @@ export default function AdminRbacPanel() {
   const [submitting, setSubmitting] = useState(false);
   const [revokingEmail, setRevokingEmail] = useState<string | null>(null);
 
+  // Navegação por abas
+  const [activeTab, setActiveTab] = useState<"synapses" | "rbac">("synapses");
+
+  // Curadoria de Aprendizados Cognitivos e Neuroplasticidade (Cenário 1)
+  const [learnings, setLearnings] = useState<CognitiveLearningItem[]>([]);
+  const [loadingLearnings, setLoadingLearnings] = useState(false);
+  const [publishingPack, setPublishingPack] = useState(false);
+  const [syncingPack, setSyncingPack] = useState(false);
+  const [synapseFilter, setSynapseFilter] = useState<"all" | "pending" | "approved">("all");
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editConcept, setEditConcept] = useState("");
+  const [editCorrection, setEditCorrection] = useState("");
+
   const isMaster = isMasterAdmin();
+
+  const loadLearnings = async () => {
+    setLoadingLearnings(true);
+    try {
+      const data = await learningsApi.getIncoming();
+      setLearnings(data.items);
+    } catch (err: any) {
+      console.warn("Erro ao buscar aprendizados:", err);
+    } finally {
+      setLoadingLearnings(false);
+    }
+  };
+
+  const handleReviewSynapse = async (
+    canonical_id: string,
+    action: "approve" | "reject",
+    concept?: string,
+    correction?: string
+  ) => {
+    setReviewingId(canonical_id);
+    setError(null);
+    setSuccess(null);
+    try {
+      await learningsApi.review(canonical_id, action, concept, correction);
+      setSuccess(
+        action === "approve"
+          ? `Sinapse ${canonical_id} aprovada e consolidada no Grafo Neural e Qdrant com sucesso!`
+          : `Sinapse ${canonical_id} rejeitada.`
+      );
+      setEditingId(null);
+      await loadLearnings();
+    } catch (err: any) {
+      setError(err.message || "Falha ao revisar sinapse.");
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
+  const handlePublishPack = async () => {
+    setPublishingPack(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await learningsApi.publishPack();
+      setSuccess(
+        `📦 Pacote global compilado com sucesso! Versão: ${res.pack.version} (${res.pack.synapses_count} sinapses prontas para distribuição global).`
+      );
+    } catch (err: any) {
+      setError(err.message || "Falha ao compilar pacote de sinapses.");
+    } finally {
+      setPublishingPack(false);
+    }
+  };
+
+  const handleSyncGlobalPack = async () => {
+    setSyncingPack(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await learningsApi.syncGlobalPack();
+      setSuccess(
+        `⚡ ${res.imported_count} sinapses oficiais sincronizadas e ativadas na máquina local com zero permissões! (Versão: ${res.version})`
+      );
+      await loadLearnings();
+    } catch (err: any) {
+      setError(err.message || "Não foi possível sincronizar o pacote global das Releases.");
+    } finally {
+      setSyncingPack(false);
+    }
+  };
+
+  const handleImportPackFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const res = await learningsApi.importPack(parsed);
+      setSuccess(`📥 ${res.imported_count} sinapses importadas com sucesso do arquivo local!`);
+      await loadLearnings();
+    } catch (err: any) {
+      setError("Arquivo de pacote inválido: " + err.message);
+    } finally {
+      e.target.value = "";
+    }
+  };
 
   const handleTriggerDesktopBuild = async () => {
     setTriggeringBuild(true);
@@ -65,6 +174,7 @@ export default function AdminRbacPanel() {
 
   useEffect(() => {
     loadRbacUsers();
+    loadLearnings();
   }, []);
 
   const handleGrantAdmin = async (e: React.FormEvent) => {
@@ -160,8 +270,382 @@ export default function AdminRbacPanel() {
         </div>
       )}
 
-      {/* Card de Automação: Compilar e Publicar Versão Desktop (.dmg / .msi) */}
-      <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-xl border border-indigo-500/30 p-6 text-white shadow-md">
+      {/* Abas de Navegação Administrativa */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab("synapses")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition ${
+            activeTab === "synapses"
+              ? "bg-indigo-600 text-white shadow-sm"
+              : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+          }`}
+        >
+          <Brain className="w-4 h-4" />
+          <span>🧠 Curadoria de Sinapses Cognitivas (Neuroplasticidade Federada)</span>
+          {learnings.filter((l) => l.status === "PENDING_REVIEW").length > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-400 text-amber-950">
+              {learnings.filter((l) => l.status === "PENDING_REVIEW").length}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("rbac")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition ${
+            activeTab === "rbac"
+              ? "bg-indigo-600 text-white shadow-sm"
+              : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>🛡️ Controle de Acessos &amp; Compilação Desktop (.dmg / .msi)</span>
+        </button>
+      </div>
+
+      {/* ABA 1: CURADORIA DE SINAPSES COGNITIVAS (CENÁRIO 1) */}
+      {activeTab === "synapses" && (
+        <div className="space-y-6">
+          {/* Card Arquitetura do Cenário 1: Zero Impacto de Permissões */}
+          <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/50 p-5 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-indigo-100 pb-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+                  <Brain className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    Neuroplasticidade Federada via GitHub (Cenário 1)
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      Zero Permissões para Usuários Finais
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed max-w-3xl">
+                    Quando o assistente local se auto-corrige, a nova sinapse é gravada na outbox local e enviada como <strong>GitHub Issue</strong>. 
+                    Nenhum colaborador precisa de permissão de commit. O Master Admin aprova e compila o pacote <code>.pack</code>, e todas as máquinas instaladas sincronizam via <strong>Releases públicas</strong> em menos de 2 segundos.
+                  </p>
+                </div>
+              </div>
+
+              {/* Botão de atualização rápida */}
+              <button
+                type="button"
+                onClick={loadLearnings}
+                disabled={loadingLearnings}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 shadow-sm transition disabled:opacity-50 shrink-0"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingLearnings ? "animate-spin" : ""}`} />
+                Atualizar Sinapses
+              </button>
+            </div>
+
+            {/* Barra de Ações Rápidas de Distribuição */}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handlePublishPack}
+                disabled={publishingPack}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-bold rounded-lg shadow-sm transition disabled:opacity-50"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                {publishingPack ? "Compilando Pacote..." : "📦 Compilar Pacote Global (.pack)"}
+              </button>
+
+              <a
+                href={learningsApi.downloadPackUrl}
+                download="axet_cognitive_synapses_latest.pack"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg shadow-sm transition"
+              >
+                <Download className="w-3.5 h-3.5 text-indigo-600" />
+                Baixar Pacote Compilado
+              </a>
+
+              <button
+                type="button"
+                onClick={handleSyncGlobalPack}
+                disabled={syncingPack}
+                className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm transition disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                {syncingPack ? "Sincronizando..." : "⚡ Sincronizar Sinapses Oficiais (Zero Permissões)"}
+              </button>
+
+              <label className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg shadow-sm transition cursor-pointer">
+                <Upload className="w-3.5 h-3.5 text-slate-500" />
+                Importar Arquivo .pack / .json
+                <input
+                  type="file"
+                  accept=".pack,.json"
+                  onChange={handleImportPackFile}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Filtros e Contagem */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                <Filter className="w-3.5 h-3.5" /> Filtro:
+              </span>
+              {(["all", "pending", "approved"] as const).map((filter) => {
+                const count =
+                  filter === "all"
+                    ? learnings.length
+                    : filter === "pending"
+                    ? learnings.filter((l) => l.status === "PENDING_REVIEW").length
+                    : learnings.filter((l) => l.status === "APPROVED").length;
+                const label =
+                  filter === "all"
+                    ? "Todas"
+                    : filter === "pending"
+                    ? "Pendentes de Curadoria"
+                    : "Aprovadas no Grafo";
+                return (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setSynapseFilter(filter)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
+                      synapseFilter === filter
+                        ? "bg-slate-900 text-white"
+                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {label} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Lista de Sinapses */}
+          <div className="space-y-3">
+            {learnings
+              .filter((l) => {
+                if (synapseFilter === "pending") return l.status === "PENDING_REVIEW";
+                if (synapseFilter === "approved") return l.status === "APPROVED";
+                return true;
+              })
+              .map((item) => {
+                const isPending = item.status === "PENDING_REVIEW";
+                const isApproved = item.status === "APPROVED";
+                const isRejected = item.status === "REJECTED";
+                const isEditing = editingId === item.canonical_id;
+
+                return (
+                  <div
+                    key={item.canonical_id}
+                    className={`rounded-xl border p-4 shadow-sm transition ${
+                      isPending
+                        ? "border-amber-300 bg-amber-50/20"
+                        : isApproved
+                        ? "border-emerald-300 bg-emerald-50/15"
+                        : "border-slate-200 bg-white opacity-70"
+                    }`}
+                  >
+                    {/* Cabeçalho do Card */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+                          <Zap className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-slate-900">{item.concept}</span>
+                            <code className="text-[11px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+                              {item.canonical_id}
+                            </code>
+                          </div>
+                          <span className="text-[11px] text-slate-500">
+                            {item.created_at
+                              ? new Date(item.created_at).toLocaleString("pt-BR")
+                              : "Recentemente"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {item.github_issue_number ? (
+                          <a
+                            href={item.github_issue_url || `https://github.com/gcostabe/AXET-NEURALGRAPH-3D/issues/${item.github_issue_number}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Issue #{item.github_issue_number}
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700 border border-sky-200">
+                            Outbox Local
+                          </span>
+                        )}
+
+                        {isPending && (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                            Aguardando Aprovação
+                          </span>
+                        )}
+                        {isApproved && (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            Aprovada no Grafo
+                          </span>
+                        )}
+                        {isRejected && (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                            Rejeitada
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Conteúdo da Sinapse */}
+                    <div className="mt-3 space-y-2 text-xs">
+                      {item.mistake && (
+                        <div>
+                          <span className="font-semibold text-rose-600">Equívoco Superado no Raciocínio: </span>
+                          <span className="text-slate-600 line-through">{item.mistake}</span>
+                        </div>
+                      )}
+
+                      {!isEditing ? (
+                        <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                          <span className="font-bold text-emerald-700 block mb-1">
+                            Correção Canônica Adotada:
+                          </span>
+                          <p className="text-slate-800 leading-relaxed">{item.correction}</p>
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-lg bg-indigo-50/50 border border-indigo-200 space-y-2">
+                          <label className="block font-semibold text-slate-700">
+                            Refinar Conceito:
+                          </label>
+                          <input
+                            type="text"
+                            value={editConcept}
+                            onChange={(e) => setEditConcept(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-300 bg-white"
+                          />
+                          <label className="block font-semibold text-slate-700">
+                            Refinar Correção Canônica:
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={editCorrection}
+                            onChange={(e) => setEditCorrection(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded border border-slate-300 bg-white"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Rodapé de Ações de Curadoria */}
+                    <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/60 pt-2.5">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                        <GitCommit className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>Tipo de Sinapse: <strong>{item.synapse_type || "RETIFICA_CONCEITO"}</strong></span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setEditingId(null)}
+                              className="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-800"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleReviewSynapse(
+                                  item.canonical_id,
+                                  "approve",
+                                  editConcept,
+                                  editCorrection
+                                )
+                              }
+                              disabled={reviewingId === item.canonical_id}
+                              className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold disabled:opacity-50"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              Salvar &amp; Aprovar
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {isPending && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingId(item.canonical_id);
+                                    setEditConcept(item.concept);
+                                    setEditCorrection(item.correction);
+                                  }}
+                                  className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50"
+                                >
+                                  Editar / Refinar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleReviewSynapse(item.canonical_id, "reject")
+                                  }
+                                  disabled={reviewingId === item.canonical_id}
+                                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 border border-rose-200 rounded disabled:opacity-50"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  Rejeitar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleReviewSynapse(item.canonical_id, "approve")
+                                  }
+                                  disabled={reviewingId === item.canonical_id}
+                                  className="flex items-center gap-1 px-3.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold shadow-sm disabled:opacity-50"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  {reviewingId === item.canonical_id ? "Aprovando..." : "Aprovar Sinapse"}
+                                </button>
+                              </>
+                            )}
+                            {isApproved && (
+                              <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Ativa no Grafo Neural Local
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {learnings.length === 0 && !loadingLearnings && (
+              <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center bg-white">
+                <Brain className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-700">Nenhuma sinapse cognitiva registrada ainda</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Quando o modelo se auto-corrigir durante as conversas, as novas sinapses aparecerão automaticamente aqui para validação.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ABA 2: RBAC & COMPILAÇÃO DESKTOP */}
+      {activeTab === "rbac" && (
+        <div className="space-y-6">
+          {/* Card de Automação: Compilar e Publicar Versão Desktop (.dmg / .msi) */}
+          <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-xl border border-indigo-500/30 p-6 text-white shadow-md">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-indigo-800/40 pb-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-400/30">
@@ -375,6 +859,8 @@ export default function AdminRbacPanel() {
           )}
         </div>
       </div>
+        </div>
+      )}
     </div>
   );
 }
