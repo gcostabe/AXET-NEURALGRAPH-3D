@@ -741,6 +741,17 @@ export const snapshotsApi = {
     }),
   getDownloadUrl: (filename: string) =>
     `${API_URL}/admin/snapshots/${encodeURIComponent(filename)}/download`,
+  getDistributionConfig: () => request<DistributionConfig>("/admin/snapshots/distribution/config"),
+  updateDistributionConfig: (onedrive_path: string) =>
+    request<DistributionConfig>("/admin/snapshots/distribution/config", {
+      method: "PUT",
+      body: JSON.stringify({ onedrive_path }),
+    }),
+  publishToOneDrive: (body?: { filename?: string; destination_dir?: string; generate_new?: boolean }) =>
+    request<PublishOneDriveResult>("/admin/snapshots/publish-onedrive", {
+      method: "POST",
+      body: JSON.stringify(body || {}),
+    }),
   importSnapshot: async (file: File, expectedSha256?: string) => {
     const token = getToken();
     const formData = new FormData();
@@ -768,6 +779,22 @@ export const snapshotsApi = {
     return res.json() as Promise<ImportResult>;
   },
 };
+
+export interface DistributionConfig {
+  onedrive_path: string;
+  is_configured: boolean;
+}
+
+export interface PublishOneDriveResult {
+  status: string;
+  message: string;
+  published_file: string;
+  latest_file: string;
+  destination_dir: string;
+  size_mb: number;
+  sha256?: string | null;
+}
+
 
 
 

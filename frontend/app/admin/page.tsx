@@ -134,26 +134,6 @@ function AdminInner() {
         {/* Abas Administrativas */}
         <div className="flex border-b border-slate-800 gap-2 overflow-x-auto">
           <button
-            onClick={() => setAdminTab("knowledge")}
-            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
-              adminTab === "knowledge"
-                ? "border-blue-500 text-blue-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <span>🧠 Grafo & Cognição</span>
-          </button>
-          <button
-            onClick={() => setAdminTab("quality")}
-            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
-              adminTab === "quality"
-                ? "border-blue-500 text-blue-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <span>🎯 Qualidade & Auditoria</span>
-          </button>
-          <button
             onClick={() => setAdminTab("sources")}
             className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
               adminTab === "sources"
@@ -161,7 +141,7 @@ function AdminInner() {
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span>📁 Fontes & Ingestão</span>
+            <span>📥 1. Novos Documentos (Ingestão)</span>
           </button>
           <button
             onClick={() => setAdminTab("snapshots")}
@@ -171,7 +151,27 @@ function AdminInner() {
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span>📦 Base & Snapshots</span>
+            <span>🚀 2. Distribuição da Base (OneDrive)</span>
+          </button>
+          <button
+            onClick={() => setAdminTab("knowledge")}
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+              adminTab === "knowledge"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>🧠 3. Grafo & Cognição</span>
+          </button>
+          <button
+            onClick={() => setAdminTab("quality")}
+            className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+              adminTab === "quality"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>🎯 4. Qualidade & Auditoria</span>
           </button>
           <button
             onClick={() => setAdminTab("tokens")}
@@ -181,7 +181,7 @@ function AdminInner() {
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span>⚡ Telemetria de Tokens</span>
+            <span>⚡ 5. Telemetria de Tokens</span>
           </button>
           <button
             onClick={() => setAdminTab("users")}
@@ -191,7 +191,7 @@ function AdminInner() {
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span>👥 Usuários ({users.length})</span>
+            <span>👥 6. Usuários ({users.length})</span>
           </button>
         </div>
 

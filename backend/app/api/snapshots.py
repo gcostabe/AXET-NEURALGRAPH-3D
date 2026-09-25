@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.database import get_db, AsyncSessionLocal
 from app.auth.dependencies import get_current_user, require_admin
-from app.auth.models import User
+from app.auth.models import User, AppSetting
 from app.knowledge.models import KnowledgeDocument, KnowledgeEdge
 from app.config import settings
 
@@ -102,6 +102,31 @@ class RemoteSyncProgressOut(BaseModel):
     completed_at: str | None = None
     has_configured_url: bool
     configured_url: str
+
+
+class DistributionConfigOut(BaseModel):
+    onedrive_path: str
+    is_configured: bool
+
+
+class DistributionConfigRequest(BaseModel):
+    onedrive_path: str
+
+
+class PublishOneDriveRequest(BaseModel):
+    filename: str | None = None
+    destination_dir: str | None = None
+    generate_new: bool = False
+
+
+class PublishOneDriveOut(BaseModel):
+    status: str
+    message: str
+    published_file: str
+    latest_file: str
+    destination_dir: str
+    size_mb: float
+    sha256: str | None = None
 
 
 @router.get("/status", response_model=SnapshotStatusOut)
@@ -396,6 +421,117 @@ async def delete_snapshot_file(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo não encontrado.")
 
     return {"message": f"Snapshot {filename} removido com sucesso."}
+
+
+@admin_router.get("/distribution/config", response_model=DistributionConfigOut)
+async def get_distribution_config(
+    current_admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retorna a pasta do OneDrive configurada para distribuição da base."""
+    setting = await db.scalar(select(AppSetting).where(AppSetting.key == "onedrive_distribution_path"))
+    path = setting.value if setting and setting.value else ""
+    return DistributionConfigOut(onedrive_path=path, is_configured=bool(path))
+
+
+@admin_router.put("/distribution/config", response_model=DistributionConfigOut)
+async def update_distribution_config(
+    payload: DistributionConfigRequest,
+    current_admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Atualiza a pasta do OneDrive configurada para distribuição da base."""
+    clean_path = payload.onedrive_path.strip().rstrip("/")
+    setting = await db.scalar(select(AppSetting).where(AppSetting.key == "onedrive_distribution_path"))
+    if not setting:
+        setting = AppSetting(key="onedrive_distribution_path", value=clean_path, updated_by=current_admin.id)
+        db.add(setting)
+    else:
+        setting.value = clean_path
+        setting.updated_by = current_admin.id
+    await db.commit()
+    return DistributionConfigOut(onedrive_path=clean_path, is_configured=bool(clean_path))
+
+
+@admin_router.post("/publish-onedrive", response_model=PublishOneDriveOut)
+async def publish_snapshot_to_onedrive(
+    req: PublishOneDriveRequest = Body(default_factory=PublishOneDriveRequest),
+    current_admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Publica o pacote .qpack oficial diretamente na pasta local do OneDrive selecionada pelo Admin.
+    O cliente OneDrive no macOS/Windows realiza o upload para o SharePoint automaticamente.
+    """
+    destination_dir = (req.destination_dir or "").strip()
+    if not destination_dir:
+        setting = await db.scalar(select(AppSetting).where(AppSetting.key == "onedrive_distribution_path"))
+        if setting and setting.value:
+            destination_dir = setting.value.strip()
+
+    if not destination_dir:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nenhuma pasta do OneDrive configurada. Use o botão 'Escolher Pasta no Finder' para selecionar o diretório do OneDrive.",
+        )
+
+    target_filename = (req.filename or "").strip()
+    if req.generate_new or not target_filename:
+        if req.generate_new:
+            new_snap = await export_snapshot_package(current_admin, db)
+            target_filename = new_snap.filename
+        else:
+            qpacks = sorted(EXPORTS_DIR.glob("*.qpack"), key=lambda p: p.stat().st_mtime, reverse=True)
+            if not qpacks:
+                new_snap = await export_snapshot_package(current_admin, db)
+                target_filename = new_snap.filename
+            else:
+                target_filename = qpacks[0].name
+
+    try:
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            resp = await client.post(
+                "http://host.docker.internal:8765/publish-snapshot",
+                json={"filename": target_filename, "destination_dir": destination_dir},
+            )
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Host bridge retornou status {resp.status_code}: {resp.text}",
+                )
+            result = resp.json()
+            if result.get("status") == "error":
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=result.get("message", "Erro ao publicar no OneDrive"),
+                )
+
+            meta_path = EXPORTS_DIR / f"{target_filename}.meta.json"
+            sha256_val = None
+            if meta_path.exists():
+                try:
+                    with open(meta_path, "r", encoding="utf-8") as f:
+                        meta_data = json.load(f)
+                        sha256_val = meta_data.get("bundle_sha256")
+                except Exception:
+                    pass
+
+            return PublishOneDriveOut(
+                status="ok",
+                message=result.get("message", "Pacote publicado com sucesso no OneDrive!"),
+                published_file=result.get("published_file", ""),
+                latest_file=result.get("latest_file", ""),
+                destination_dir=result.get("destination_dir", destination_dir),
+                size_mb=result.get("size_mb", 0.0),
+                sha256=sha256_val,
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Não foi possível conectar ao bridge local no Mac (porta 8765): {exc}",
+        )
 
 
 @router.post("/import", response_model=ImportResultOut)
