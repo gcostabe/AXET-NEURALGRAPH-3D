@@ -56,6 +56,7 @@ jobs:
         id: dmg_locate
         run: |
           DMG_FILE=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -n 1)
+          cp "$DMG_FILE" AXET-NeuralGraph.dmg
           echo "dmg_path=$DMG_FILE" >> $GITHUB_OUTPUT
           echo "Found DMG: $DMG_FILE"
 
@@ -63,13 +64,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: axet-macos-dmg
-          path: ${{ steps.dmg_locate.outputs.dmg_path }}
+          path: |
+            ${{ steps.dmg_locate.outputs.dmg_path }}
+            AXET-NeuralGraph.dmg
 
       - name: Attach DMG to GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: ${{ steps.dmg_locate.outputs.dmg_path }}
+          files: |
+            ${{ steps.dmg_locate.outputs.dmg_path }}
+            AXET-NeuralGraph.dmg
 
   build-windows:
     name: Build Windows Corporate (.msi)
@@ -112,6 +117,7 @@ jobs:
         shell: bash
         run: |
           MSI_FILE=$(find src-tauri/target/release/bundle/msi -name "*.msi" | head -n 1)
+          cp "$MSI_FILE" AXET-NeuralGraph-Setup.msi
           echo "msi_path=$MSI_FILE" >> $GITHUB_OUTPUT
           echo "Found MSI: $MSI_FILE"
 
@@ -119,10 +125,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: axet-windows-msi
-          path: ${{ steps.msi_locate.outputs.msi_path }}
+          path: |
+            ${{ steps.msi_locate.outputs.msi_path }}
+            AXET-NeuralGraph-Setup.msi
 
       - name: Attach MSI to GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: ${{ steps.msi_locate.outputs.msi_path }}
+          files: |
+            ${{ steps.msi_locate.outputs.msi_path }}
+            AXET-NeuralGraph-Setup.msi
