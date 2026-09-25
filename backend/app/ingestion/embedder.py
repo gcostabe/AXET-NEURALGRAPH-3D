@@ -44,11 +44,11 @@ class ApiEmbedder(Embedder):
             "Content-Type": "application/json",
         }
         url = f"{self._api_url}/v1/embeddings"
-        max_retries = 2
+        max_retries = 4
 
         for attempt in range(1, max_retries + 1):
             try:
-                with httpx.Client(timeout=8.0) as client:
+                with httpx.Client(timeout=45.0) as client:
                     response = client.post(
                         url,
                         headers=headers,
@@ -57,11 +57,11 @@ class ApiEmbedder(Embedder):
                     response.raise_for_status()
                     data = response.json()
                     return [item["embedding"] for item in data["data"]]
-            except (httpx.RemoteProtocolError, httpx.ConnectError, httpx.ReadTimeout) as exc:
+            except (httpx.RemoteProtocolError, httpx.ConnectError, httpx.ReadTimeout, httpx.TimeoutException) as exc:
                 if attempt == max_retries:
                     logger.error(f"[embedder] Falha definitiva após {max_retries} tentativas: {exc}")
                     raise
-                wait_time = 0.5
+                wait_time = 1.0 * attempt
                 logger.warning(
                     f"[embedder] Tentativa {attempt} falhou ({exc}). Retentando em {wait_time}s..."
                 )
