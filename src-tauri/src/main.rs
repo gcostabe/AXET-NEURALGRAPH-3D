@@ -44,8 +44,8 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            let quit_i = MenuItem::with_id(app, "quit", "Encerrar AXET", true, None<String>)?;
-            let show_i = MenuItem::with_id(app, "show", "Abrir Dashboard", true, None<String>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Encerrar AXET", true, None::<&str>)?;
+            let show_i = MenuItem::with_id(app, "show", "Abrir Dashboard", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
             let _tray = TrayIconBuilder::new()

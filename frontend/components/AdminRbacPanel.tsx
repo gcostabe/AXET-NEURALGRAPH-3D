@@ -11,6 +11,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Lock,
+  Rocket,
+  Download,
+  ExternalLink,
 } from "lucide-react";
 import { rbacApi, RbacUserItem } from "@/lib/api";
 import { isMasterAdmin, MASTER_ADMIN_EMAIL } from "@/lib/auth";
@@ -21,6 +24,10 @@ export default function AdminRbacPanel() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Automação Desktop 1-Clique (.dmg e .msi)
+  const [buildVersion, setBuildVersion] = useState("v1.0.0");
+  const [triggeringBuild, setTriggeringBuild] = useState(false);
+
   // Formulário para conceder privilégios
   const [emailInput, setEmailInput] = useState("");
   const [notesInput, setNotesInput] = useState("");
@@ -28,6 +35,20 @@ export default function AdminRbacPanel() {
   const [revokingEmail, setRevokingEmail] = useState<string | null>(null);
 
   const isMaster = isMasterAdmin();
+
+  const handleTriggerDesktopBuild = async () => {
+    setTriggeringBuild(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await rbacApi.triggerDesktopBuild(buildVersion);
+      setSuccess(`🚀 ${res.message}`);
+    } catch (err: any) {
+      setError(err.message || "Erro ao disparar compilação desktop.");
+    } finally {
+      setTriggeringBuild(false);
+    }
+  };
 
   const loadRbacUsers = async () => {
     setLoading(true);
@@ -137,6 +158,89 @@ export default function AdminRbacPanel() {
           <span>{success}</span>
         </div>
       )}
+
+      {/* Card de Automação: Compilar e Publicar Versão Desktop (.dmg / .msi) */}
+      <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-xl border border-indigo-500/30 p-6 text-white shadow-md">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-indigo-800/40 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-400/30">
+              <Rocket className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                🚀 Compilação e Distribuição Desktop (.dmg e .msi)
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-mono">
+                  1-CLIQUE AUTOMÁTICO
+                </span>
+              </h3>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Dispara a compilação simultânea na nuvem do instalador para Mac (.dmg Universal) e Windows (.msi corporativo) e anexa nas Releases corporativas.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-slate-400">Tag:</span>
+              <input
+                type="text"
+                value={buildVersion}
+                onChange={(e) => setBuildVersion(e.target.value)}
+                placeholder="v1.0.0"
+                className="pl-11 pr-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-lg text-white font-mono focus:border-blue-400 outline-none w-28"
+              />
+            </div>
+            <button
+              onClick={handleTriggerDesktopBuild}
+              disabled={triggeringBuild || !buildVersion.trim()}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow transition disabled:opacity-50 whitespace-nowrap"
+            >
+              <Rocket className={`w-3.5 h-3.5 ${triggeringBuild ? "animate-bounce" : ""}`} />
+              {triggeringBuild ? "Iniciando..." : "Disparar Compilação na Nuvem"}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-1">
+          <a
+            href="https://github.com/gcostabe/AXET-NEURALGRAPH-3D/releases/latest/download/AXET-NeuralGraph.dmg"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 p-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition text-xs text-slate-200"
+          >
+            <Download className="w-4 h-4 text-blue-400 flex-shrink-0" />
+            <div className="truncate">
+              <div className="font-semibold text-white">🍏 Download macOS (.dmg)</div>
+              <div className="text-[10px] text-slate-400 truncate">Link fixo da última versão</div>
+            </div>
+          </a>
+
+          <a
+            href="https://github.com/gcostabe/AXET-NEURALGRAPH-3D/releases/latest/download/AXET-NeuralGraph-Setup.msi"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 p-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition text-xs text-slate-200"
+          >
+            <Download className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+            <div className="truncate">
+              <div className="font-semibold text-white">🪟 Download Windows (.msi)</div>
+              <div className="text-[10px] text-slate-400 truncate">Link fixo corporativo silencioso</div>
+            </div>
+          </a>
+
+          <a
+            href="https://github.com/gcostabe/AXET-NEURALGRAPH-3D/actions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 p-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition text-xs text-slate-200"
+          >
+            <ExternalLink className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <div className="truncate">
+              <div className="font-semibold text-white">📊 Monitor de Builds (Actions)</div>
+              <div className="text-[10px] text-slate-400 truncate">Ver progresso no GitHub</div>
+            </div>
+          </a>
+        </div>
+      </div>
 
       {/* Formulário: Adicionar Novo Administrador */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">

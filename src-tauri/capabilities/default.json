@@ -6,8 +6,8 @@
   "permissions": [
     "core:default",
     "dialog:default",
-    "dialog:allow-pick-file",
-    "dialog:allow-pick-folder",
+    "dialog:allow-open",
+    "dialog:allow-save",
     "shell:default"
   ]
 }

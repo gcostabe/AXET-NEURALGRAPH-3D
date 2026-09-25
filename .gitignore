@@ -132,3 +132,11 @@ Thumbs.db
 .gemini/
 scratch/
 .scratch/
+
+# ── Desktop Build Artifacts ──────────────────────────────────
+*.dmg
+*.msi
+src-tauri/target/
+src-tauri/gen/
+frontend/out/
+

@@ -851,4 +851,20 @@ export const rbacApi = {
       method: "DELETE",
     }),
   getMe: () => request<UserProfileOut>("/auth/me"),
+  triggerDesktopBuild: (version_tag?: string) =>
+    request<{ status: string; method: string; version: string; repo: string; message: string }>(
+      "/admin/rbac/desktop/trigger-build",
+      {
+        method: "POST",
+        body: JSON.stringify({ version_tag: version_tag || "v1.0.0" }),
+      }
+    ),
+  getDesktopBuildStatus: () =>
+    request<{
+      latest_version: string;
+      supported_targets: string[];
+      download_links: { macos_dmg: string; windows_msi: string };
+      releases_page: string;
+      actions_page: string;
+    }>("/admin/rbac/desktop/build-status"),
 };
