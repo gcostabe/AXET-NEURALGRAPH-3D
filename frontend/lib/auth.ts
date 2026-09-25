@@ -5,6 +5,12 @@ const MASTER_KEY = "rag_is_master_admin";
 const EMAIL_KEY = "rag_user_email";
 
 export const MASTER_ADMIN_EMAIL = "gcostabe@emeal.nttdata.com";
+export const MASTER_ADMIN_EMAILS = [
+  "gcostabe@emeal.nttdata.com",
+  "gustavo.costa.berbert@nttdata.com",
+  "gustavo.costa.berbert@emeal.nttdata.com",
+  "gcostabe@nttdata.com",
+];
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -47,7 +53,7 @@ export function isMasterAdmin(): boolean {
   const isMasterFlag = window.localStorage.getItem(MASTER_KEY) === "true";
   const userEmail = (getEmail() || "").toLowerCase();
   const role = (getRole() || "").toLowerCase();
-  return isMasterFlag || role === "master_admin" || userEmail === MASTER_ADMIN_EMAIL.toLowerCase();
+  return isMasterFlag || role === "master_admin" || MASTER_ADMIN_EMAILS.includes(userEmail);
 }
 
 export function isAdmin(): boolean {

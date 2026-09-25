@@ -38,13 +38,18 @@ def decode_token(token: str) -> dict:
         raise ValueError("Invalid or expired token") from exc
 
 
-# Identidade estrita do Master Admin (imutável no código-fonte)
+# Identidade estrita do Master Admin (suporta login Okta curto e e-mail corporativo completo)
 MASTER_ADMIN_EMAIL = "gcostabe@emeal.nttdata.com"
+MASTER_ADMIN_EMAILS = {
+    "gcostabe@emeal.nttdata.com",
+    "gustavo.costa.berbert@nttdata.com",
+    "gustavo.costa.berbert@emeal.nttdata.com",
+    "gcostabe@nttdata.com",
+}
 
 # Whitelist autorizada de fallback/bootstrap
 AUTHORIZED_ADMIN_EMAILS = {
-    MASTER_ADMIN_EMAIL,
-    "gustavo.costa.berbert@nttdata.com",
+    *MASTER_ADMIN_EMAILS,
     "marcio11.ferreiramiguel@nttdata.com",
 }
 
@@ -53,7 +58,7 @@ def is_master_admin(identifier: str | None) -> bool:
     """Verifica se o login ou e-mail pertence ao Master Admin corporativo supremo."""
     if not identifier:
         return False
-    return identifier.strip().lower() == MASTER_ADMIN_EMAIL.lower()
+    return identifier.strip().lower() in MASTER_ADMIN_EMAILS
 
 
 def is_authorized_admin(identifier: str | None) -> bool:

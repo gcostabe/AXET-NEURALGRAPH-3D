@@ -127,9 +127,10 @@ export default function AdminRbacPanel() {
                 </span>
               </div>
               <p className="text-sm text-blue-200 mt-1">
-                Controle supremo de privilégios. Somente o Master Admin (
-                <span className="font-mono text-yellow-300">{MASTER_ADMIN_EMAIL}</span>) pode elencar
-                ou revogar novos administradores (Windows ou Mac).
+                Controle supremo de privilégios. Somente o Master Admin Gustavo Costa Berbert (
+                <span className="font-mono text-yellow-300">gcostabe@emeal.nttdata.com</span> /{" "}
+                <span className="font-mono text-yellow-300">gustavo.costa.berbert@nttdata.com</span>
+                ) pode elencar ou revogar novos administradores (Windows ou Mac).
               </p>
             </div>
           </div>
