@@ -167,19 +167,21 @@ export default function AdminRbacPanel() {
             <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-400/30">
               <Rocket className="w-6 h-6" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                🚀 Compilação e Distribuição Desktop (.dmg e .msi)
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-mono">
-                  1-CLIQUE AUTOMÁTICO
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold text-white">
+                  🚀 Compilação e Distribuição Desktop (.dmg &amp; .msi)
+                </h3>
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-semibold whitespace-nowrap shrink-0">
+                  1-Clique Automático
                 </span>
-              </h3>
-              <p className="text-xs text-slate-300 mt-0.5">
+              </div>
+              <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
                 Dispara a compilação simultânea na nuvem do instalador para Mac (.dmg Universal) e Windows (.msi corporativo) e anexa nas Releases corporativas.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
             <div className="relative">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-slate-400">Tag:</span>
               <input

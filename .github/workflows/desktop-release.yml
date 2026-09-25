@@ -49,12 +49,9 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2.0.0" --locked
-
       - name: Build macOS DMG (Universal Binary)
         run: |
-          cargo tauri build --target universal-apple-darwin
+          ./frontend/node_modules/.bin/tauri build --target universal-apple-darwin
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -122,9 +119,13 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Add WiX to PATH
+        run: echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $GITHUB_PATH
+        shell: bash
+
       - name: Build Windows MSI (WiX Toolset)
         run: |
-          npx --prefix frontend tauri build --bundles msi
+          ./frontend/node_modules/.bin/tauri build --bundles msi
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
