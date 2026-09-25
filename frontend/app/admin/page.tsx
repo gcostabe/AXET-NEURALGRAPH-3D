@@ -10,7 +10,7 @@ import FeedbackAuditPanel from "@/components/FeedbackAuditPanel";
 import TokenUsagePanel from "@/components/TokenUsagePanel";
 import AdminSnapshotsPanel from "@/components/AdminSnapshotsPanel";
 import AdminRbacPanel from "@/components/AdminRbacPanel";
-import { isMasterAdmin } from "@/lib/auth";
+import { isMasterAdmin, isAdmin } from "@/lib/auth";
 import {
   adminApi,
   UserOut,
@@ -196,16 +196,16 @@ function AdminInner() {
           >
             <span>👥 6. Usuários ({users.length})</span>
           </button>
-          {isMaster && (
+          {(isMaster || isAdmin()) && (
             <button
               onClick={() => setAdminTab("rbac")}
               className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
                 adminTab === "rbac"
-                  ? "border-amber-400 text-yellow-300 font-semibold"
-                  : "border-transparent text-amber-300/70 hover:text-amber-200"
+                  ? "border-amber-400 text-yellow-300 font-semibold bg-amber-500/10 rounded-t-lg"
+                  : "border-transparent text-amber-300/80 hover:text-amber-200"
               }`}
             >
-              <span>👑 7. Gestão de Administradores (Master)</span>
+              <span>👑 7. Instaladores Desktop (.dmg & .msi)</span>
             </button>
           )}
         </div>
