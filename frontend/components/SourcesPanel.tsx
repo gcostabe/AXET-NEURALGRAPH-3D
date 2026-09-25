@@ -21,7 +21,7 @@ import {
   Video,
 } from "lucide-react";
 
-import { adminApi, SourcesConfig, ReindexStatus, ApiError } from "@/lib/api";
+import { adminApi, SourcesConfig, ReindexStatus, ApiError, SyncOneDriveResponse } from "@/lib/api";
 import { DefragMatrixVisualizer } from "./DefragMatrixVisualizer";
 import CountryLegislationPanel from "./CountryLegislationPanel";
 import RegulatoryGlossaryPanel from "./RegulatoryGlossaryPanel";
@@ -34,11 +34,13 @@ export default function SourcesPanel() {
   const [browsePath, setBrowsePath] = useState<string>(".");
   const [subdirs, setSubdirs] = useState<string[]>([]);
   const [mdCount, setMdCount] = useState<number>(0);
+  const [mdCounts, setMdCounts] = useState<Record<string, number>>({});
   const [reindexStatus, setReindexStatus] = useState<ReindexStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [reindexing, setReindexing] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [syncDetails, setSyncDetails] = useState<SyncOneDriveResponse | null>(null);
   const [showDefragModal, setShowDefragModal] = useState(false);
   const [reindexMode, setReindexMode] = useState<"incremental" | "full">("incremental");
 
@@ -77,6 +79,9 @@ export default function SourcesPanel() {
       setBrowsePath(result.relative_path);
       setSubdirs(result.subdirectories);
       setMdCount(result.markdown_files_here);
+      if ((result as any).md_counts) {
+        setMdCounts((result as any).md_counts);
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro ao navegar no diretório.");
@@ -114,42 +119,53 @@ export default function SourcesPanel() {
     browse(next);
   }
 
-  // Aciona o seletor nativo do Finder no macOS via daemon bridge local (sem nenhum upload)
+  // Aciona o seletor nativo do Finder no macOS via daemon bridge local
   async function handlePickFolderWithFinder() {
     setPickingFolder(true);
     setError(null);
     try {
-      const res = await fetch("http://localhost:8765/pick-folder");
+      const prompt = encodeURIComponent(
+        "Selecione a pasta no seu computador ou OneDrive contendo arquivos .md para importar:"
+      );
+      const res = await fetch(`http://localhost:8765/pick-folder?prompt=${prompt}`);
       const data = await res.json();
       if (data.path) {
         setSelectedPath(data.path);
-        // Aplica e salva automaticamente o novo caminho escolhido no Finder
-        const clean = cleanPath(data.path);
-        const cfg = await adminApi.updateSourcesConfig(clean);
-        setConfig(cfg);
-        setBrowsePath(cfg.relative_path);
-        await browse(cfg.relative_path);
-        setSuccessMsg(`Caminho raiz selecionado no Finder e salvo com sucesso: ${data.path}`);
-        setTimeout(() => setSuccessMsg(null), 5000);
+        // Sincroniza e importa automaticamente os arquivos da pasta escolhida no Finder
+        await handleSyncOneDrive(data.path);
       }
     } catch {
       setError(
-        "Para abrir a janela do Finder nativa, certifique-se de que o assistente local está ativo. Você também pode digitar ou colar o caminho diretamente no campo abaixo."
+        "Para abrir a janela do Finder nativa, certifique-se de que o assistente local está ativo na porta 8765. Você também pode colar o caminho diretamente no campo abaixo."
       );
     } finally {
       setPickingFolder(false);
     }
   }
 
-  async function handleSyncOneDrive() {
+  async function handleSyncOneDrive(pathOverride?: string) {
     setSyncingOneDrive(true);
     setError(null);
     setSuccessMsg(null);
+    setSyncDetails(null);
+    const targetSource = pathOverride || (selectedPath.trim().length > 0 ? selectedPath.trim() : undefined);
     try {
-      const res = await adminApi.syncOneDrive();
-      setSuccessMsg(res.message || "Sincronização com OneDrive concluída!");
-      await browse(browsePath);
-      setTimeout(() => setSuccessMsg(null), 5000);
+      const res = await adminApi.syncOneDrive(targetSource);
+      if (res.status === "error") {
+        setError(res.message || "Erro na sincronização.");
+        return;
+      }
+      setSyncDetails(res);
+      setSuccessMsg(res.message || "Sincronização concluída com sucesso!");
+
+      // Navega automaticamente para a subpasta onde os arquivos foram colocados
+      if (res.target_subfolder && res.target_subfolder !== ".") {
+        setBrowsePath(res.target_subfolder);
+        await browse(res.target_subfolder);
+      } else {
+        await browse(browsePath);
+      }
+      setTimeout(() => setSuccessMsg(null), 6000);
     } catch (err: any) {
       setError(err instanceof ApiError ? err.message : "Erro ao sincronizar com OneDrive.");
     } finally {
@@ -354,7 +370,7 @@ export default function SourcesPanel() {
 
                   <button
                     type="button"
-                    onClick={handleSyncOneDrive}
+                    onClick={() => handleSyncOneDrive()}
                     disabled={syncingOneDrive || saving}
                     className="h-10 inline-flex items-center justify-center gap-2 rounded-xl border border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/60 px-4 text-xs font-semibold text-sky-300 hover:text-white active:scale-[0.98] disabled:opacity-40 transition shrink-0"
                     title="Espelha arquivos e pastas novas do OneDrive do Mac para o diretório de fontes do Docker"
@@ -413,6 +429,60 @@ export default function SourcesPanel() {
             )}
           </div>
 
+          {/* Card de Resumo Detalhado da Sincronização */}
+          {syncDetails && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-slate-900 to-emerald-950/70 border border-emerald-500/40 text-xs space-y-3 animate-fade-in shadow-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-white text-sm">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                  <span>Sincronização Concluída com Sucesso!</span>
+                </div>
+                <button
+                  onClick={() => setSyncDetails(null)}
+                  className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded bg-slate-800"
+                >
+                  ✕ Fechar
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-[11px] bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <div>
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Origem no Mac / OneDrive</span>
+                  <span className="text-slate-300 font-mono truncate block" title={syncDetails.source_dir}>
+                    {syncDetails.source_dir}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Subpasta nas Fontes</span>
+                  <span className="text-sky-300 font-mono font-bold block">
+                    /{syncDetails.target_subfolder}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Arquivos .md Sincronizados</span>
+                  <span className="text-emerald-400 font-bold block">
+                    {syncDetails.md_files_found} importados ({syncDetails.md_files_total_in_dest} no total)
+                  </span>
+                </div>
+              </div>
+
+              {syncDetails.files_sample && syncDetails.files_sample.length > 0 && (
+                <div className="text-[11px] text-slate-400 pt-1 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-slate-500 font-semibold">Amostra dos arquivos:</span>
+                  {syncDetails.files_sample.slice(0, 5).map((f) => (
+                    <span
+                      key={f}
+                      className="font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-slate-300 text-[10px] truncate max-w-[220px]"
+                    >
+                      {f}
+                    </span>
+                  ))}
+                  {syncDetails.files_sample.length > 5 && <span className="text-slate-500 text-[10px]">+ outros</span>}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Card 2: Navegador Interativo de Subpastas & Command Deck */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-xl space-y-4">
             {/* Explorer Header */}
@@ -459,7 +529,14 @@ export default function SourcesPanel() {
                         <Folder className="h-4 w-4 text-amber-400 group-hover:text-amber-300 shrink-0" />
                         <span className="truncate">{name}</span>
                       </span>
-                      <ChevronRight className="h-3.5 w-3.5 text-slate-600 group-hover:text-slate-300 shrink-0" />
+                      <div className="flex items-center gap-2 shrink-0">
+                        {mdCounts[name] !== undefined && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-900 border border-slate-800 text-sky-300">
+                            {mdCounts[name]} .md
+                          </span>
+                        )}
+                        <ChevronRight className="h-3.5 w-3.5 text-slate-600 group-hover:text-slate-300 shrink-0" />
+                      </div>
                     </button>
                   </li>
                 ))}

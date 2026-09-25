@@ -256,11 +256,17 @@ async def browse_sources_dir(relative_path: str = "."):
     entries = sorted(p.name for p in target.iterdir() if p.is_dir() and not p.name.startswith("."))
     md_count = sum(1 for _ in target.glob("*.md"))
 
+    md_counts = {}
+    for p in target.iterdir():
+        if p.is_dir() and not p.name.startswith("."):
+            md_counts[p.name] = sum(1 for _ in p.glob("**/*.md")) + sum(1 for _ in p.glob("**/*.MD"))
+
     return {
         "relative_path": normalized,
         "subdirectories": entries,
         "markdown_files_here": md_count,
         "is_root": target == root,
+        "md_counts": md_counts,
     }
 
 
@@ -292,15 +298,28 @@ async def update_sources_config(
     )
 
 
+class SyncSourcesRequest(BaseModel):
+    source_dir: str | None = None
+    target_subfolder: str | None = None
+
+
 @router.post("/sources/sync-onedrive")
-async def sync_onedrive_sources(admin: User = Depends(require_admin)):
+async def sync_onedrive_sources(
+    payload: SyncSourcesRequest = Body(default_factory=SyncSourcesRequest),
+    admin: User = Depends(require_admin),
+):
     """Aciona a sincronização do OneDrive do Host com a pasta local de fontes."""
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post("http://host.docker.internal:8765/sync-onedrive")
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            resp = await client.post(
+                "http://host.docker.internal:8765/sync-onedrive",
+                json={"source_dir": payload.source_dir, "target_subfolder": payload.target_subfolder},
+            )
             if resp.status_code == 200:
                 return resp.json()
             raise HTTPException(status_code=502, detail=f"Host bridge retornou {resp.status_code}: {resp.text}")
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=503,

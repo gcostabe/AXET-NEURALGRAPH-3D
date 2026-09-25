@@ -96,10 +96,77 @@ class PickerHandler(BaseHTTPRequestHandler):
 
     def handle_sync_onedrive(self):
         try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            body_bytes = self.rfile.read(content_length) if content_length > 0 else b"{}"
+            payload = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+
+            custom_source = payload.get("source_dir")
+            target_subfolder = payload.get("target_subfolder")
+
             from pathlib import Path
-            script_path = Path(__file__).resolve().parent / "sync_onedrive.sh"
-            out = subprocess.check_output([str(script_path)], text=True, stderr=subprocess.STDOUT)
-            data = {"status": "ok", "message": "Sincronização com OneDrive concluída!", "output": out[-600:]}
+            import subprocess
+            import unicodedata
+
+            project_root = Path(__file__).resolve().parent.parent
+            dest_root = project_root / "data" / "sources"
+            dest_root.mkdir(parents=True, exist_ok=True)
+
+            source_path = None
+            if custom_source:
+                candidate = Path(custom_source).expanduser().resolve()
+                if candidate.exists() and candidate.is_dir():
+                    source_path = candidate
+
+            if not source_path:
+                default_path = Path("/Users/gcostabe/Library/CloudStorage/OneDrive-NTTDATAEMEAL/MAPFRE REEF VIDEOS/_Markdown")
+                if default_path.exists():
+                    source_path = default_path
+                else:
+                    raise FileNotFoundError(f"Pasta de origem não encontrada: {custom_source or default_path}")
+
+            if target_subfolder:
+                dest_dir = dest_root / target_subfolder
+            else:
+                norm_str = unicodedata.normalize("NFC", str(source_path))
+                if "MAPFRE REEF VIDEOS" in norm_str or "Videos" in norm_str:
+                    dest_dir = dest_root / "08. Videos Reef Market Place"
+                elif "Formaciones Mapfre" in norm_str:
+                    dest_dir = dest_root
+                else:
+                    dest_dir = dest_root / source_path.name
+
+            dest_dir.mkdir(parents=True, exist_ok=True)
+
+            cmd = [
+                "rsync", "-av", "--update",
+                "--include=*/",
+                "--include=*.md",
+                "--include=*.MD",
+                "--exclude=*",
+                f"{str(source_path)}/",
+                f"{str(dest_dir)}/"
+            ]
+            out_bytes = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            out = out_bytes.decode("utf-8", errors="replace")
+
+            source_mds = list(source_path.glob("**/*.md")) + list(source_path.glob("**/*.MD"))
+            dest_mds = list(dest_dir.glob("**/*.md")) + list(dest_dir.glob("**/*.MD"))
+
+            rel_subfolder = str(dest_dir.relative_to(dest_root))
+            if rel_subfolder == ".":
+                rel_subfolder = "."
+
+            data = {
+                "status": "ok",
+                "message": f"Sincronização concluída com sucesso! {len(source_mds)} arquivos .md encontrados na origem e sincronizados para '{rel_subfolder}'.",
+                "source_dir": str(source_path),
+                "target_subfolder": rel_subfolder,
+                "target_dir": str(dest_dir),
+                "md_files_found": len(source_mds),
+                "md_files_total_in_dest": len(dest_mds),
+                "files_sample": [f.name for f in source_mds[:8]],
+                "output": out[-400:]
+            }
         except Exception as exc:
             data = {"status": "error", "message": f"Erro na sincronização: {exc}"}
 

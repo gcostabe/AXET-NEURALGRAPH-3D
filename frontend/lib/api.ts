@@ -344,15 +344,23 @@ export const adminApi = {
       method: "PUT",
       body: JSON.stringify({ relative_path: relativePath }),
     }),
-  syncOneDrive: async () => {
+  syncOneDrive: async (source_dir?: string, target_subfolder?: string) => {
+    const payload = { source_dir, target_subfolder };
     try {
-      return await request<{ status: string; message: string; output?: string }>(
+      return await request<SyncOneDriveResponse>(
         "/admin/sources/sync-onedrive",
-        { method: "POST" }
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }
       );
     } catch {
-      const res = await fetch("http://localhost:8765/sync-onedrive", { method: "POST" });
-      return await res.json();
+      const res = await fetch("http://localhost:8765/sync-onedrive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      return (await res.json()) as SyncOneDriveResponse;
     }
   },
   triggerReindex: (mode: "incremental" | "full") =>
@@ -793,6 +801,18 @@ export interface PublishOneDriveResult {
   destination_dir: string;
   size_mb: number;
   sha256?: string | null;
+}
+
+export interface SyncOneDriveResponse {
+  status: string;
+  message: string;
+  source_dir?: string;
+  target_subfolder?: string;
+  target_dir?: string;
+  md_files_found?: number;
+  md_files_total_in_dest?: number;
+  files_sample?: string[];
+  output?: string;
 }
 
 
