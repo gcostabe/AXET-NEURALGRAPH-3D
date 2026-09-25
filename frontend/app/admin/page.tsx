@@ -154,7 +154,7 @@ function AdminInner() {
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span>🚀 2. Distribuição da Base (OneDrive)</span>
+            <span>🚀 2. Base de Conhecimento (.qpack & Git Releases)</span>
           </button>
           <button
             onClick={() => setAdminTab("knowledge")}
