@@ -20,7 +20,8 @@ import {
   MessageSquare,
   Sparkles,
   Network,
-  CloudDownload
+  CloudDownload,
+  Info
 } from "lucide-react";
 
 export default function AppHeader() {
@@ -31,6 +32,7 @@ export default function AppHeader() {
   const [showOktaModal, setShowOktaModal] = useState(false);
   const [showCorporateModal, setShowCorporateModal] = useState(false);
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -309,6 +311,17 @@ export default function AppHeader() {
                     <span>Trocar senha</span>
                   </button>
 
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setShowAboutModal(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 transition"
+                  >
+                    <Info className="h-4 w-4 text-blue-400" />
+                    <span>Sobre o AXET</span>
+                  </button>
+
                   <div className="my-1 border-t border-slate-800/80"></div>
 
                   <button
@@ -445,6 +458,82 @@ export default function AppHeader() {
         isOpen={showSnapshotModal}
         onClose={() => setShowSnapshotModal(false)}
       />
+
+      {/* Modal Sobre o AXET-NeuralGraph */}
+      {showAboutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 p-6 shadow-2xl">
+            {/* Botão Fechar */}
+            <button
+              onClick={() => setShowAboutModal(false)}
+              className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+              title="Fechar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {/* Cabeçalho do About */}
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#0072BC] to-sky-400 p-3 shadow-lg shadow-blue-500/20">
+                <NttDataLogo className="h-10 w-10 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-white tracking-tight">
+                AXET-NeuralGraph 3D
+              </h3>
+              <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 px-3 py-0.5 text-[11px] font-mono font-semibold text-blue-300">
+                <span>Versão 1.0.2</span>
+                <span className="text-slate-500">•</span>
+                <span>Desktop Edition</span>
+              </p>
+              <p className="mt-2 text-xs text-slate-400 leading-relaxed max-w-xs">
+                Plataforma Neural 3D & Sistema de RAG Corporativo de Alta Performance com Blindagem Epistêmica e Análise Multimodal.
+              </p>
+            </div>
+
+            {/* Card de Criadores */}
+            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5">
+                Criadores & Arquitetos
+              </div>
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/20 text-blue-300 font-bold text-xs border border-blue-500/30">
+                    GB
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-xs font-semibold text-slate-100">
+                      Gustavo Costa Berbert
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      Arquiteto de Solução & Inteligência Cognitiva
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 font-bold text-xs border border-purple-500/30">
+                    MM
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-xs font-semibold text-slate-100">
+                      Marcio Miguel
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      Liderança Executiva & Arquitetura de Negócio
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Rodapé Institucional */}
+            <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+              <span>NTT DATA / MAPFRE</span>
+              <span>© 2026 Todos os direitos reservados</span>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

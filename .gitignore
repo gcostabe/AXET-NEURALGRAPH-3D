@@ -13,6 +13,7 @@ gateway/tokens.json
 gateway/tokens.json.lock
 gateway/user_identity.json
 gateway/logs/
+.build_bump_lock
 
 # ── Python & Backend ─────────────────────────────────────────
 __pycache__/

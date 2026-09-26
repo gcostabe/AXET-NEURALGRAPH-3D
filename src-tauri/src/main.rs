@@ -4,7 +4,7 @@ mod ports;
 
 use ports::{resolve_all_ports, ServicePorts};
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::TrayIconBuilder,
     AppHandle, Manager,
 };
@@ -72,6 +72,75 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            {
+                let about_metadata = AboutMetadata {
+                    name: Some("AXET-NeuralGraph".into()),
+                    version: Some(env!("CARGO_PKG_VERSION").into()),
+                    short_version: Some(env!("CARGO_PKG_VERSION").into()),
+                    authors: Some(vec![
+                        "Gustavo Costa Berbert".into(),
+                        "Marcio Miguel".into(),
+                    ]),
+                    comments: Some("Plataforma Neural 3D & Sistema de RAG Corporativo de Alta Performance\n\nCriadores:\n• Gustavo Costa Berbert\n• Marcio Miguel".into()),
+                    copyright: Some("Criadores: Gustavo Costa Berbert & Marcio Miguel\n© 2026 NTT DATA / MAPFRE".into()),
+                    credits: Some("Criadores e Arquitetos:\nGustavo Costa Berbert\nMarcio Miguel".into()),
+                    website: Some("https://github.com/gcostabe/AXET-NEURALGRAPH-3D".into()),
+                    website_label: Some("Repositório Oficial".into()),
+                    ..Default::default()
+                };
+
+                let app_submenu = Submenu::with_items(
+                    app,
+                    "AXET-NeuralGraph",
+                    true,
+                    &[
+                        &PredefinedMenuItem::about(app, Some("Sobre o AXET-NeuralGraph"), Some(about_metadata))?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &PredefinedMenuItem::services(app, None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &PredefinedMenuItem::hide(app, None)?,
+                        &PredefinedMenuItem::hide_others(app, None)?,
+                        &PredefinedMenuItem::show_all(app, None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &PredefinedMenuItem::quit(app, None)?,
+                    ],
+                )?;
+
+                let edit_submenu = Submenu::with_items(
+                    app,
+                    "Editar",
+                    true,
+                    &[
+                        &PredefinedMenuItem::undo(app, None)?,
+                        &PredefinedMenuItem::redo(app, None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &PredefinedMenuItem::cut(app, None)?,
+                        &PredefinedMenuItem::copy(app, None)?,
+                        &PredefinedMenuItem::paste(app, None)?,
+                        &PredefinedMenuItem::select_all(app, None)?,
+                    ],
+                )?;
+
+                let window_submenu = Submenu::with_items(
+                    app,
+                    "Janela",
+                    true,
+                    &[
+                        &PredefinedMenuItem::minimize(app, None)?,
+                        &PredefinedMenuItem::maximize(app, None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &PredefinedMenuItem::close_window(app, None)?,
+                    ],
+                )?;
+
+                let app_menu = Menu::with_items(
+                    app,
+                    &[&app_submenu, &edit_submenu, &window_submenu],
+                )?;
+                app.set_menu(app_menu)?;
+            }
+
             let quit_i = MenuItem::with_id(app, "quit", "Encerrar AXET", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "Abrir Dashboard", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
