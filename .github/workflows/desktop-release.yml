@@ -44,7 +44,7 @@ jobs:
 
       - name: Build macOS DMG (Universal Binary)
         run: |
-          ./frontend/node_modules/.bin/tauri build --target universal-apple-darwin
+          npx --prefix frontend tauri build --target universal-apple-darwin
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -77,12 +77,12 @@ jobs:
     name: Build Windows Corporate (.msi)
     runs-on: windows-latest
     steps:
-      - name: Configure Windows Git (Longpaths)
-        run: |
-          git config --system core.longpaths true
-
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Configure Windows Git (Longpaths)
+        run: |
+          git config --global core.longpaths true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -108,7 +108,7 @@ jobs:
 
       - name: Build Windows MSI (WiX Toolset)
         run: |
-          ./frontend/node_modules/.bin/tauri build --bundles msi
+          npx --prefix frontend tauri build --bundles msi
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}

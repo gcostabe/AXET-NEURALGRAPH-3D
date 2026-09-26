@@ -1,14 +1,19 @@
 {
   "name": "axet-neuralgraph-3d",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "node ../scripts/bump_version.js && tauri build"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.3.6",
     "@types/three": "^0.186.0",
     "lucide-react": "^1.47.0",
     "next": "14.2.35",
@@ -19,6 +24,7 @@
     "three": "^0.186.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
     "@types/node": "20.16.11",
     "@types/react": "18.3.11",
     "@types/react-dom": "18.3.0",

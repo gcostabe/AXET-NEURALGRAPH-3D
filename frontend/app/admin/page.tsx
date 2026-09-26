@@ -9,6 +9,8 @@ import { KnowledgePanel } from "@/components/KnowledgePanel";
 import FeedbackAuditPanel from "@/components/FeedbackAuditPanel";
 import TokenUsagePanel from "@/components/TokenUsagePanel";
 import AdminSnapshotsPanel from "@/components/AdminSnapshotsPanel";
+import AdminRbacPanel from "@/components/AdminRbacPanel";
+import { isMasterAdmin, isAdmin } from "@/lib/auth";
 import {
   adminApi,
   UserOut,
@@ -27,7 +29,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 function AdminInner() {
   const router = useRouter();
-  const [adminTab, setAdminTab] = useState<"knowledge" | "quality" | "sources" | "snapshots" | "tokens" | "users">("knowledge");
+  const isMaster = isMasterAdmin();
+  const [adminTab, setAdminTab] = useState<"knowledge" | "quality" | "sources" | "snapshots" | "tokens" | "users" | "rbac">("knowledge");
   const [users, setUsers] = useState<UserOut[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
@@ -151,7 +154,7 @@ function AdminInner() {
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
-            <span>🚀 2. Distribuição da Base (OneDrive)</span>
+            <span>🚀 2. Base de Conhecimento (.qpack & Git Releases)</span>
           </button>
           <button
             onClick={() => setAdminTab("knowledge")}
@@ -193,6 +196,18 @@ function AdminInner() {
           >
             <span>👥 6. Usuários ({users.length})</span>
           </button>
+          {(isMaster || isAdmin()) && (
+            <button
+              onClick={() => setAdminTab("rbac")}
+              className={`pb-3 px-4 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+                adminTab === "rbac"
+                  ? "border-amber-400 text-yellow-300 font-semibold bg-amber-500/10 rounded-t-lg"
+                  : "border-transparent text-amber-300/80 hover:text-amber-200"
+              }`}
+            >
+              <span>👑 7. Instaladores Desktop (.dmg & .msi)</span>
+            </button>
+          )}
         </div>
 
         {adminTab === "knowledge" && <KnowledgePanel />}
@@ -202,6 +217,8 @@ function AdminInner() {
         {adminTab === "sources" && <SourcesPanel />}
 
         {adminTab === "snapshots" && <AdminSnapshotsPanel />}
+
+        {adminTab === "rbac" && <AdminRbacPanel />}
 
         {adminTab === "tokens" && <TokenUsagePanel />}
 

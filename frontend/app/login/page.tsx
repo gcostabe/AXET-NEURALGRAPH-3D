@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, ApiError, OktaPollResponse } from "@/lib/api";
-import { setToken } from "@/lib/auth";
+import { setToken, MASTER_ADMIN_EMAIL } from "@/lib/auth";
 import NttDataLogo from "@/components/NttDataLogo";
 import OktaSsoModal from "@/components/OktaSsoModal";
 import { ArrowRight, Lock, Mail, ShieldCheck } from "lucide-react";
@@ -33,7 +33,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await authApi.login(email, password);
-      setToken(res.access_token, res.role);
+      const isMaster = email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase();
+      setToken(res.access_token, res.role, isMaster ? "master_admin" : res.role, isMaster, email);
       router.push("/graph");
     } catch (err) {
       if (err instanceof ApiError) {

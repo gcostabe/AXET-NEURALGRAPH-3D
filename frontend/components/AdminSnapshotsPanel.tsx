@@ -18,6 +18,10 @@ import {
   ShieldCheck,
   Database,
   Share2,
+  ExternalLink,
+  Globe,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   snapshotsApi,
@@ -27,6 +31,7 @@ import {
   PublishOneDriveResult,
   ApiError,
 } from "@/lib/api";
+import { pickNativeFolder, openExternalUrl } from "@/lib/desktop";
 
 export default function AdminSnapshotsPanel() {
   const [snapshots, setSnapshots] = useState<SnapshotItem[]>([]);
@@ -45,6 +50,8 @@ export default function AdminSnapshotsPanel() {
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [publishSuccess, setPublishSuccess] = useState<PublishOneDriveResult | null>(null);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
+  const [showOneDriveManual, setShowOneDriveManual] = useState(false);
+  const [copiedGitUrl, setCopiedGitUrl] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -75,27 +82,27 @@ export default function AdminSnapshotsPanel() {
     setPickingFolder(true);
     setMessage(null);
     try {
-      const prompt = encodeURIComponent(
+      const selected = await pickNativeFolder(
         "Selecione a pasta do OneDrive onde o pacote oficial (.qpack) sera publicado:"
       );
-      const res = await fetch(`http://localhost:8765/pick-folder?prompt=${prompt}`);
-      const data = await res.json();
-      if (data.path) {
-        const clean = data.path.trim();
+      if (selected) {
+        const clean = selected.trim();
         setOnedrivePathInput(clean);
         // Salva imediatamente no banco de dados
         const saved = await snapshotsApi.updateDistributionConfig(clean);
         setDistConfig(saved);
         setMessage({
-          text: `✅ Pasta do OneDrive vinculada com sucesso no Finder: ${clean}`,
+          text: `✅ Pasta do OneDrive vinculada com sucesso: ${clean}`,
           type: "success",
         });
       }
-    } catch {
-      setMessage({
-        text: "Para abrir a janela nativa do Finder, certifique-se de que o assistente local está ativo na porta 8765. Você também pode colar o caminho manualmente no campo abaixo.",
-        type: "error",
-      });
+    } catch (err: any) {
+      if (err.message && !err.message.includes("cancelada")) {
+        setMessage({
+          text: "Não foi possível abrir o seletor nativo. Você também pode colar o caminho manualmente no campo abaixo.",
+          type: "error",
+        });
+      }
     } finally {
       setPickingFolder(false);
     }
@@ -226,149 +233,232 @@ export default function AdminSnapshotsPanel() {
     setTimeout(() => setCopiedHash(null), 2500);
   }
 
+  const OFFICIAL_GITHUB_RELEASE_URL = "https://github.com/gcostabe/AXET-NEURALGRAPH-3D/releases";
+  const OFFICIAL_QPACK_DOWNLOAD_URL = "https://github.com/gcostabe/AXET-NEURALGRAPH-3D/releases/latest/download/axet_knowledge_base_latest.qpack";
+
+  function handleCopyGitUrl() {
+    navigator.clipboard.writeText(OFFICIAL_QPACK_DOWNLOAD_URL);
+    setCopiedGitUrl(true);
+    setTimeout(() => setCopiedGitUrl(false), 2500);
+  }
+
+  function handleOpenGitHubReleases() {
+    openExternalUrl(OFFICIAL_GITHUB_RELEASE_URL);
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header Banner */}
       <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/40 border border-slate-800 shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
                 <Share2 className="w-5 h-5" />
               </span>
               <h2 className="text-lg font-bold text-white tracking-wide">
-                2. Distribuição da Base Oficial (OneDrive / SharePoint)
+                2. Base de Conhecimento (.qpack & GitHub Releases)
               </h2>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> 100% Automático
+                <CheckCircle2 className="w-3 h-3" /> Distribuição Unificada via Git
               </span>
             </div>
             <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
-              Vincule a pasta do seu <strong>OneDrive</strong> corporativo abaixo. Ao clicar em{" "}
-              <span className="text-indigo-300 font-semibold">&quot;Gerar e Publicar Base Oficial&quot;</span>, o sistema
-              cria o pacote criptografado com os vetores e o salva direto no OneDrive. O aplicativo OneDrive do Mac
-              faz o upload para o SharePoint automaticamente.
+              Gere pacotes oficiais da base de conhecimento (<code className="text-indigo-300">.qpack</code>) contendo os vetores Qdrant e sinapses neurais.
+              Tanto os instaladores desktop (<span className="text-slate-200">.dmg</span> e <span className="text-slate-200">.msi</span>) quanto o pacote da base são distribuídos pelo canal oficial do <strong>GitHub Releases</strong>.
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={handleExportOnly}
-              disabled={exporting || publishing}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 transition flex items-center gap-1.5"
-              title="Apenas cria o arquivo localmente sem enviar ao OneDrive"
+              onClick={handleOpenGitHubReleases}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-200 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 transition flex items-center gap-1.5 shadow-sm"
+              title="Abre a página de Releases do projeto no GitHub"
             >
-              {exporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
-              <span>Apenas Gerar Local (.qpack)</span>
+              <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Ver Releases no GitHub</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main OneDrive Config & 1-Click Publishing Card */}
+      {/* Main GitHub Releases Official Distribution Card */}
       <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-4">
           <div className="flex items-center gap-2.5">
-            <Cloud className="w-5 h-5 text-blue-400" />
+            <Globe className="w-5 h-5 text-indigo-400" />
             <div>
-              <h3 className="text-sm font-bold text-white">Pasta de Publicação do OneDrive</h3>
-              <p className="text-[11px] text-slate-400">
-                Selecione o diretório do OneDrive no seu computador onde os pacotes para distribuição serão colocados.
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>Canal Oficial de Distribuição: GitHub Releases</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  gcostabe / AXET-NEURALGRAPH-3D
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Os usuários do app desktop (.dmg e .msi) sincronizam a base em segundo plano direto da release, sem requerer configuração local.
               </p>
             </div>
           </div>
-          {distConfig.is_configured ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              OneDrive Conectado
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              Configure a Pasta no Finder
-            </span>
-          )}
-        </div>
-
-        {/* Directory Picker Row */}
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-slate-300 flex items-center justify-between">
-            <span>Caminho Local do OneDrive no Mac:</span>
-            <span className="text-[10px] text-slate-500">Ex: /Users/gcostabe/Library/CloudStorage/OneDrive-NTTDATAEMEAL/...</span>
-          </label>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={onedrivePathInput}
-                onChange={(e) => setOnedrivePathInput(e.target.value)}
-                placeholder="Nenhuma pasta selecionada. Clique no botão ao lado para abrir o Finder..."
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono transition"
-              />
-            </div>
-
-            {/* BOTÃO FINDER SOLICITADO PELO USUÁRIO */}
-            <button
-              onClick={handlePickOneDriveFolder}
-              disabled={pickingFolder}
-              className="px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 transition shrink-0"
-              title="Abre a janela nativa do Finder no Mac para escolher a pasta do OneDrive"
-            >
-              {pickingFolder ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Abrindo Finder...</span>
-                </>
-              ) : (
-                <>
-                  <FolderOpen className="w-4 h-4 text-blue-200" />
-                  <span>Escolher Pasta no Finder</span>
-                </>
-              )}
-            </button>
-
-            {onedrivePathInput !== distConfig.onedrive_path && onedrivePathInput.trim().length > 0 && (
-              <button
-                onClick={handleSaveManualPath}
-                disabled={savingConfig}
-                className="px-3 py-2.5 rounded-xl font-semibold text-xs text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition shrink-0"
-              >
-                {savingConfig ? "Salvando..." : "Salvar Caminho"}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Master 1-Click Action */}
-        <div className="p-4 rounded-xl bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-purple-950/40 border border-blue-500/30 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="text-xs font-bold text-white flex items-center gap-1.5">
-              <Rocket className="w-4 h-4 text-emerald-400" />
-              <span>Publicação de Base Oficial com 1 Clique</span>
-            </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed max-w-2xl">
-              Cria o snapshot completo contendo os vetores Qdrant e sinapses neurais, valida o hash criptográfico SHA-256 e grava como{" "}
-              <code className="text-blue-300 bg-slate-950/80 px-1 py-0.5 rounded">axet_knowledge_base_latest.qpack</code> diretamente na pasta do OneDrive.
-            </p>
-          </div>
 
           <button
-            onClick={handlePublishOfficialBase}
-            disabled={publishing || exporting}
-            className="w-full md:w-auto px-6 py-3 rounded-xl font-extrabold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2.5 transition-all shrink-0 hover:scale-[1.02] active:scale-[0.98]"
+            onClick={handleCopyGitUrl}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition shrink-0"
+            title="Copiar URL direta de download do pacote axet_knowledge_base_latest.qpack"
           >
-            {publishing ? (
+            {copiedGitUrl ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                <span>Empacotando e Publicando no OneDrive...</span>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-emerald-300">Link Copiado!</span>
               </>
             ) : (
               <>
-                <CloudUpload className="w-4 h-4 text-emerald-200" />
-                <span>Gerar e Publicar Base Oficial no OneDrive</span>
+                <Copy className="w-3.5 h-3.5 text-slate-400" />
+                <span>Copiar Link do .qpack</span>
               </>
             )}
           </button>
+        </div>
+
+        {/* Master 1-Click Action Card */}
+        <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-blue-950/40 border border-indigo-500/30 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-xs font-bold text-white flex items-center gap-1.5">
+              <Rocket className="w-4 h-4 text-emerald-400" />
+              <span>Geração de Pacote Oficial com 1 Clique</span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed max-w-2xl">
+              Cria o snapshot completo contendo os vetores Qdrant e sinapses neurais validados com hash criptográfico SHA-256 pronto para distribuição.
+              O arquivo gerado fica listado abaixo para download direto ou publicação no GitHub Releases como{" "}
+              <code className="text-indigo-300 bg-slate-950/80 px-1 py-0.5 rounded font-mono">axet_knowledge_base_latest.qpack</code>.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto shrink-0">
+            <button
+              onClick={handleExportOnly}
+              disabled={exporting}
+              className="w-full sm:w-auto px-6 py-3 rounded-xl font-extrabold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              {exporting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                  <span>Gerando Pacote (.qpack)...</span>
+                </>
+              ) : (
+                <>
+                  <Database className="w-4 h-4 text-emerald-200" />
+                  <span>Gerar Novo Pacote Oficial (.qpack)</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Public Release URL info badge */}
+        <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-[11px] text-slate-400 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs">🔗</span>
+            <span>URL de Sincronização Automática do Botão do Cabeçalho:</span>
+            <code className="text-indigo-300 bg-slate-900 px-2 py-0.5 rounded text-[10px] font-mono truncate max-w-md">
+              {OFFICIAL_QPACK_DOWNLOAD_URL}
+            </code>
+          </div>
+          <button
+            onClick={handleOpenGitHubReleases}
+            className="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition shrink-0"
+          >
+            <span>Gerenciar Assets da Release</span>
+            <ExternalLink className="w-3 h-3" />
+          </button>
+        </div>
+
+        {/* Optional Collapsible: Local OneDrive / Network Shared Folder */}
+        <div className="pt-2 border-t border-slate-800/80">
+          <button
+            type="button"
+            onClick={() => setShowOneDriveManual(!showOneDriveManual)}
+            className="w-full py-2.5 px-3.5 rounded-xl bg-slate-950/40 hover:bg-slate-950/80 border border-slate-800/80 text-xs text-slate-400 hover:text-slate-200 flex items-center justify-between transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Cloud className="w-4 h-4 text-slate-400" />
+              <span className="font-semibold text-slate-300">
+                Opção Alternativa: Cópia Local em Pasta Compartilhada (OneDrive / Rede)
+              </span>
+              <span className="text-[10px] text-slate-500 bg-slate-800/60 px-1.5 py-0.5 rounded">
+                Opcional / Fallback Offline
+              </span>
+            </div>
+            {showOneDriveManual ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+
+          {showOneDriveManual && (
+            <div className="mt-3 p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-4 animate-in fade-in duration-150">
+              <div className="text-[11px] text-slate-400 leading-relaxed">
+                Esta opção só é necessária se sua equipe optar por sincronizar a base via pasta local compartilhada no macOS ao invés do GitHub Releases.
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-300 flex items-center justify-between">
+                  <span>Pasta Local do OneDrive no Mac:</span>
+                  <span className="text-[10px] text-slate-500">Ex: /Users/gcostabe/Library/CloudStorage/OneDrive-NTTDATAEMEAL/...</span>
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={onedrivePathInput}
+                    onChange={(e) => setOnedrivePathInput(e.target.value)}
+                    placeholder="Nenhuma pasta selecionada. Clique em Escolher Pasta para abrir o Finder..."
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono transition"
+                  />
+                  <button
+                    onClick={handlePickOneDriveFolder}
+                    disabled={pickingFolder}
+                    className="px-4 py-2 rounded-xl font-bold text-xs text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-50 flex items-center justify-center gap-2 transition shrink-0"
+                    title="Abre a janela nativa do Finder no Mac para escolher a pasta"
+                  >
+                    {pickingFolder ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Abrindo Finder...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FolderOpen className="w-3.5 h-3.5 text-blue-300" />
+                        <span>Escolher Pasta no Finder</span>
+                      </>
+                    )}
+                  </button>
+
+                  {onedrivePathInput !== distConfig.onedrive_path && onedrivePathInput.trim().length > 0 && (
+                    <button
+                      onClick={handleSaveManualPath}
+                      disabled={savingConfig}
+                      className="px-3 py-2 rounded-xl font-semibold text-xs text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition shrink-0"
+                    >
+                      {savingConfig ? "Salvando..." : "Salvar Caminho"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {distConfig.is_configured && (
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-[11px] text-emerald-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Pasta configurada: <span className="font-mono text-slate-300">{distConfig.onedrive_path}</span>
+                  </span>
+                  <button
+                    onClick={handlePublishOfficialBase}
+                    disabled={publishing || exporting}
+                    className="px-3.5 py-1.5 rounded-lg font-bold text-xs text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 flex items-center gap-1.5 transition"
+                  >
+                    {publishing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CloudUpload className="w-3.5 h-3.5" />}
+                    <span>Copiar Base para Esta Pasta</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -496,7 +586,7 @@ export default function AdminSnapshotsPanel() {
 
         {snapshots.length === 0 ? (
           <div className="p-10 text-center text-slate-500 text-xs">
-            Nenhum pacote gerado ainda. Clique em &quot;Gerar e Publicar Base Oficial no OneDrive&quot; acima para criar o primeiro.
+            Nenhum pacote gerado ainda. Clique em &quot;Gerar Novo Pacote Oficial (.qpack)&quot; acima para criar o primeiro.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -571,29 +661,31 @@ export default function AdminSnapshotsPanel() {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {/* Botão de publicar este pacote específico no OneDrive */}
-                        <button
-                          onClick={() => handlePublishExisting(s.filename)}
-                          disabled={publishingFilename === s.filename}
-                          className="px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-semibold text-[11px] transition flex items-center gap-1"
-                          title="Copia este pacote para a pasta do OneDrive configurada"
-                        >
-                          {publishingFilename === s.filename ? (
-                            <RefreshCw className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <CloudUpload className="w-3 h-3" />
-                          )}
-                          <span>OneDrive</span>
-                        </button>
-
                         <a
                           href={snapshotsApi.getDownloadUrl(s.filename)}
                           download={s.filename}
-                          className="px-2.5 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 font-semibold text-[11px] transition flex items-center gap-1"
+                          className="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-semibold text-[11px] transition flex items-center gap-1 shadow-sm"
+                          title="Baixar pacote localmente para anexar à Release do GitHub"
                         >
                           <Download className="w-3 h-3" />
-                          <span>Baixar</span>
+                          <span>Baixar (.qpack)</span>
                         </a>
+
+                        {distConfig.is_configured && (
+                          <button
+                            onClick={() => handlePublishExisting(s.filename)}
+                            disabled={publishingFilename === s.filename}
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-[11px] transition flex items-center gap-1"
+                            title="Copia este pacote para a pasta do OneDrive configurada"
+                          >
+                            {publishingFilename === s.filename ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <CloudUpload className="w-3 h-3 text-slate-400" />
+                            )}
+                            <span>OneDrive</span>
+                          </button>
+                        )}
 
                         <button
                           onClick={() => handleDelete(s.filename)}
@@ -615,31 +707,31 @@ export default function AdminSnapshotsPanel() {
       {/* Explanatory Steps Card */}
       <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400 space-y-3">
         <h4 className="font-bold text-slate-200 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-blue-400" />
-          <span>Como funciona a distribuição automática da base:</span>
+          <ShieldCheck className="w-4 h-4 text-indigo-400" />
+          <span>Como funciona a distribuição unificada da base via GitHub Releases:</span>
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
           <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800/80 space-y-1">
             <div className="font-bold text-white flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-[10px]">
+              <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px]">
                 1
               </span>
-              <span>Escolha da Pasta no Finder</span>
+              <span>1 Clique para Gerar Pacote</span>
             </div>
             <p className="text-slate-400 leading-relaxed">
-              Você clica no botão <strong>&quot;Escolher Pasta no Finder&quot;</strong> acima. A janela nativa do macOS abre e você seleciona a pasta sincronizada do seu OneDrive da NTT DATA. Isso só precisa ser feito uma única vez.
+              O Administrador clica em <strong>&quot;Gerar Novo Pacote Oficial (.qpack)&quot;</strong>. O sistema extrai e valida os vetores do Qdrant e as sinapses do grafo neural com hash SHA-256 criptográfico.
             </p>
           </div>
 
           <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800/80 space-y-1">
             <div className="font-bold text-white flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px]">
+              <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-[10px]">
                 2
               </span>
-              <span>1 Clique para Publicar</span>
+              <span>Anexar à Release no GitHub</span>
             </div>
             <p className="text-slate-400 leading-relaxed">
-              Ao clicar em <strong>&quot;Gerar e Publicar Base Oficial&quot;</strong>, o sistema exporta os vetores e o grafo, valida o SHA-256 e grava o arquivo diretamente na pasta do OneDrive. O app OneDrive faz o upload para a nuvem automaticamente.
+              Faça o download do pacote gerado abaixo e anexe-o nas Releases do GitHub com o nome padronizado <code className="text-indigo-300">axet_knowledge_base_latest.qpack</code>, ao lado dos instaladores <strong>.dmg</strong> e <strong>.msi</strong>.
             </p>
           </div>
 
@@ -648,10 +740,10 @@ export default function AdminSnapshotsPanel() {
               <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px]">
                 3
               </span>
-              <span>Usuário Sincroniza em 1 Clique</span>
+              <span>Sincronização 100% Automática</span>
             </div>
             <p className="text-slate-400 leading-relaxed">
-              Os usuários comuns abrem o chat, clicam no botão <strong>&quot;Sincronizar Base&quot;</strong> no cabeçalho e recebem a base 100% pronta em segundos, sem consumir IA nem precisar saber onde os arquivos estão!
+              Qualquer usuário do aplicativo no Mac ou Windows clica no botão <strong>&quot;☁️ Sincronizar Base&quot;</strong> no cabeçalho. O app baixa e restaura tudo em segundo plano em instantes, sem consumir IA nem precisar saber caminhos de pastas!
             </p>
           </div>
         </div>
