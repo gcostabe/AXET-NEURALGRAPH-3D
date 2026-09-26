@@ -119,6 +119,11 @@ def rerank_chunks(
         if entity_sources and chunk.source_path in entity_sources:
             final_score = min(1.0, final_score + 0.18)
 
+        # 5.1 Precedência Epistêmica Soberana: Aprendizados Cognitivos e Sinapses Retificadoras
+        is_learning = (chunk.source_path or "").startswith("learning://") or "APRENDIZADO COGNITIVO" in (chunk.text or "")
+        if is_learning:
+            final_score += 1.5
+
         # 6. Bônus de Atração Topológica (Graph-Augmented Embeddings / Vizinhança Neural 3D)
         if topological_scores:
             topo_aff = topological_scores.get(chunk.source_path, 0.0)

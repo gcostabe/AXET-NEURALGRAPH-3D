@@ -42,7 +42,39 @@ def search(
 
     query_vector = embedder.embed([query])[0]
 
-    # Busca ampla de candidatos para reclassificação profunda
+    # 1. Busca Dedicada de Aprendizados Cognitivos e Sinapses Retificadoras
+    cognitive_chunks: list[RetrievedChunk] = []
+    try:
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+        cog_results = client.query_points(
+            collection_name=settings.qdrant_collection,
+            query=query_vector,
+            query_filter=Filter(
+                must=[FieldCondition(key="is_cognitive_learning", match=MatchValue(value=True))]
+            ),
+            limit=5,
+            with_payload=True,
+        ).points
+
+        for cp in cog_results:
+            # Limiar semântico mínimo para capturar retificações relevantes (>= 0.35)
+            if cp.score >= 0.35:
+                payload = cp.payload or {}
+                cognitive_chunks.append(
+                    RetrievedChunk(
+                        source_path=payload.get("source_path", ""),
+                        title=payload.get("title", "⚡ Aprendizado Cognitivo"),
+                        breadcrumb=payload.get("breadcrumb", ["Aprendizados", "Sinapses"]),
+                        text=payload.get("text", ""),
+                        score=1.5 + cp.score,
+                        topological_score=1.0,
+                    )
+                )
+    except Exception as cog_err:
+        import logging
+        logging.getLogger(__name__).warning(f"[search] Falha na busca dedicada de aprendizado cognitivo: {cog_err}")
+
+    # 2. Busca ampla de candidatos do acervo documental
     candidate_limit = max(top_k * 3, 20) if enable_rerank else top_k
 
     results = client.query_points(
@@ -53,11 +85,15 @@ def search(
     ).points
 
     chunks = []
+    seen_sources = {c.source_path for c in cognitive_chunks}
     for point in results:
         payload = point.payload or {}
+        src = payload.get("source_path", "")
+        if src in seen_sources:
+            continue
         chunks.append(
             RetrievedChunk(
-                source_path=payload.get("source_path", ""),
+                source_path=src,
                 title=payload.get("title", ""),
                 breadcrumb=payload.get("breadcrumb", []),
                 text=payload.get("text", ""),
@@ -65,16 +101,18 @@ def search(
             )
         )
 
+    all_candidates = cognitive_chunks + chunks
+
     if enable_rerank:
         # Se topological_scores não foi fornecido explicitamente, calcula atração a partir dos nós semente
         if topological_scores is None and topological_engine.is_valid():
-            seed_sources = [c.source_path for c in chunks[:3] if c.source_path]
-            candidate_sources = [c.source_path for c in chunks if c.source_path]
+            seed_sources = [c.source_path for c in all_candidates[:3] if c.source_path]
+            candidate_sources = [c.source_path for c in all_candidates if c.source_path]
             topological_scores = topological_engine.get_neighborhood_attraction(candidate_sources, seed_sources)
 
         reranked = rerank_chunks(
             query,
-            chunks,
+            all_candidates,
             top_k=top_k,
             entity_sources=entity_sources,
             topological_scores=topological_scores,
@@ -84,7 +122,7 @@ def search(
                 c.topological_score = topological_scores.get(c.source_path, 0.0)
         return reranked
 
-    return chunks[:top_k]
+    return all_candidates[:top_k]
 
 
 
@@ -290,6 +328,27 @@ async def get_query_entities_context(
         docs = mentions_by_entity.get(e.id, [])
         results.append((e, docs))
 
+    # 2. Busca entidades de aprendizado cognitivo relacionadas à consulta
+    try:
+        import re
+        from sqlalchemy import or_
+        query_words = [w.lower() for w in re.findall(r"\b\w{4,}\b", query) if w.lower() not in {"qual", "quais", "existe", "existem", "poderia", "descrever", "todos", "todas", "sobre", "como"}]
+        if query_words:
+            conditions = [KnowledgeEntity.name.ilike(f"%{w}%") for w in query_words[:4]]
+            cog_entities_res = await db.scalars(
+                select(KnowledgeEntity).where(
+                    KnowledgeEntity.entity_type == "APRENDIZADO_COGNITIVO",
+                    or_(*conditions)
+                ).limit(3)
+            )
+            for cog_ent in cog_entities_res.all():
+                if not any(e.id == cog_ent.id for e in entities):
+                    entities.append(cog_ent)
+                    results.append((cog_ent, [f"learning://{cog_ent.canonical_id}"]))
+                    all_matched_sources.add(f"learning://{cog_ent.canonical_id}")
+    except Exception:
+        pass
+
     return (results, all_matched_sources)
 
 
@@ -318,14 +377,29 @@ def build_context(
         ]
         for lc in learning_chunks:
             learn_lines.append(f"- {lc.text.strip()}")
+
         learn_lines.append(
-            "(Diretriz para resposta: Incorpore diretamente este aprendizado consolidado, garantindo a aplicação estrita da regra canônica retificada).\n"
+            "\n🚨 DIRETRIZ EPISTÊMICA DE RESPOSTA:"
+            "\n1. Incorpore diretamente este aprendizado consolidado como a verdade canônica vigente."
+            "\n2. NUNCA repita equívocos que foram retificados por este aprendizado (por exemplo, listas incompletas ou incorretas de tipos de expediente)."
+            "\n3. Se qualquer documento legado ou FAQ abaixo afirmar uma regra diferente da retificação acima, essa afirmação antiga FOI RETIFICADA e deve ser desconsiderada.\n"
         )
         learn_block = "\n".join(learn_lines)
         parts.append(learn_block)
         total += len(learn_block)
         # Remove os chunks de aprendizado da lista padrão para evitar redundância
         chunks = [c for c in chunks if c not in learning_chunks]
+
+        # Anota documentos legados que contenham menções óbvias ao erro superado
+        for c in chunks:
+            lower_c = c.text.lower()
+            lower_src = c.source_path.lower()
+            if (
+                "faq-canonica-que-tipo-de-expedientes-existe" in lower_src
+                or ("regularização" in lower_c and "homologação" in lower_c)
+                or ("regularizacao" in lower_c and "homologacao" in lower_c)
+            ):
+                c.text = f"[⚠️ ATENÇÃO: CONTEÚDO SUPERSEDIDO PELA RETIFICAÇÃO COGNITIVA ACIMA - NÃO UTILIZAR ESTA REGRA]\n{c.text}"
 
     # 1. Alertas de Conflito e Obsolescência (Alta prioridade)
     if conflicts:
