@@ -30,10 +30,10 @@ for /f "tokens=*" %%a in ('wsl -d Ubuntu wslpath -u "%SCRIPT_DIR%" 2^>nul ^|^| w
 set "WSL_PROJECT_DIR=%WSL_PROJECT_DIR:/mnt/host/=/mnt/%"
 
 if "%WSL_PROJECT_DIR%"=="" (
-    echo [ERRO] Nao foi possivel comunicar com o WSL2 ou Docker Desktop.
-    echo Certifique-se de que o Docker Desktop ou WSL2 esta configurado.
-    if "%IS_NON_INTERACTIVE%"=="0" pause
-    exit /b 1
+    echo [INFO] Docker Desktop e WSL2 nao detectados.
+    echo [INFO] Chaveando automaticamente para Modo Nativo Bare-Metal...
+    call "%SCRIPT_DIR%\iniciar_windows_nativo.bat" %*
+    exit /b %errorlevel%
 )
 
 :: 3. Garantir que o servico do Docker esteja ativo no WSL2
@@ -44,6 +44,12 @@ if %errorlevel% neq 0 (
 
 :: 4. Subir containers via WSL2
 wsl -d Ubuntu -u root -- bash -c "cd '%WSL_PROJECT_DIR%' && docker compose up -d"
+if %errorlevel% neq 0 (
+    echo [AVISO] Falha ao inicializar containers via WSL2.
+    echo [INFO] Chaveando automaticamente para Modo Nativo Bare-Metal...
+    call "%SCRIPT_DIR%\iniciar_windows_nativo.bat" %*
+    exit /b %errorlevel%
+)
 
 :CONTAINERS_STARTED
 :: Se for execução não-interativa disparada pelo Desktop App, encerra imediatamente com sucesso

@@ -16,22 +16,27 @@ from app.knowledge.models import KnowledgeConflict, KnowledgeDocument, Knowledge
 async def lifespan(app: FastAPI):
     # Garante que as tabelas (incluindo knowledge e rbac) existam
     async with engine.begin() as conn:
+        if conn.dialect.name == "sqlite":
+            from sqlalchemy import text
+            await conn.execute(text("PRAGMA journal_mode=WAL;"))
+            await conn.execute(text("PRAGMA foreign_keys=ON;"))
         await conn.run_sync(Base.metadata.create_all)
-        from sqlalchemy import text
-        for sql in [
-            "ALTER TABLE knowledge_conflicts ADD COLUMN IF NOT EXISTS resolution_strategy VARCHAR(50);",
-            "ALTER TABLE knowledge_conflicts ADD COLUMN IF NOT EXISTS resolution_details TEXT;",
-            "ALTER TABLE knowledge_conflicts ADD COLUMN IF NOT EXISTS resolved_by_user_id UUID;",
-            "ALTER TABLE knowledge_conflicts ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP WITH TIME ZONE;",
-            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER DEFAULT 0;",
-            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS completion_tokens INTEGER DEFAULT 0;",
-            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS total_tokens INTEGER DEFAULT 0;",
-            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS model VARCHAR(100);",
-            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS learning_metadata JSONB;",
-            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments_metadata JSONB;",
-            "CREATE TABLE IF NOT EXISTS app_users_rbac (email VARCHAR(255) PRIMARY KEY, role VARCHAR(50) NOT NULL DEFAULT 'VIEWER', granted_by VARCHAR(255), notes VARCHAR(255), created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());",
-        ]:
-            await conn.execute(text(sql))
+        if conn.dialect.name == "postgresql":
+            from sqlalchemy import text
+            for sql in [
+                "ALTER TABLE knowledge_conflicts ADD COLUMN IF NOT EXISTS resolution_strategy VARCHAR(50);",
+                "ALTER TABLE knowledge_conflicts ADD COLUMN IF NOT EXISTS resolution_details TEXT;",
+                "ALTER TABLE knowledge_conflicts ADD COLUMN IF NOT EXISTS resolved_by_user_id UUID;",
+                "ALTER TABLE knowledge_conflicts ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP WITH TIME ZONE;",
+                "ALTER TABLE messages ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER DEFAULT 0;",
+                "ALTER TABLE messages ADD COLUMN IF NOT EXISTS completion_tokens INTEGER DEFAULT 0;",
+                "ALTER TABLE messages ADD COLUMN IF NOT EXISTS total_tokens INTEGER DEFAULT 0;",
+                "ALTER TABLE messages ADD COLUMN IF NOT EXISTS model VARCHAR(100);",
+                "ALTER TABLE messages ADD COLUMN IF NOT EXISTS learning_metadata JSONB;",
+                "ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments_metadata JSONB;",
+                "CREATE TABLE IF NOT EXISTS app_users_rbac (email VARCHAR(255) PRIMARY KEY, role VARCHAR(50) NOT NULL DEFAULT 'VIEWER', granted_by VARCHAR(255), notes VARCHAR(255), created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());",
+            ]:
+                await conn.execute(text(sql))
 
 
 

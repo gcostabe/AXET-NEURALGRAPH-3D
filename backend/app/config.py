@@ -75,15 +75,46 @@ class Settings(BaseSettings):
     video_whisper_language: str = "es"
     video_max_frames: int = 30
 
+    database_url: str = ""
+
     @property
     def postgres_dsn(self) -> str:
+        if self.database_url:
+            return self.database_url
+        if self.postgres_host in ("sqlite", "local", "embedded", ""):
+            from pathlib import Path
+            db_dir = Path(__file__).resolve().parents[2] / "data"
+            db_dir.mkdir(parents=True, exist_ok=True)
+            db_path = (db_dir / "axet_local.db").as_posix()
+            return f"sqlite+aiosqlite:///{db_path}"
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
 
+    def model_post_init(self, __context):
+        import sys
+        from pathlib import Path
+        if not Path(self.sources_root).exists():
+            fallback = Path(__file__).resolve().parents[2] / "data" / "sources"
+            if fallback.exists():
+                self.sources_root = str(fallback)
+
+        if sys.platform == "win32":
+            if self.postgres_host == "postgres":
+                self.postgres_host = "sqlite"
+            if self.qdrant_host == "qdrant":
+                self.qdrant_host = "localhost"
+            if "gateway:8766" in self.gateway_host_url:
+                self.gateway_host_url = self.gateway_host_url.replace("gateway:8766", "localhost:8766")
+            if "gateway:8766" in self.llm_gateway_url:
+                self.llm_gateway_url = self.llm_gateway_url.replace("gateway:8766", "localhost:8766")
+
     class Config:
-        env_file = ".env"
+        from pathlib import Path
+        _root_env = Path(__file__).resolve().parents[2] / ".env"
+        env_file = (str(_root_env), ".env")
+        extra = "ignore"
 
 
 settings = Settings()

@@ -43,11 +43,20 @@ MANIFEST
 
 # Ambientes virtuais
 .venv/
+.venv*/
 venv/
 ENV/
 env/
 env.bak/
 venv.bak/
+bin/qdrant/
+data/axet_local.db*
+data/qdrant_storage/
+.qdrant-initialized
+src-tauri/resources/staging_runtime/
+src-tauri/resources/runtime/
+src-tauri/resources/*.zip
+!src-tauri/resources/README.txt
 
 # Testes e cobertura
 .pytest_cache/

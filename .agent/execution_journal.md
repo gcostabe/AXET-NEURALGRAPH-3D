@@ -2866,21 +2866,33 @@ Solicitar ao usuário que teste e valide no chat (`http://localhost:3001/chat`).
      - Nenhuma alteração colidiu com o código do frontend ou com os novos vídeos do OneDrive. O sistema continua íntegro e operacional.
 - **Proxima Acao Segura**: Iniciar a implementação das 3 etapas da sincronização remota da base de conhecimento (1 clique).
 
-### CHECKPOINT-096 (2026-09-24 19:10 - Recurso de Sincronização da Base Oficial em 1 Clique Implementado)
-- **Tarefa**: TASK-20260924-1858-GIT-PULL-NTT-AND-3-STEP-SYNC
+### CHECKPOINT-098 (2026-09-26 18:51 - Refatoração para Windows Nativo Bare-Metal Concluída com Sucesso)
+- **Tarefa**: TASK-20260926-1822-NATIVE-WINDOWS-NO-VIRTUALIZATION
 - **Estado**: POST_ACTION / COMPLETED
-- **Acoes Concluidas**:
-  1. **Etapa 1 - Endpoints de Sincronização em Background**:
-     - Desenvolvido `POST /snapshots/sync-remote` e `GET /snapshots/sync-remote/progress` em `backend/app/api/snapshots.py`.
-     - Implementado worker assíncrono não-bloqueante (`run_in_executor`) para streaming com httpx (redirects automáticos para OneDrive/GitHub Releases/S3), validação SHA-256 e restauração atômica no Qdrant e PostgreSQL.
-  2. **Etapa 2 - Configuração Flexível**:
-     - Adicionado `knowledge_base_sync_url` em `backend/app/config.py` e `KNOWLEDGE_BASE_SYNC_URL` em `.env.example`.
-  3. **Etapa 3 - Interface de 1 Clique e Barra de Progresso**:
-     - Atualizado `frontend/components/AppHeader.tsx` com botão "Sincronizar Base".
-     - Renovado `frontend/components/KnowledgeSnapshotModal.tsx` com card de 1 clique, barra de progresso em tempo real, etapas detalhadas e recarregamento automático do grafo neural.
-  4. **Validação End-to-End**:
-     - Executado teste real de restauração do pacote .qpack via endpoint: restaurados com sucesso 87.270 vetores, 2.683 documentos e 7.931 conexões neurais em ~40 segundos.
-     - Contêineres Docker atualizados e ativos na porta 3001 e 8000.
-- **Proxima Acao Segura**: Apresentar solução ao usuário e comitar alterações.
-
-
+- **Ações Concluídas**:
+  1. **Python 3.11 & Dependências**: Instalado Python 3.11.9 para Windows e criado `.venv_windows` com todas as dependências (`fastapi`, `uvicorn`, `qdrant-client`, `sentence-transformers`, `torch`, `aiosqlite`, etc.).
+  2. **Qdrant Nativo para Windows**: Baixado binário oficial `qdrant.exe` v1.19.1 e DLLs de runtime (`vcruntime140.dll`, `msvcp140.dll`) em `bin\qdrant\`, configurado storage em `data\qdrant_storage`.
+  3. **Camada de Banco Multi-Engine**: Atualizados `auth/models.py`, `knowledge/models.py`, `config.py`, `database.py` e `main.py` com tipos universais (`JSON_TYPE`, `UUID_TYPE`), suporte automático a SQLite (`data\axet_local.db` em WAL mode) com fallback transparente, mantendo 100% de compatibilidade com PostgreSQL em Docker.
+  4. **Gateway aXet**: Ajustado `gateway/local_ai_gateway.py` para importação condicional de `fcntl`, viabilizando execução nativa no Windows.
+  5. **Orquestrador / Supervisor**: Desenvolvido `scripts/supervisor_windows.py`, `scripts/start_services_native.ps1`, `iniciar_windows_nativo.bat` e `parar_windows_nativo.bat`. Atualizado `iniciar_windows.bat` com fallback automático quando Docker/WSL2 não existirem.
+  6. **Integração Tauri**: Atualizado `src-tauri/src/main.rs` para suporte a caminhos em português (`OneDrive\Área de Trabalho`) e inicialização nativa.
+  7. **Validação Fim-a-Fim**: Confirmado `GET /health` (200 OK) e `POST /auth/okta/start` (200 OK com geração de device_code da OneNTT).
+### CHECKPOINT-099 (2026-09-26 19:05 - Empacotamento Zero-Touch do MSI e Assinatura NTT DATA em CI/CD)
+- **Tarefa**: TASK-20260926-1855-ALL-IN-ONE-MSI-EMBEDDED-BUNDLE
+- **Estado**: POST_ACTION / COMPLETED
+- **Ações Concluídas**:
+  1. **Preparador de Runtime Embutido (`scripts/prepare_windows_runtime.py`)**:
+     - Constrói o arquivo `src-tauri/resources/axet-runtime.zip` contendo Python 3.11 Embeddable (`python311._pth` configurado), dependências pip completas com PyTorch CPU otimizado, binário nativo do Qdrant + DLLs de runtime, código do Backend, Gateway, Supervisor e `.env`.
+  2. **Configuração de Recursos no Tauri (`src-tauri/tauri.conf.json`)**:
+     - Declarado `"resources": ["resources/*"]` sob a diretiva `"bundle"`, assegurando que o WiX Toolset empacote o runtime embutido dentro do instalador corporativo MSI de forma rápida e estável.
+  3. **Auto-Extração e Ciclo de Vida Silencioso (`src-tauri/src/main.rs`)**:
+     - Implementado `ensure_windows_runtime` para extrair de forma transparente `axet-runtime.zip` para `%LOCALAPPDATA%\AXET-NeuralGraph\runtime` via `tar.exe` nativo ou PowerShell.
+     - Garante permissões locais completas de gravação para SQLite e Qdrant sem requerer privilégios de Administrador (UAC).
+     - Adicionado hook assíncrono no `setup` do Tauri para disparar os serviços nativos automaticamente ao abrir o aplicativo desktop, mantendo janela oculta (`CREATE_NO_WINDOW`).
+  4. **Pipeline de CI/CD do GitHub Actions (`.github/workflows/desktop-release.yml`)**:
+     - Removido `sparse-checkout` para garantir disponibilidade integral do Backend e Gateway no runner `windows-latest`.
+     - Adicionado setup de Python 3.11 e geração do runtime embutido antes do `tauri build`.
+     - Mantida e validada a assinatura digital Authenticode de todos os `.exe` e `.msi` com o certificado corporativo da NTT DATA.
+     - Suporte a publicação automática tanto por tag Git (`v*`) quanto por `workflow_dispatch`.
+  5. **Sincronização de Versão**: Atualizado para `v1.0.20` em `package.json`, `frontend/package.json`, `src-tauri/Cargo.toml` e `src-tauri/tauri.conf.json`.
+- **Proxima Acao Segura**: Realizar commit e push para o repositório remoto e disparar a compilação/release na esteira do GitHub Actions.

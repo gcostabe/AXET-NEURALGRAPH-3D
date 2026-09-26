@@ -119,4 +119,23 @@ if (fs.existsSync(rootPkgPath)) {
   console.log(`✓ Atualizado: package.json (root) -> v${newVersion}`);
 }
 
+// 7. Preparação do Runtime Embutido para Windows (quando compilando no Windows / CI)
+if (process.platform === 'win32') {
+  const { execSync } = require('child_process');
+  try {
+    console.log('📦 Verificando integridade da árvore de arquivos para o bundle Windows...');
+    try {
+      execSync('git sparse-checkout disable', { stdio: 'inherit', cwd: rootDir });
+    } catch (_) {}
+
+    const prepScript = path.join(rootDir, 'scripts', 'prepare_windows_runtime.py');
+    if (fs.existsSync(prepScript)) {
+      console.log('🚀 Executando prepare_windows_runtime.py para gerar axet-runtime.zip...');
+      execSync(`python "${prepScript}"`, { stdio: 'inherit', cwd: rootDir });
+    }
+  } catch (err) {
+    console.warn('⚠️ Aviso ao preparar runtime do Windows:', err.message);
+  }
+}
+
 console.log(`\n🎉 Sincronização de versão v${newVersion} concluída com sucesso!\n`);

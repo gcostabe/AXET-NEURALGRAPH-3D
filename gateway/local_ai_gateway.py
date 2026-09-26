@@ -1,6 +1,9 @@
 """Local Claude Code adapter for the aXet Bedrock-compatible endpoint."""
 import base64
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 import json
 import logging
 import os
@@ -276,7 +279,8 @@ def refresh_token(tokens):
     lock_file_path = Path(str(TOKENS_FILE) + ".lock")
     with open(lock_file_path, "w") as lock_file:
         try:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            if fcntl:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
             current_tokens = load_tokens()
             fallback_rf = extract_axet_code_refresh_token()
             new_axet_login = bool(fallback_rf and fallback_rf != current_tokens.get("refresh_token"))
@@ -328,7 +332,8 @@ def refresh_token(tokens):
             return refreshed
         finally:
             try:
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                if fcntl:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
             except Exception:
                 pass
 

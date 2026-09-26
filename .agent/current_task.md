@@ -1,16 +1,15 @@
 # CURRENT TASK
 
-Task ID: TASK-20260926-0830-ABOUT-STYLING-MAPFRE-REMOVAL-SELF-REFLECTIVE-RAG
+Task ID: TASK-20260926-1855-ALL-IN-ONE-MSI-EMBEDDED-BUNDLE
 
-Created: 2026-09-26 08:30
+Created: 2026-09-26 18:55
+Updated: 2026-09-26 19:04
 
-Status: ACTIVE
+Status: COMPLETED_READY_FOR_CI_RELEASE
 
-Branch: feat/unified-desktop-dmg-msi / main
+Branch: main
 
-Worktree Directory: /Users/gcostabe/dev/RAG-LOCAL-REEF/worktrees/desktop
-
-Production Directory (Main): /Users/gcostabe/dev/RAG-LOCAL-REEF
+Worktree Directory: c:\Users\gusta\OneDrive\Área de Trabalho\AXET-NEURALGRAPH-3D
 
 Resume Authorization: YES
 
@@ -18,44 +17,46 @@ Resume Authorization: YES
 
 ## User Request
 
-1. **Ajustes 1 (Popup About AXET/NeuralGraph)**:
-   - Centralizar tudo com padrão único e coerente de fontes.
-   - Unificar padrão de fonte e cores dos nomes dos criadores e da unidade de negócio para o mesmo padrão que descreve a versão.
-2. **Ajustes 2 (Item 1 - Remoção MAPFRE)**:
-   - Remover MAPFRE do popup "About AXET/NeuralGraph" e do rodapé da aplicação.
-   - **Restrição estrita do usuário**: NUNCA alterar ou remover referências a "MAPFRE" de arquivos `.md` (documentação, base de fontes, manuais).
-3. **Ajustes 2 (Item 2 - Correção do Self-Reflective RAG e Mutação Dinâmica de Grafo 3D)**:
-   - Identificar por que a retificação em tempo real não gerou o card de aprendizado no chat (`message.learning`).
-   - Identificar por que o novo nó/sinapse não apareceu no Grafo Neural 3D como `self-learned`.
-   - Implementar correção fim-a-fim e validar.
+O teste deve ser feito com a compilação no git com assinatura pela NTT DATA como estava antes. O usuário irá baixar de lá e testar a instalação. Não deve haver nenhuma ação manual do usuário final: todas as dependências (Python runtime, Qdrant, Gateway, Backend, dependências pip e frontend) e inicialização automática são coordenadas pelo instalador MSI do Windows.
 
 ---
 
-## Architecture & Implementation Decisions
+## Architecture & Implementation Plan
 
-1. **Popup About Styling & Typography Unification (`AppHeader.tsx`)**:
-   - Padrão de fonte da versão: texto limpo, elegante, centralizado, fonte única.
-   - Alinhar nomes dos criadores (`Gustavo Costa Berbert: Solution Architect & Cognitive Intelligence` e `Marcio Miguel: Executive Leadership & Business Architecture`) e unidade de negócio (`Application Services - MAPPS`) com as mesmas classes de fonte, tamanho e paleta de cores.
-   - Rodapé: `© 2026 NTT DATA. All rights reserved.` (sem menção a MAPFRE).
-   - Atualizar também `src-tauri/src/main.rs`, `src-tauri/Info.plist`, `src-tauri/tauri.conf.json` e `scripts/bump_version.js` para copyright exclusivo da NTT DATA.
+1. **Bare-Metal Zero Virtualization**:
+   - Modelos SQLAlchemy adaptados para cross-engine (SQLite WAL nativo local e PostgreSQL).
+   - Qdrant binário nativo para Windows (`qdrant.exe` + DLLs VC++).
+   - aXet Gateway com compatibilidade multiplataforma (sem travamento por `fcntl`).
+   - SQLite configurado automaticamente sem necessidade de Docker ou WSL2.
 
-2. **Self-Reflective RAG - Correção da Heurística e Prompt (`chat.py` & `learning_synapse.py`)**:
-   - Prompt do sistema (`SYSTEM_PROMPT`): remover restrição "(sem o interlocutor ter apontado)". Instruir o LLM a sempre emitir o bloco ````json:cognitive_learning```` ao retificar qualquer inconsistência factual ou premissa equivocada.
-   - `SELF_CORRECTION_PATTERNS`: expandir expressões regulares para capturar `você está correto`, `houve uma inconsistência`, `retificando:`, `não era correto afirmar`, `de fato houve um equívoco`, etc.
-   - Parser heurístico: se o LLM não gerar o bloco JSON mas usar frases de retificação/admissão de equívoco, extrair automaticamente o conceito, o equívoco e a correção canônica.
+2. **Embedded Zero-Touch Runtime (`scripts/prepare_windows_runtime.py`)**:
+   - Cria o arquivo único de alta eficiência `src-tauri/resources/axet-runtime.zip`.
+   - Empacota Python 3.11 Embeddable + `python311._pth` + dependências pip com wheel PyTorch CPU otimizada.
+   - Empacota binário nativo do Qdrant + DLLs MSVC + `config.yaml`.
+   - Empacota backend (`app/`), gateway (`gateway/`), supervisor e `.env` configurado.
 
-3. **Mutação Dinâmica do Grafo 3D (`learning_synapse.py` & `NeuralGraph3D.tsx`)**:
-   - Em `persist_cognitive_learning`, além de `KnowledgeEntity`, registrar também em `KnowledgeDocument` com `source_path = source_uri` (`learning://...`), para que `get_knowledge_graph` retorne o nó no array `nodes`.
-   - Definir `target_path` da aresta para um nó de documento real existente na conversa (`candidate_sources[0]` ou documento canônico), para que o Three.js encontre `srcIdx` e `tgtIdx` e desenhe a linha.
-   - Em `NeuralGraph3D.tsx`, registrar `RETIFICA_CONCEITO` em `RELATION_COLORS` com cor âmbar neon (`#f59e0b`, `Retifica Conceito (Self-Learned)`), permitindo filtragem e destaque visual específico.
+3. **Ciclo de Vida Automático e Silencioso (`src-tauri/src/main.rs`)**:
+   - Extrai de forma transparente o runtime para `%LOCALAPPDATA%\AXET-NeuralGraph\runtime` via `tar.exe` nativo ou PowerShell caso ainda não exista.
+   - Garante permissões de escrita completas para SQLite e vetores locais sem exigir elevação de privilégios de Administrador (UAC).
+   - Executa silenciosamente o supervisor em segundo plano com `CREATE_NO_WINDOW`.
+   - Hook assíncrono no `setup` do Tauri para ligar os serviços automaticamente no início da aplicação.
+
+4. **CI/CD no GitHub Actions com Assinatura Corporativa NTT DATA (`desktop-release.yml`)**:
+   - Removido `sparse-checkout` (checkout completo do repositório).
+   - Adicionada etapa do Python 3.11 para montagem do runtime embutido.
+   - Compilação do MSI via WiX Toolset empacotando o recurso embutido.
+   - Assinatura Authenticode de todos os binários e do instalador com certificado NTT DATA Corporate.
+   - Geração dos artefatos e publicação na release do GitHub (`v1.0.20`).
 
 ---
 
 ## Execution Cursor
 
-Phase: COMPLETED - ABOUT POPUP STYLING, MAPFRE REMOVAL, AND SELF-REFLECTIVE RAG MUTATION
-Step 1: Unified typography and removed MAPFRE in AppHeader.tsx, main.rs, Info.plist, tauri.conf.json, and bump_version.js [COMPLETED]
-Step 2: Expanded self-correction regex & heuristic extraction in learning_synapse.py and chat.py [COMPLETED]
-Step 3: Linked cognitive learning node into KnowledgeDocument and dynamic 3D graph edge in NeuralGraph3D.tsx [COMPLETED]
-Step 4: Built desktop bundle v1.0.9 (DMG & /Applications/AXET-NeuralGraph.app updated) [COMPLETED]
-Resume Authorization: NO
+Phase: READY_FOR_CI_DISPATCH
+Step 1: Create scripts/prepare_windows_runtime.py for packaging embedded runtime [COMPLETED]
+Step 2: Update src-tauri/src/main.rs with resource_dir resolution, extraction and background supervisor [COMPLETED]
+Step 3: Update src-tauri/tauri.conf.json to declare bundled resources [COMPLETED]
+Step 4: Update .github/workflows/desktop-release.yml for automated end-to-end MSI bundling and signing [COMPLETED]
+Step 5: Synchronize version bump to 1.0.20 across all descriptors [COMPLETED]
+Step 6: Commit and push changes to remote repository and dispatch GitHub release [NEXT_ACTION]
+Resume Authorization: YES

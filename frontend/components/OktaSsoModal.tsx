@@ -126,8 +126,8 @@ export default function OktaSsoModal({
             `${getApiUrl()}/auth/okta/start`,
             timeoutErr,
             "Os serviços cognitivos locais não responderam na porta 8000 após 20 tentativas.\n" +
-            "1. Certifique-se de que o Docker Desktop está aberto e rodando no Windows;\n" +
-            "2. Se preferir conectar ao seu servidor remoto ou ao Mac na rede local, configure o IP abaixo (ex: http://172.20.10.8:8000);\n" +
+            "1. Os serviços embutidos inicializam automaticamente em segundo plano. Aguarde alguns instantes e tente novamente;\n" +
+            "2. Se preferir conectar a outro servidor na rede local, configure o IP abaixo (ex: http://172.20.10.8:8000);\n" +
             "3. Você também pode testar a conexão a qualquer momento pelo botão 'Testar Conexão'."
           );
           setDiagnostic(diag);
@@ -215,8 +215,8 @@ export default function OktaSsoModal({
       ) {
         tip =
           "O aplicativo desktop não conseguiu conectar ao backend local (porta 8000). No Windows:\n" +
-          "1. Certifique-se de executar o script 'iniciar_windows.bat' (ou verifique se os containers do Docker Desktop estão ativos);\n" +
-          "2. Se o Docker já estiver rodando, teste abrir no navegador: http://127.0.0.1:8000/health;\n" +
+          "1. Os serviços embutidos inicializam automaticamente em segundo plano. Aguarde alguns instantes;\n" +
+          "2. Teste abrir no navegador local: http://127.0.0.1:8000/health;\n" +
           "3. Verifique se o Firewall do Windows não está bloqueando conexões locais na porta 8000.";
       } else if (rawMessage.includes("expired")) {
         tip =
