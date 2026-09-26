@@ -116,6 +116,18 @@ jobs:
         run: echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $GITHUB_PATH
         shell: bash
 
+      - name: Generate NTT DATA Corporate Authenticode Certificate
+        shell: pwsh
+        run: |
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=NTT DATA Corporate, O=NTT DATA, C=BR" -CertStoreLocation "Cert:\CurrentUser\My" -NotAfter (Get-Date).AddYears(5)
+          $store = New-Object System.Security.Cryptography.X509Certificates.X509Store "Root", "CurrentUser"
+          $store.Open("ReadWrite")
+          $store.Add($cert)
+          $store.Close()
+          Export-Certificate -Cert $cert -FilePath "NTT-DATA-Corporate.cer"
+          echo "THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+          Write-Host "Certificado NTT DATA gerado com sucesso. Thumbprint: $($cert.Thumbprint)"
+
       - name: Build Windows MSI (WiX Toolset)
         run: |
           npx --prefix frontend tauri build --bundles msi
@@ -124,14 +136,36 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      - name: Locate MSI Asset
+      - name: Sign Binaries and MSI with NTT DATA Authenticode
+        shell: pwsh
+        run: |
+          $cert = Get-Item "Cert:\CurrentUser\My\$env:THUMBPRINT"
+          $filesToSign = Get-ChildItem -Path "src-tauri/target/release" -Include "*.exe","*.msi" -Recurse
+          foreach ($file in $filesToSign) {
+            Write-Host "Assinando com Authenticode: $($file.FullName)"
+            try {
+              Set-AuthenticodeSignature -FilePath $file.FullName -Certificate $cert -TimestampServer "http://timestamp.digicert.com" -HashAlgorithm SHA256
+            } catch {
+              Write-Host "Timestamp falhou, assinando sem timestamp..."
+              Set-AuthenticodeSignature -FilePath $file.FullName -Certificate $cert -HashAlgorithm SHA256
+            }
+          }
+
+      - name: Locate MSI Asset and Prepare Companion Files
         id: msi_locate
         shell: bash
         run: |
           MSI_FILE=$(find src-tauri/target/release/bundle/msi -name "*.msi" | head -n 1)
           cp "$MSI_FILE" AXET-NeuralGraph-Setup.msi
+          cp scripts/instalar_certificado_nttdata.bat instalar_certificado_nttdata.bat
           echo "msi_path=$MSI_FILE" >> $GITHUB_OUTPUT
           echo "Found MSI: $MSI_FILE"
+
+      - name: Sign Renamed MSI
+        shell: pwsh
+        run: |
+          $cert = Get-Item "Cert:\CurrentUser\My\$env:THUMBPRINT"
+          Set-AuthenticodeSignature -FilePath "AXET-NeuralGraph-Setup.msi" -Certificate $cert -TimestampServer "http://timestamp.digicert.com" -HashAlgorithm SHA256
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
@@ -140,6 +174,8 @@ jobs:
           path: |
             ${{ steps.msi_locate.outputs.msi_path }}
             AXET-NeuralGraph-Setup.msi
+            NTT-DATA-Corporate.cer
+            instalar_certificado_nttdata.bat
 
       - name: Attach MSI to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -148,3 +184,5 @@ jobs:
           files: |
             ${{ steps.msi_locate.outputs.msi_path }}
             AXET-NeuralGraph-Setup.msi
+            NTT-DATA-Corporate.cer
+            instalar_certificado_nttdata.bat
