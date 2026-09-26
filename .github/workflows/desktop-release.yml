@@ -120,13 +120,9 @@ jobs:
         shell: pwsh
         run: |
           $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=NTT DATA Corporate, O=NTT DATA, C=BR" -CertStoreLocation "Cert:\CurrentUser\My" -NotAfter (Get-Date).AddYears(5)
-          $store = New-Object System.Security.Cryptography.X509Certificates.X509Store "Root", "CurrentUser"
-          $store.Open("ReadWrite")
-          $store.Add($cert)
-          $store.Close()
           Export-Certificate -Cert $cert -FilePath "NTT-DATA-Corporate.cer"
           echo "THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
-          Write-Host "Certificado NTT DATA gerado com sucesso. Thumbprint: $($cert.Thumbprint)"
+          Write-Host "Certificado NTT DATA gerado com sucesso em Cert:\CurrentUser\My. Thumbprint: $($cert.Thumbprint)"
 
       - name: Build Windows MSI (WiX Toolset)
         run: |
