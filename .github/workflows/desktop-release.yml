@@ -21,6 +21,11 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            src-tauri
+            frontend
+            scripts
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -79,6 +84,11 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            src-tauri
+            frontend
+            scripts
 
       - name: Configure Windows Git (Longpaths)
         run: |
