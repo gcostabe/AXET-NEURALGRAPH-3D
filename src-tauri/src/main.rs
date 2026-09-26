@@ -68,6 +68,79 @@ fn open_browser(url: String) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+async fn start_local_backend() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
+        let mut candidates = vec![
+            format!("{}\\Desktop\\Iniciar AXET-NEURALGRAPH-3D.bat", user_profile),
+            format!("{}\\OneDrive\\Desktop\\Iniciar AXET-NEURALGRAPH-3D.bat", user_profile),
+            "iniciar_windows.bat".to_string(),
+            format!("{}\\dev\\RAG-LOCAL-REEF\\iniciar_windows.bat", user_profile),
+            format!("{}\\dev\\ACDC\\iniciar_windows.bat", user_profile),
+            "C:\\dev\\RAG-LOCAL-REEF\\iniciar_windows.bat".to_string(),
+            "C:\\dev\\ACDC\\iniciar_windows.bat".to_string(),
+        ];
+
+        // Se houver subpastas em %USERPROFILE%\dev, adiciona
+        let dev_dir = format!("{}\\dev", user_profile);
+        if let Ok(entries) = std::fs::read_dir(&dev_dir) {
+            for entry in entries.flatten() {
+                let sub_bat = entry.path().join("iniciar_windows.bat");
+                if sub_bat.exists() {
+                    candidates.push(sub_bat.to_string_lossy().to_string());
+                }
+            }
+        }
+
+        for candidate in &candidates {
+            if std::path::Path::new(candidate).exists() {
+                let res = std::process::Command::new("cmd")
+                    .args(&["/c", "start", "/min", candidate])
+                    .spawn();
+                if res.is_ok() {
+                    return Ok(format!("Inicializando serviços via: {}", candidate));
+                }
+            }
+        }
+
+        // Tentar invocar wsl docker compose localizando o repositorio caso o bat nao esteja estatico
+        let wsl_cmd = "for d in /mnt/c/Users/*/dev/* /mnt/c/dev/* ~/dev/*; do if [ -f \"$d/docker-compose.yml\" ]; then cd \"$d\" && service docker start && docker compose up -d && exit 0; fi; done; service docker start && docker compose up -d";
+        let wsl_res = std::process::Command::new("wsl")
+            .args(&["-d", "Ubuntu", "-u", "root", "--", "bash", "-c", wsl_cmd])
+            .spawn();
+
+        if wsl_res.is_ok() {
+            return Ok("Iniciando containers do Docker via WSL2 em segundo plano...".to_string());
+        }
+
+        // Tentar docker compose diretamente no Windows
+        let docker_res = std::process::Command::new("cmd")
+            .args(&["/c", "docker", "compose", "up", "-d"])
+            .spawn();
+
+        if docker_res.is_ok() {
+            return Ok("Iniciando containers via Docker Desktop...".to_string());
+        }
+
+        Err("Não foi possível localizar o Docker ou o script iniciar_windows.bat na máquina.".to_string())
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("sh")
+            .args(&["-c", "docker compose up -d"])
+            .spawn();
+        Ok("Iniciando containers via Docker Compose no macOS...".to_string())
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        Err("Sistema operacional não suportado para inicialização automática.".to_string())
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -166,7 +239,8 @@ fn main() {
             pick_onedrive_folder,
             get_service_ports,
             get_system_environment,
-            open_browser
+            open_browser,
+            start_local_backend
         ])
         .run(tauri::generate_context!())
         .expect("Erro ao inicializar o aplicativo desktop AXET");

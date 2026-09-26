@@ -84,3 +84,22 @@ export async function openExternalUrl(url: string): Promise<void> {
     window.open(url, "_blank", "noopener,noreferrer");
   }
 }
+
+export async function startLocalBackend(): Promise<{ success: boolean; message: string }> {
+  if (isDesktopApp()) {
+    try {
+      const tauri = (window as any).__TAURI__;
+      const tauriInternals = (window as any).__TAURI_INTERNALS__;
+      let msg = "";
+      if (tauri?.core?.invoke) {
+        msg = await tauri.core.invoke("start_local_backend");
+      } else if (tauriInternals?.invoke) {
+        msg = await tauriInternals.invoke("start_local_backend");
+      }
+      return { success: true, message: msg || "Comando de inicialização enviado com sucesso." };
+    } catch (err: any) {
+      return { success: false, message: err?.message || String(err) };
+    }
+  }
+  return { success: false, message: "A inicialização automática de serviços locais é exclusiva do aplicativo desktop nativo." };
+}

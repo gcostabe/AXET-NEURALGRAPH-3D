@@ -8,9 +8,11 @@ import {
   OktaDeviceAuthStartResponse,
   OktaPollResponse,
   checkBackendConnectivity,
+  getApiUrl,
+  setApiUrl,
 } from "@/lib/api";
 import { setToken } from "@/lib/auth";
-import { isDesktopApp, openExternalUrl } from "@/lib/desktop";
+import { isDesktopApp, openExternalUrl, startLocalBackend } from "@/lib/desktop";
 import {
   Check,
   CheckCircle2,
@@ -23,6 +25,8 @@ import {
   AlertCircle,
   Terminal,
   RefreshCw,
+  Play,
+  Server,
 } from "lucide-react";
 
 interface DiagnosticReport {
@@ -61,10 +65,71 @@ export default function OktaSsoModal({
   const [success, setSuccess] = useState(false);
   const [pollStatus, setPollStatus] = useState<string>("Iniciando conexão...");
   const [testingBackend, setTestingBackend] = useState(false);
+  const [startingBackend, setStartingBackend] = useState(false);
   const [backendStatusMsg, setBackendStatusMsg] = useState<string | null>(null);
+  const [showUrlConfig, setShowUrlConfig] = useState(false);
+  const [backendUrlInput, setBackendUrlInput] = useState<string>(getApiUrl());
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isCancelledRef = useRef(false);
+  const autoStartAttemptedRef = useRef(false);
+
+  async function handleApplyBackendUrl(newUrl: string) {
+    const formatted = newUrl.trim().replace(/\/+$/, "");
+    if (!formatted) return;
+    setApiUrl(formatted);
+    setBackendUrlInput(formatted);
+    setBackendStatusMsg(`🔄 URL do backend alterada para: ${formatted}`);
+    setTimeout(() => {
+      handleTestBackend();
+    }, 500);
+  }
+
+  async function handleStartBackend() {
+    setStartingBackend(true);
+    setBackendStatusMsg("🚀 Solicitando inicialização dos containers em segundo plano...");
+
+    try {
+      const res = await startLocalBackend();
+      if (!res.success) {
+        setBackendStatusMsg(`⚠️ ${res.message}`);
+        setStartingBackend(false);
+        return;
+      }
+
+      setBackendStatusMsg(`⏳ ${res.message} Aguardando serviços responderem na porta 8000...`);
+
+      // Polling de inicialização: tenta conectar por até 45 segundos
+      let attempts = 0;
+      const maxAttempts = 20;
+
+      const waitTimer = setInterval(async () => {
+        attempts++;
+        const conn = await checkBackendConnectivity();
+        if (conn.ok) {
+          clearInterval(waitTimer);
+          setStartingBackend(false);
+          setBackendStatusMsg(`✅ Backend Online em ${conn.url}! Conectando ao Okta...`);
+          setTimeout(() => {
+            setBackendStatusMsg(null);
+            startFlow();
+          }, 1500);
+          return;
+        }
+
+        if (attempts >= maxAttempts) {
+          clearInterval(waitTimer);
+          setStartingBackend(false);
+          setBackendStatusMsg("⚠️ Tempo limite de inicialização. Verifique se o Docker Desktop está aberto ou clique em 'Testar Conexão'.");
+        } else {
+          setBackendStatusMsg(`⏳ Inicializando banco e IA... (${attempts}/${maxAttempts})`);
+        }
+      }, 2500);
+    } catch (err: any) {
+      setStartingBackend(false);
+      setBackendStatusMsg(`❌ Erro ao disparar inicialização: ${err?.message || String(err)}`);
+    }
+  }
 
   async function handleTestBackend() {
     setTestingBackend(true);
@@ -78,7 +143,7 @@ export default function OktaSsoModal({
           startFlow();
         }, 1200);
       } else {
-        setBackendStatusMsg(`❌ Backend Offline na porta 8000. Inicie os containers com 'iniciar_windows.bat' (ou Docker Desktop).`);
+        setBackendStatusMsg(`❌ Backend Offline na porta 8000. Inicie os containers pelo botão abaixo ou execute 'iniciar_windows.bat'.`);
       }
     } catch (e: any) {
       setBackendStatusMsg(`❌ Falha de teste: ${e?.message || "Serviço inacessível"}`);
@@ -265,6 +330,19 @@ export default function OktaSsoModal({
     } catch (err: any) {
       if (!isCancelledRef.current) {
         setLoading(false);
+        const errMsg = err?.message || "";
+        const isNetworkErr =
+          errMsg.includes("Failed to fetch") ||
+          errMsg.includes("NetworkError") ||
+          !err?.status;
+
+        // Se for aplicativo desktop nativo e for a primeira tentativa com erro de conexão, auto-inicia os containers
+        if (isDesktopApp() && isNetworkErr && !autoStartAttemptedRef.current) {
+          autoStartAttemptedRef.current = true;
+          handleStartBackend();
+          return;
+        }
+
         const diag = createDiagnostic(
           "OKTA_DEVICE_AUTH_START",
           `${API_URL}/auth/okta/start`,
@@ -272,7 +350,6 @@ export default function OktaSsoModal({
         );
         setDiagnostic(diag);
 
-        const errMsg = err?.message || "";
         if (errMsg.includes("Method Not Allowed") || err?.status === 405) {
           setError(
             "Erro 405 (Method Not Allowed): O backend local em http://localhost:8000 precisa ser atualizado ou reiniciado para aceitar o login SSO."
@@ -301,6 +378,9 @@ export default function OktaSsoModal({
       setError(null);
       setDiagnostic(null);
       setSuccess(false);
+      autoStartAttemptedRef.current = false;
+      setStartingBackend(false);
+      setBackendStatusMsg(null);
     }
     return () => {
       isCancelledRef.current = true;
@@ -357,14 +437,39 @@ export default function OktaSsoModal({
 
         {/* Modal Body */}
         <div className="py-5 space-y-5">
-          {loading && (
+          {startingBackend && (
+            <div className="flex flex-col items-center justify-center py-6 px-4 space-y-4 rounded-xl border border-sky-500/20 bg-sky-950/20 text-center">
+              <div className="relative">
+                <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 opacity-30 blur animate-pulse" />
+                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 border border-sky-500/40 text-sky-400">
+                  <Server className="h-7 w-7 animate-pulse text-sky-400" />
+                </div>
+              </div>
+              <div className="space-y-1.5 max-w-sm">
+                <h3 className="text-sm font-semibold text-white">Inicializando Serviços Cognitivos Locais</h3>
+                <p className="text-xs text-slate-300">
+                  O aplicativo desktop está ativando os containers em segundo plano. Por favor, aguarde alguns instantes...
+                </p>
+              </div>
+              {backendStatusMsg && (
+                <div className="text-[11px] font-mono px-3 py-1.5 rounded-lg bg-black/50 border border-sky-500/30 text-sky-300">
+                  {backendStatusMsg}
+                </div>
+              )}
+              <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-sky-500 h-1.5 rounded-full animate-pulse w-3/4" />
+              </div>
+            </div>
+          )}
+
+          {!startingBackend && loading && (
             <div className="flex flex-col items-center justify-center py-8 space-y-3">
               <Loader2 className="h-8 w-8 text-sky-400 animate-spin" />
               <p className="text-xs text-slate-300 animate-pulse">{pollStatus}</p>
             </div>
           )}
 
-          {error && (
+          {!startingBackend && error && (
             <div className="space-y-4">
               <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-300 flex items-start gap-2.5">
                 <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
@@ -422,12 +527,33 @@ export default function OktaSsoModal({
                     </div>
                   )}
 
-                  <div className="pt-1 flex flex-col gap-2">
+                  <div className="pt-1 flex flex-col gap-2.5">
+                    {/* Botão de Auto-Start Nativo dos Serviços */}
+                    <button
+                      type="button"
+                      onClick={handleStartBackend}
+                      disabled={startingBackend || testingBackend}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-2.5 px-3 text-xs font-semibold shadow-md transition disabled:opacity-50"
+                    >
+                      {startingBackend ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Inicializando containers do backend...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-3.5 w-3.5 fill-current" />
+                          <span>🚀 Iniciar Serviços Locais Automaticamente</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Botão de Teste Manual */}
                     <button
                       type="button"
                       onClick={handleTestBackend}
-                      disabled={testingBackend}
-                      className="flex items-center justify-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 px-3 py-1.5 text-[11px] font-medium text-sky-200 transition disabled:opacity-50"
+                      disabled={testingBackend || startingBackend}
+                      className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 px-3 py-1.5 text-[11px] font-medium text-slate-300 transition disabled:opacity-50"
                     >
                       {testingBackend ? (
                         <>
@@ -436,21 +562,87 @@ export default function OktaSsoModal({
                         </>
                       ) : (
                         <>
-                          <RefreshCw className="h-3 w-3 text-sky-400" />
-                          <span>Testar Conexão com o Backend Local</span>
+                          <RefreshCw className="h-3 w-3 text-slate-400" />
+                          <span>Testar Conexão com a Porta 8000</span>
                         </>
                       )}
                     </button>
 
+                    {/* Mensagem de Status em Tempo Real */}
                     {backendStatusMsg && (
-                      <div className={`p-2 rounded-lg text-[11px] leading-relaxed border ${
+                      <div className={`p-2.5 rounded-lg text-[11px] leading-relaxed border ${
                         backendStatusMsg.startsWith("✅")
                           ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-300"
+                          : backendStatusMsg.startsWith("⏳") || backendStatusMsg.startsWith("🔄") || backendStatusMsg.startsWith("🚀")
+                          ? "bg-sky-950/40 border-sky-500/30 text-sky-300"
                           : "bg-rose-950/40 border-rose-500/30 text-rose-300"
                       }`}>
                         {backendStatusMsg}
                       </div>
                     )}
+
+                    {/* Seção Configurável de Servidor / URL Remota */}
+                    <div className="pt-2 border-t border-slate-800/80">
+                      <button
+                        type="button"
+                        onClick={() => setShowUrlConfig(!showUrlConfig)}
+                        className="flex items-center justify-between w-full text-[11px] text-slate-400 hover:text-sky-300 transition py-1"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Server className="h-3 w-3" />
+                          <span>Configurar URL do Backend / Servidor</span>
+                        </span>
+                        <span className="text-[10px] text-sky-400 underline">{showUrlConfig ? "Ocultar" : "Alterar Servidor"}</span>
+                      </button>
+
+                      {showUrlConfig && (
+                        <div className="mt-2 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-left">
+                          <div className="text-[11px] text-slate-400">
+                            Endereço onde o backend FastAPI está ativo:
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={backendUrlInput}
+                              onChange={(e) => setBackendUrlInput(e.target.value)}
+                              placeholder="http://localhost:8000"
+                              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-sky-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleApplyBackendUrl(backendUrlInput)}
+                              className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold transition"
+                            >
+                              Salvar
+                            </button>
+                          </div>
+                          <div className="flex gap-1.5 flex-wrap pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleApplyBackendUrl("http://localhost:8000")}
+                              className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white"
+                            >
+                              Localhost (:8000)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyBackendUrl("http://127.0.0.1:8000")}
+                              className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white"
+                            >
+                              127.0.0.1 (:8000)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyBackendUrl("http://172.20.10.8:8000")}
+                              className="text-[10px] px-2 py-0.5 rounded bg-blue-900/60 text-blue-200 hover:text-white border border-blue-700/50"
+                              title="Conectar ao Mac na rede local"
+                            >
+                              Mac na Rede (172.20.10.8:8000)
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
