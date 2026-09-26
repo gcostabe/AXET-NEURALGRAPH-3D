@@ -51,8 +51,9 @@ fn open_browser(url: String) -> Result<(), String> {
     }
     #[cfg(target_os = "windows")]
     {
+        let escaped_url = url.replace("&", "^&");
         std::process::Command::new("cmd")
-            .args(&["/c", "start", "", &url])
+            .args(&["/c", "start", "", &escaped_url])
             .spawn()
             .map_err(|e| e.to_string())?;
         return Ok(());
@@ -80,7 +81,7 @@ fn main() {
                     short_version: Some(env!("CARGO_PKG_VERSION").into()),
                     authors: None,
                     comments: None,
-                    credits: Some("Created by:\nGustavo Costa Berbert\nMarcio Miguel\n\nApplication Services - MAPPS".into()),
+                    credits: Some("Gustavo Costa Berbert: Solution Architect & Cognitive Intelligence\nMarcio Miguel: Executive Leadership & Business Architecture\n\nApplication Services - MAPPS".into()),
                     copyright: Some("© 2026 NTT DATA / MAPFRE. All rights reserved.".into()),
                     website: Some("https://github.com/gcostabe/AXET-NEURALGRAPH-3D".into()),
                     website_label: Some("Official Repository".into()),

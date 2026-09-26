@@ -474,10 +474,10 @@ export default function AppHeader() {
 
             {/* About Header */}
             <div className="flex flex-col items-center text-center">
-              <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#0072BC] to-sky-400 p-3 shadow-lg shadow-blue-500/20">
-                <NttDataLogo className="h-10 w-10 text-white" />
+              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#0072BC] to-sky-400 p-3 shadow-lg shadow-blue-500/20">
+                <NttDataLogo className="h-8 w-8 text-white" />
               </div>
-              <h3 className="text-lg font-bold text-white tracking-tight">
+              <h3 className="text-base font-bold text-white tracking-tight">
                 AXET-NeuralGraph 3D
               </h3>
               
@@ -490,51 +490,32 @@ export default function AppHeader() {
                 </span>
               </div>
 
-              <p className="mt-2.5 text-xs text-slate-400 leading-relaxed max-w-xs">
+              <p className="mt-2 text-xs text-slate-400 leading-relaxed max-w-xs text-center">
                 Enterprise 3D Neural Knowledge Platform & High-Performance RAG System with Epistemic Sandboxing and Multimodal Analysis.
               </p>
             </div>
 
-            {/* Creators & Architects Card */}
-            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5">
+            {/* Creators & Architects Card - Centralizado e padronizado */}
+            <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 p-4 text-center">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5 text-center">
                 Creators & Architects
               </div>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/20 text-blue-300 font-bold text-xs border border-blue-500/30">
-                    GB
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-xs font-semibold text-slate-100">
-                      Gustavo Costa Berbert
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Solution Architect & Cognitive Intelligence
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 font-bold text-xs border border-purple-500/30">
-                    MM
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-xs font-semibold text-slate-100">
-                      Marcio Miguel
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Executive Leadership & Business Architecture
-                    </span>
-                  </div>
-                </div>
+              <div className="space-y-2 text-center text-xs text-slate-200">
+                <p className="leading-relaxed">
+                  <span className="font-semibold text-white">Gustavo Costa Berbert:</span>{" "}
+                  <span className="text-slate-300">Solution Architect & Cognitive Intelligence</span>
+                </p>
+                <p className="leading-relaxed">
+                  <span className="font-semibold text-white">Marcio Miguel:</span>{" "}
+                  <span className="text-slate-300">Executive Leadership & Business Architecture</span>
+                </p>
               </div>
             </div>
 
             {/* Institutional Footer */}
-            <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-              <span className="truncate max-w-[200px]">Application Services - MAPPS</span>
-              <span>© 2026 NTT DATA / MAPFRE</span>
+            <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col items-center justify-center gap-1 text-[11px] text-slate-400 text-center">
+              <span className="font-medium text-slate-300">Application Services - MAPPS</span>
+              <span>© 2026 NTT DATA / MAPFRE. All rights reserved.</span>
             </div>
           </div>
         </div>

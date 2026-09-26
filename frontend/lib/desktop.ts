@@ -65,10 +65,15 @@ export async function openExternalUrl(url: string): Promise<void> {
         return;
       }
 
-      // 2. Plugin Shell do Tauri v2
-      const { open } = await import("@tauri-apps/plugin-shell");
-      await open(url);
-      return;
+      // 2. Plugin Shell do Tauri v2 (carregado dinamicamente em runtime para funcionar tanto em desktop quanto em web)
+      try {
+        const shellPkg = "@tauri-apps/plugin-shell";
+        const shellPlugin: any = await import(/* webpackIgnore: true */ `${shellPkg}`);
+        if (shellPlugin?.open) {
+          await shellPlugin.open(url);
+          return;
+        }
+      } catch (_) {}
     } catch (err) {
       console.warn("[desktop] Erro ao abrir URL nativa, tentando fallback de janela:", err);
     }
