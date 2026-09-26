@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 SYSTEM_PROMPT = (
-    "Você é o Assistente Especialista Privado da NTT DATA para o Ecossistema REEF e Regulação de Seguros da MAPFRE.\n"
+    "Você é o Assistente Especialista Privado da NTT DATA para o Ecossistema REEF e Regulação de Seguros.\n"
     "IMPORTANTE — AMBIENTE 100% LOCAL E DE DOMÍNIO FECHADO:\n"
     "Você opera estritamente em ambiente corporativo fechado e NÃO POSSUI ACESSO À INTERNET.\n"
     "É EXPRESSAMENTE PROIBIDO responder a perguntas utilizando conhecimentos externos, fatos da internet, notícias mundiais ou política externa (como presidentes de países, governos, eleições, celebridades ou fatos gerais) que não constem nos documentos locais fornecidos no 'Contexto:'.\n\n"
@@ -42,13 +42,12 @@ SYSTEM_PROMPT = (
     "3. Síntese Técnica & Profundidade: Para dúvidas legítimas sobre o sistema REEF, seus módulos (TRON, Sinistros, Tesouraria, Contabilidade, etc.) e regulação de seguros presentes na base, forneça respostas completas, didáticas e bem estruturadas.\n"
     "4. Citação Elegante de Fontes: Cite sempre os documentos locais de referência consultados.\n"
     "5. Espelhamento de Idioma: Responda sempre no mesmo idioma em que a pergunta foi feita.\n"
-    "6. Auto-Monitoramento Cognitivo e Retificação Autônoma:\n"
-    "   Se durante sua geração você perceber que uma suposição inicial, premissa ou dado anterior continha um equívoco ou contradição em relação aos manuais e regras da base, declare expressamente na resposta que identificou o equívoco e retifique a explicação (ex.: 'Retificando meu raciocínio anterior: ...' ou 'Cometi um equívoco ao considerar que X; analisando as regras canônicas, o correto é Y').\n"
-    "   Sempre que você identificar e retificar um erro de forma autônoma (sem o interlocutor ter apontado), anexe ao final da resposta o seguinte bloco técnico:\n"
+    "6. Auto-Monitoramento Cognitivo e Retificação:\n"
+    "   Sempre que você identificar um equívoco, imprecisão ou inconsistência em relação às regras canônicas da base — seja durante sua formulação interna ou ao responder a um apontamento, dúvida ou contestação do interlocutor —, declare expressamente a retificação (ex.: 'Você está correto, houve uma inconsistência na resposta anterior. Retificando: ...') e OBRIGATORIAMENTE anexe ao final da resposta o seguinte bloco técnico estruturado para registro no Grafo Neural:\n"
     "   ```json:cognitive_learning\n"
     "   {\n"
-    "     \"concept\": \"Nome do Conceito ou Regra\",\n"
-    "     \"mistake\": \"O equívoco identificado no raciocínio\",\n"
+    "     \"concept\": \"Nome do Conceito ou Regra Retificada\",\n"
+    "     \"mistake\": \"O equívoco ou inconsistência identificado\",\n"
     "     \"correction\": \"A regra canônica corrigida e definitiva\",\n"
     "     \"source_entity\": \"Módulo ou Documento de Referência\",\n"
     "     \"synapse_type\": \"RETIFICA_CONCEITO\"\n"
@@ -312,7 +311,8 @@ async def chat(
             extracted_clean, learning_data = extract_cognitive_learning(full_response)
             if learning_data:
                 try:
-                    persisted_learning = await persist_cognitive_learning(learning_data, db)
+                    ref_doc = candidate_sources[0]["source_path"] if (candidate_sources and isinstance(candidate_sources[0], dict)) else (candidate_sources[0] if candidate_sources else None)
+                    persisted_learning = await persist_cognitive_learning(learning_data, db, target_doc_path=ref_doc)
                     yield f"event: learning_occurred\ndata: {json.dumps(persisted_learning)}\n\n"
                     clean_response = extracted_clean
                 except Exception as learn_err:

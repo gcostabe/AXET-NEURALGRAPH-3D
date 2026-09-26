@@ -22,18 +22,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.ingestion.embedder import get_embedder
 from app.ingestion.vector_store import get_client
-from app.knowledge.models import KnowledgeEdge, KnowledgeEntity
+from app.knowledge.models import KnowledgeDocument, KnowledgeEdge, KnowledgeEntity
 
 logger = logging.getLogger(__name__)
 
-# Padrões linguísticos de auto-correção / reflexão interna autônoma
+# Padrões linguísticos abrangentes de auto-correção / reflexão interna / admissão de equívoco
 SELF_CORRECTION_PATTERNS = [
-    r"(?:retifico|retificando)\s+(?:meu\s+racioc[ií]nio|a\s+informa[çc][ãa]o|minha\s+afirma[çc][ãa]o|a\s+resposta)",
-    r"cometi\s+um\s+equ[ií]voco\s+(?:ao\s+afirmar|inicial|anterior)",
-    r"me\s+enganei\s+(?:ao\s+considerar|inicialmente|ao\s+supor)",
+    r"(?:retifico|retificando)(?::|\s+)",
+    r"(?:voc[êe]|voce)\s+est[áa]\s+correto",
+    r"(?:voc[êe]|voce)\s+tem\s+raz[ãa]o",
+    r"houve\s+uma\s+inconsist[êe]ncia",
+    r"inconsist[êe]ncia\s+nas\s+respostas",
+    r"n[ãa]o\s+era\s+correto\s+afirmar",
+    r"cometi\s+um\s+equ[ií]voco",
+    r"me\s+enganei",
     r"pe[çc]o\s+desculpas\s+pelo\s+equ[ií]voco",
-    r"corrigindo\s+(?:o\s+entendimento|a\s+regra|a\s+resposta|a\s+informa[çc][ãa]o)",
-    r"revisando\s+(?:as\s+regras|os\s+manuais|a\s+documenta[çc][ãa]o\s+can[ôo]nica),\s+(?:o\s+correto|retifico|constato\s+que)",
+    r"corrigindo(?::|\s+)",
+    r"revisando\s+(?:as\s+regras|os\s+manuais|a\s+documenta[çc][ãa]o|os\s+documentos)",
+    r"de\s+fato\s+houve\s+um\s+equ[ií]voco",
+    r"de\s+fato\s+houve\s+uma\s+falha",
+    r"identifiquei\s+(?:um\s+equ[ií]voco|uma\s+falha|uma\s+inconsist[êe]ncia|um\s+erro)",
+    r"ap[óo]s\s+revisar\s+melhor",
+    r"o\s+correto\s+n[ãa]o\s+[ée]\s+afirmar",
 ]
 
 
@@ -41,23 +51,22 @@ def extract_cognitive_learning(
     response_text: str,
 ) -> tuple[str, dict[str, Any] | None]:
     """Analisa a resposta do modelo procurando blocos estruturados de aprendizado
-
-    ou marcadores expressos de auto-correção.
+    ou marcadores expressos de auto-correção e reflexão cognitiva.
     Retorna uma tupla: (texto_limpo_para_o_usuario, dados_do_aprendizado | None)
     """
     if not response_text:
         return response_text, None
 
-    # 1. Busca por bloco explícito json:cognitive_learning ou json:learning
-    block_pattern = r"```(?:json:cognitive_learning|json:learning|cognitive_learning)\s*([\s\S]*?)\s*```"
+    # 1. Busca por bloco estruturado json:cognitive_learning ou variantes
+    block_pattern = r"```(?:json:cognitive_learning|json:learning|cognitive_learning|json)\s*([\s\S]*?)\s*```"
     match = re.search(block_pattern, response_text, re.IGNORECASE)
 
     if match:
         raw_json = match.group(1).strip()
-        cleaned_text = re.sub(block_pattern, "", response_text, flags=re.IGNORECASE).strip()
         try:
             parsed = json.loads(raw_json)
-            if isinstance(parsed, dict) and parsed.get("concept") and parsed.get("correction"):
+            if isinstance(parsed, dict) and parsed.get("concept") and (parsed.get("correction") or parsed.get("mistake")):
+                cleaned_text = re.sub(block_pattern, "", response_text, flags=re.IGNORECASE).strip()
                 return cleaned_text, {
                     "detected": True,
                     "concept": str(parsed.get("concept", "")).strip(),
@@ -67,27 +76,44 @@ def extract_cognitive_learning(
                     "synapse_type": str(parsed.get("synapse_type", "RETIFICA_CONCEITO")).strip(),
                 }
         except Exception as exc:
-            logger.warning(f"[learning_synapse] Falha ao parsear bloco json:cognitive_learning: {exc}")
+            logger.debug(f"[learning_synapse] Bloco de código não era JSON de aprendizado: {exc}")
 
-    # 2. Verificação de auto-correção via expressões regulares semânticas
+    # 2. Verificação de auto-correção via expressões regulares semânticas ampliadas
     has_self_correction = any(
         re.search(pat, response_text, re.IGNORECASE) for pat in SELF_CORRECTION_PATTERNS
     )
 
     if has_self_correction:
-        # Extração heurística de conceito e retificação
         lines = [line.strip() for line in response_text.split("\n") if line.strip()]
         correction_snippet = ""
+        mistake_snippet = ""
+        concept_snippet = "Regra / Parâmetro REEF Retificado"
+
         for line in lines:
-            if any(re.search(pat, line, re.IGNORECASE) for pat in SELF_CORRECTION_PATTERNS):
+            if re.search(r"(?:retificando|corrigindo|o\s+correto\s+[ée])(?::|\s+)", line, re.IGNORECASE) and not correction_snippet:
                 correction_snippet = line
-                break
+            elif re.search(r"(?:inconsist[êe]ncia|equ[ií]voco|n[ãa]o\s+era\s+correto|me\s+enganei|cometi|voc[êe]\s+est[áa]\s+correto)", line, re.IGNORECASE) and not mistake_snippet:
+                mistake_snippet = line
+
+        # Tenta extrair conceito de termos entre aspas na mensagem
+        quote_match = re.search(r"['\"]([^'\"]{3,60})['\"]", response_text)
+        if quote_match:
+            concept_snippet = quote_match.group(1).strip()
+        else:
+            kw_match = re.search(r"(?:tipos?\s+de\s+[a-zà-ú]+|plano\s+de\s+[a-zà-ú]+|módulo\s+[a-zà-ú]+|expediente[s]?)", response_text, re.IGNORECASE)
+            if kw_match:
+                concept_snippet = kw_match.group(0).capitalize()
+
+        if not correction_snippet and lines:
+            correction_snippet = lines[0]
+        if not mistake_snippet:
+            mistake_snippet = "Interpretação preliminar inconsistente com a base canônica"
 
         return response_text, {
             "detected": True,
-            "concept": "Regra / Parâmetro REEF Retificado",
-            "mistake": "Interpretação preliminar inconsistente com a base canônica",
-            "correction": correction_snippet or "Retificação factual adotada pelo assistente com base nos manuais canônicos.",
+            "concept": concept_snippet,
+            "mistake": mistake_snippet[:250],
+            "correction": correction_snippet[:350],
             "source_entity": "REEF_CANONICAL_RULE",
             "synapse_type": "RETIFICA_CONCEITO",
         }
@@ -98,10 +124,12 @@ def extract_cognitive_learning(
 async def persist_cognitive_learning(
     learning_data: dict[str, Any],
     db: AsyncSession,
+    target_doc_path: str | None = None,
 ) -> dict[str, Any]:
     """Persiste a retificação como um novo Nó e Sinapse no Grafo Relacional
-
     (Postgres) e indexa o vetor com prioridade máxima no Qdrant.
+    Garante persistência tanto em KnowledgeEntity quanto em KnowledgeDocument
+    para renderização imediata na visualização 3D.
     """
     concept = learning_data.get("concept", "Conceito Geral").strip()[:255]
     mistake = learning_data.get("mistake", "").strip()
@@ -122,15 +150,32 @@ async def persist_cognitive_learning(
     )
     db.add(entity)
 
-    # 2. Criação da Aresta / Sinapse no Grafo
-    target_path = learning_data.get("source_entity") or "REEF_SYSTEM_CORE"
+    # 2. Criação do Nó em KnowledgeDocument para aparecer na cena 3D (data.nodes)
+    existing_doc = await db.scalar(select(KnowledgeDocument).where(KnowledgeDocument.source_path == source_uri))
+    if not existing_doc:
+        doc = KnowledgeDocument(
+            source_path=source_uri,
+            title=f"⚡ {concept}",
+            content_hash=canonical_id,
+            summary=f"Retificação Cognitiva (Self-Learned): {correction} | Equívoco superado: {mistake}",
+            topics=["Aprendizado Cognitivo", "Self-Learned", "Neuroplasticidade"],
+        )
+        db.add(doc)
+
+    # 3. Determinação do nó destino existente na topologia do Grafo
+    target_path = target_doc_path or learning_data.get("source_entity")
+    if not target_path or target_path in ("REEF_CANONICAL_RULE", "REEF_SYSTEM_CORE"):
+        first_doc = await db.scalar(select(KnowledgeDocument.source_path).where(KnowledgeDocument.source_path != source_uri).limit(1))
+        target_path = first_doc or "REEF_SYSTEM_CORE"
+
+    # 4. Criação da Aresta / Sinapse no Grafo
     edge = KnowledgeEdge(
         id=uuid.uuid4(),
         source_path=source_uri,
         target_path=target_path,
         relation_type=synapse_type,
         description=f"Sinapse de Aprendizado Autônomo em Tempo Real: {correction}",
-        weight=2.5,
+        weight=3.0,
     )
     db.add(edge)
     await db.commit()
@@ -396,11 +441,29 @@ async def review_cognitive_learning(
             entity.name = f"⚡ {target['concept']}"
             entity.description = f"Retificação Aprovada: {target['correction']} | Equívoco: {target.get('mistake', '')}"
 
-        edge = await db.scalar(select(KnowledgeEdge).where(KnowledgeEdge.source_path == f"learning://{canonical_id}"))
+        # Garante a existência do nó de documento para o Grafo 3D
+        source_uri = f"learning://{canonical_id}"
+        doc = await db.scalar(select(KnowledgeDocument).where(KnowledgeDocument.source_path == source_uri))
+        if not doc:
+            doc = KnowledgeDocument(
+                source_path=source_uri,
+                title=f"⚡ {target['concept']}",
+                content_hash=canonical_id,
+                summary=f"Retificação Aprovada: {target['correction']} | Equívoco: {target.get('mistake', '')}",
+                topics=["Aprendizado Cognitivo", "Self-Learned", "Neuroplasticidade"],
+            )
+            db.add(doc)
+        else:
+            doc.title = f"⚡ {target['concept']}"
+            doc.summary = f"Retificação Aprovada: {target['correction']} | Equívoco: {target.get('mistake', '')}"
+
+        edge = await db.scalar(select(KnowledgeEdge).where(KnowledgeEdge.source_path == source_uri))
         if not edge:
+            first_doc = await db.scalar(select(KnowledgeDocument.source_path).where(KnowledgeDocument.source_path != source_uri).limit(1))
+            target_path = first_doc or "REEF_SYSTEM_CORE"
             edge = KnowledgeEdge(
-                source_path=f"learning://{canonical_id}",
-                target_path="REEF_SYSTEM_CORE",
+                source_path=source_uri,
+                target_path=target_path,
                 relation_type=target.get("synapse_type", "RETIFICA_CONCEITO"),
                 description=f"Sinapse Aprovada pelo ADM: {target['correction']}",
                 weight=3.0,
@@ -520,12 +583,29 @@ async def import_cognitive_pack(
             entity.name = f"⚡ {concept}"
             entity.description = f"Retificação Canônica: {correction} | Equívoco: {mistake}"
 
-        # 2. Postgres Edge
+        # 2. Postgres KnowledgeDocument (para aparecer no Grafo 3D)
+        doc = await db.scalar(select(KnowledgeDocument).where(KnowledgeDocument.source_path == source_uri))
+        if not doc:
+            doc = KnowledgeDocument(
+                source_path=source_uri,
+                title=f"⚡ {concept}",
+                content_hash=cid,
+                summary=f"Retificação Canônica: {correction} | Equívoco: {mistake}",
+                topics=["Aprendizado Cognitivo", "Self-Learned", "Neuroplasticidade"],
+            )
+            db.add(doc)
+        else:
+            doc.title = f"⚡ {concept}"
+            doc.summary = f"Retificação Canônica: {correction} | Equívoco: {mistake}"
+
+        # 3. Postgres Edge
         edge = await db.scalar(select(KnowledgeEdge).where(KnowledgeEdge.source_path == source_uri))
         if not edge:
+            first_doc = await db.scalar(select(KnowledgeDocument.source_path).where(KnowledgeDocument.source_path != source_uri).limit(1))
+            target_path = first_doc or "REEF_SYSTEM_CORE"
             edge = KnowledgeEdge(
                 source_path=source_uri,
-                target_path="REEF_SYSTEM_CORE",
+                target_path=target_path,
                 relation_type=synapse_type,
                 description=f"Sinapse Oficial Aprovada: {correction}",
                 weight=3.0,

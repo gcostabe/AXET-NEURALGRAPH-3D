@@ -38,6 +38,7 @@ interface NeuralGraph3DProps {
 
 // Mapeamento de cores por tipo de relação semântica
 const RELATION_COLORS: Record<string, { color: string; hex: number; label: string; rgb: [number, number, number] }> = {
+  RETIFICA_CONCEITO: { color: "#f59e0b", hex: 0xf59e0b, label: "Retifica Conceito (Self-Learned)", rgb: [0.96, 0.62, 0.04] },
   ATUALIZA: { color: "#d946ef", hex: 0xd946ef, label: "Atualiza", rgb: [0.85, 0.27, 0.94] },
   SUBSTITUI: { color: "#ff2d87", hex: 0xff2d87, label: "Substitui", rgb: [1.0, 0.18, 0.53] },
   COMPLEMENTA: { color: "#00f0ff", hex: 0x00f0ff, label: "Complementa", rgb: [0.0, 0.94, 1.0] },
@@ -146,6 +147,9 @@ export const LOBE_KEYS = ["frontal", "parietal", "occipital", "temporal", "cereb
 export function getNodeBrainLobe(node: KnowledgeNode, clusterIdx: number): BrainLobeConfig {
   const text = `${node.source_path} ${node.title} ${(node.topics || []).join(" ")}`.toLowerCase();
 
+  if (text.includes("aprendizado") || text.includes("learning") || text.includes("retifica") || text.includes("self-learned") || text.includes("neuroplasticidade")) {
+    return CYBERPUNK_BRAIN_LOBES.cerebellum;
+  }
   if (text.includes("ia") || text.includes("cogni") || text.includes("vector") || text.includes("cache") || text.includes("embedding") || text.includes("banco")) {
     return CYBERPUNK_BRAIN_LOBES.cerebellum;
   }
@@ -1206,15 +1210,24 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
       linePositions[baseIdx + 4] = tgt.y;
       linePositions[baseIdx + 5] = tgt.z;
 
-      // Cores por Vértice: gradiente neon dos lobos anatômicos de origem e destino (estilo Cyberpunk)
-      const srcLobe = CYBERPUNK_BRAIN_LOBES[src.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
-      const tgtLobe = CYBERPUNK_BRAIN_LOBES[tgt.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
-      lineColors[baseIdx] = srcLobe.rgb[0];
-      lineColors[baseIdx + 1] = srcLobe.rgb[1];
-      lineColors[baseIdx + 2] = srcLobe.rgb[2];
-      lineColors[baseIdx + 3] = tgtLobe.rgb[0];
-      lineColors[baseIdx + 4] = tgtLobe.rgb[1];
-      lineColors[baseIdx + 5] = tgtLobe.rgb[2];
+      // Cores por Vértice: gradiente neon dos lobos anatômicos ou âmbar se for aprendizado autônomo
+      if (edge.relation_type === "RETIFICA_CONCEITO") {
+        lineColors[baseIdx] = 0.96;
+        lineColors[baseIdx + 1] = 0.62;
+        lineColors[baseIdx + 2] = 0.04;
+        lineColors[baseIdx + 3] = 0.96;
+        lineColors[baseIdx + 4] = 0.62;
+        lineColors[baseIdx + 5] = 0.04;
+      } else {
+        const srcLobe = CYBERPUNK_BRAIN_LOBES[src.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
+        const tgtLobe = CYBERPUNK_BRAIN_LOBES[tgt.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
+        lineColors[baseIdx] = srcLobe.rgb[0];
+        lineColors[baseIdx + 1] = srcLobe.rgb[1];
+        lineColors[baseIdx + 2] = srcLobe.rgb[2];
+        lineColors[baseIdx + 3] = tgtLobe.rgb[0];
+        lineColors[baseIdx + 4] = tgtLobe.rgb[1];
+        lineColors[baseIdx + 5] = tgtLobe.rgb[2];
+      }
     }
 
     const lineGeometry = new THREE.BufferGeometry();
@@ -1566,12 +1579,16 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
         }
 
         if (matchRelation && matchLobe && isHighlighted && src && tgt) {
-          const srcLobe = CYBERPUNK_BRAIN_LOBES[src.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
-          const tgtLobe = CYBERPUNK_BRAIN_LOBES[tgt.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
           const mult = selectedNode ? 1.5 : 1.0;
-
-          lineColorsAttr.setXYZ(e * 2, srcLobe.rgb[0] * mult, srcLobe.rgb[1] * mult, srcLobe.rgb[2] * mult);
-          lineColorsAttr.setXYZ(e * 2 + 1, tgtLobe.rgb[0] * mult, tgtLobe.rgb[1] * mult, tgtLobe.rgb[2] * mult);
+          if (edge.relation_type === "RETIFICA_CONCEITO") {
+            lineColorsAttr.setXYZ(e * 2, 0.96 * mult, 0.62 * mult, 0.04 * mult);
+            lineColorsAttr.setXYZ(e * 2 + 1, 0.96 * mult, 0.62 * mult, 0.04 * mult);
+          } else {
+            const srcLobe = CYBERPUNK_BRAIN_LOBES[src.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
+            const tgtLobe = CYBERPUNK_BRAIN_LOBES[tgt.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
+            lineColorsAttr.setXYZ(e * 2, srcLobe.rgb[0] * mult, srcLobe.rgb[1] * mult, srcLobe.rgb[2] * mult);
+            lineColorsAttr.setXYZ(e * 2 + 1, tgtLobe.rgb[0] * mult, tgtLobe.rgb[1] * mult, tgtLobe.rgb[2] * mult);
+          }
         } else {
           // Apaga ou atenua a aresta zerando as cores no buffer
           lineColorsAttr.setXYZ(e * 2, 0.02, 0.03, 0.06);

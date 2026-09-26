@@ -2,7 +2,7 @@
 
 /**
  * Script de Auto-Evolução de Versão e Governança de Autoria (AXET-NeuralGraph)
- * Criadores: Gustavo Costa Berbert & Marcio Miguel (NTT DATA / MAPFRE)
+ * Criadores: Gustavo Costa Berbert & Marcio Miguel (NTT DATA)
  *
  * Atualiza sincronizadamente:
  *  - src-tauri/tauri.conf.json
@@ -79,7 +79,7 @@ console.log(`======================================================\n`);
 // 3. Atualizar tauri.conf.json
 tauriConf.version = newVersion;
 if (!tauriConf.bundle) tauriConf.bundle = {};
-tauriConf.bundle.copyright = "© 2026 NTT DATA / MAPFRE. All rights reserved.";
+tauriConf.bundle.copyright = "© 2026 NTT DATA. All rights reserved.";
 if (!tauriConf.bundle.macOS) tauriConf.bundle.macOS = {};
 tauriConf.bundle.macOS.infoPlist = "Info.plist";
 

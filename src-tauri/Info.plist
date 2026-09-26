@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>NSHumanReadableCopyright</key>
-  <string>© 2026 NTT DATA / MAPFRE. All rights reserved.</string>
+  <string>© 2026 NTT DATA. All rights reserved.</string>
   <key>CFBundleGetInfoString</key>
   <string>AXET-NeuralGraph 3D - Application Services - MAPPS</string>
 </dict>

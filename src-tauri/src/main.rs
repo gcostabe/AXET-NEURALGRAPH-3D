@@ -82,7 +82,7 @@ fn main() {
                     authors: None,
                     comments: None,
                     credits: Some("Gustavo Costa Berbert: Solution Architect & Cognitive Intelligence\nMarcio Miguel: Executive Leadership & Business Architecture\n\nApplication Services - MAPPS".into()),
-                    copyright: Some("© 2026 NTT DATA / MAPFRE. All rights reserved.".into()),
+                    copyright: Some("© 2026 NTT DATA. All rights reserved.".into()),
                     website: Some("https://github.com/gcostabe/AXET-NEURALGRAPH-3D".into()),
                     website_label: Some("Official Repository".into()),
                     ..Default::default()

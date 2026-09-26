@@ -23,6 +23,7 @@ import {
   CloudDownload,
   Info
 } from "lucide-react";
+import packageJson from "../package.json";
 
 export default function AppHeader() {
   const router = useRouter();
@@ -481,41 +482,40 @@ export default function AppHeader() {
                 AXET-NeuralGraph 3D
               </h3>
               
-              <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
-                <span className="rounded-full bg-blue-500/10 border border-blue-500/30 px-2.5 py-0.5 text-[11px] font-mono font-semibold text-blue-300">
-                  Desktop Edition
-                </span>
-                <span className="rounded-full bg-cyan-500/10 border border-cyan-500/30 px-2.5 py-0.5 text-[11px] font-medium text-cyan-300">
+              <div className="mt-2 flex flex-col items-center justify-center gap-0.5 text-center">
+                <p className="text-xs text-slate-400">
+                  Version {packageJson.version || "1.0.9"} (Desktop Edition)
+                </p>
+                <p className="text-xs text-slate-400">
                   Application Services - MAPPS
-                </span>
+                </p>
               </div>
 
-              <p className="mt-2 text-xs text-slate-400 leading-relaxed max-w-xs text-center">
+              <p className="mt-3 text-xs text-slate-400 leading-relaxed max-w-xs text-center">
                 Enterprise 3D Neural Knowledge Platform & High-Performance RAG System with Epistemic Sandboxing and Multimodal Analysis.
               </p>
             </div>
 
-            {/* Creators & Architects Card - Centralizado e padronizado */}
+            {/* Creators & Architects Card - Centralizado e padronizado no mesmo padrão da versão */}
             <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 p-4 text-center">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5 text-center">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5 text-center">
                 Creators & Architects
               </div>
-              <div className="space-y-2 text-center text-xs text-slate-200">
+              <div className="space-y-1.5 text-center text-xs text-slate-400">
                 <p className="leading-relaxed">
-                  <span className="font-semibold text-white">Gustavo Costa Berbert:</span>{" "}
-                  <span className="text-slate-300">Solution Architect & Cognitive Intelligence</span>
+                  <span className="text-slate-300">Gustavo Costa Berbert:</span>{" "}
+                  <span className="text-slate-400">Solution Architect & Cognitive Intelligence</span>
                 </p>
                 <p className="leading-relaxed">
-                  <span className="font-semibold text-white">Marcio Miguel:</span>{" "}
-                  <span className="text-slate-300">Executive Leadership & Business Architecture</span>
+                  <span className="text-slate-300">Marcio Miguel:</span>{" "}
+                  <span className="text-slate-400">Executive Leadership & Business Architecture</span>
                 </p>
               </div>
             </div>
 
             {/* Institutional Footer */}
-            <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col items-center justify-center gap-1 text-[11px] text-slate-400 text-center">
-              <span className="font-medium text-slate-300">Application Services - MAPPS</span>
-              <span>© 2026 NTT DATA / MAPFRE. All rights reserved.</span>
+            <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col items-center justify-center gap-1 text-xs text-slate-400 text-center">
+              <span>© 2026 NTT DATA. All rights reserved.</span>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 [package]
 name = "axet-neuralgraph-desktop"
-version = "1.0.8"
+version = "1.0.9"
 description = "AXET NeuralGraph 3D - Enterprise Knowledge Assistant"
 authors = ["Gustavo Costa Berbert <gcostabe@emeal.nttdata.com>", "Marcio Miguel"]
 edition = "2021"
