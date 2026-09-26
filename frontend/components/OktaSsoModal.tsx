@@ -120,14 +120,36 @@ export default function OktaSsoModal({
         if (attempts >= maxAttempts) {
           clearInterval(waitTimer);
           setStartingBackend(false);
-          setBackendStatusMsg("⚠️ Tempo limite de inicialização. Verifique se o Docker Desktop está aberto ou clique em 'Testar Conexão'.");
+          const timeoutErr = new Error("Tempo limite de inicialização dos serviços locais (porta 8000 offline).");
+          const diag = createDiagnostic(
+            "LOCAL_SERVICES_TIMEOUT",
+            `${getApiUrl()}/auth/okta/start`,
+            timeoutErr,
+            "Os serviços cognitivos locais não responderam na porta 8000 após 20 tentativas.\n" +
+            "1. Certifique-se de que o Docker Desktop está aberto e rodando no Windows;\n" +
+            "2. Se preferir conectar ao seu servidor remoto ou ao Mac na rede local, configure o IP abaixo (ex: http://172.20.10.8:8000);\n" +
+            "3. Você também pode testar a conexão a qualquer momento pelo botão 'Testar Conexão'."
+          );
+          setDiagnostic(diag);
+          setError("Não foi possível conectar ao backend local na porta 8000 após a tentativa de inicialização.");
+          setBackendStatusMsg("⚠️ Tempo limite de inicialização atingido (porta 8000 offline).");
+          setShowUrlConfig(true);
         } else {
           setBackendStatusMsg(`⏳ Inicializando banco e IA... (${attempts}/${maxAttempts})`);
         }
       }, 2500);
     } catch (err: any) {
       setStartingBackend(false);
+      const diag = createDiagnostic(
+        "LOCAL_BACKEND_LAUNCH_FAILURE",
+        `${getApiUrl()}/auth/okta/start`,
+        err,
+        "Ocorreu um erro ao tentar disparar o comando de inicialização local."
+      );
+      setDiagnostic(diag);
+      setError(`Erro ao disparar inicialização: ${err?.message || String(err)}`);
       setBackendStatusMsg(`❌ Erro ao disparar inicialização: ${err?.message || String(err)}`);
+      setShowUrlConfig(true);
     }
   }
 
@@ -459,6 +481,25 @@ export default function OktaSsoModal({
               <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                 <div className="bg-sky-500 h-1.5 rounded-full animate-pulse w-3/4" />
               </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStartingBackend(false);
+                  const diag = createDiagnostic(
+                    "STARTUP_CANCELLED",
+                    `${getApiUrl()}/auth/okta/start`,
+                    new Error("Inicialização cancelada pelo usuário."),
+                    "Você optou por não aguardar a inicialização automática. Você pode configurar o IP do servidor manualmente abaixo ou testar a conexão."
+                  );
+                  setDiagnostic(diag);
+                  setError("Aguarde cancelado. Configure o servidor ou tente novamente.");
+                  setShowUrlConfig(true);
+                }}
+                className="text-[11px] text-slate-400 hover:text-sky-300 underline pt-1 transition"
+              >
+                Cancelar aguardo e configurar servidor manualmente
+              </button>
             </div>
           )}
 
@@ -735,6 +776,38 @@ export default function OktaSsoModal({
               <div className="flex items-center justify-center gap-2 pt-2 text-[11px] text-slate-400">
                 <Loader2 className="h-3.5 w-3.5 text-sky-400 animate-spin" />
                 <span>{pollStatus}</span>
+              </div>
+            </div>
+          )}
+
+          {!startingBackend && !loading && !error && !success && !deviceData && (
+            <div className="space-y-4 py-3 text-center">
+              <div className="rounded-xl border border-sky-500/30 bg-sky-950/20 p-3.5 text-xs text-sky-200 flex items-start gap-2.5 text-left">
+                <AlertCircle className="h-4 w-4 text-sky-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-white">Serviços do Backend Não Conectados</p>
+                  <p className="leading-relaxed text-slate-300">
+                    O aplicativo não conseguiu comunicação com o backend na porta 8000. Você pode tentar conectar novamente, testar a porta ou apontar para um servidor externo.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={startFlow}
+                  className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-2.5 text-xs font-semibold text-white hover:from-blue-500 hover:to-indigo-500 transition shadow-md"
+                >
+                  Tentar Conectar Novamente
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTestBackend}
+                  disabled={testingBackend}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800/80 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700 transition"
+                >
+                  {testingBackend ? "Testando..." : "Testar Conexão com Porta 8000"}
+                </button>
               </div>
             </div>
           )}

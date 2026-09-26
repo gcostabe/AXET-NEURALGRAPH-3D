@@ -72,6 +72,9 @@ fn open_browser(url: String) -> Result<(), String> {
 async fn start_local_backend() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
         let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
         let mut candidates = vec![
             format!("{}\\Desktop\\Iniciar AXET-NEURALGRAPH-3D.bat", user_profile),
@@ -94,34 +97,61 @@ async fn start_local_backend() -> Result<String, String> {
             }
         }
 
+        // 1. Prioridade: Se houver script .bat local, executa 100% invisível sem janela e em modo não-interativo
         for candidate in &candidates {
             if std::path::Path::new(candidate).exists() {
+                let parent_dir = std::path::Path::new(candidate).parent().unwrap_or(std::path::Path::new("."));
                 let res = std::process::Command::new("cmd")
-                    .args(&["/c", "start", "/min", candidate])
+                    .args(&["/c", candidate, "--non-interactive"])
+                    .current_dir(parent_dir)
+                    .env("NON_INTERACTIVE", "1")
+                    .creation_flags(CREATE_NO_WINDOW)
                     .spawn();
                 if res.is_ok() {
-                    return Ok(format!("Inicializando serviços via: {}", candidate));
+                    return Ok(format!("Inicializando serviços em segundo plano via: {}", candidate));
                 }
             }
         }
 
-        // Tentar invocar wsl docker compose localizando o repositorio caso o bat nao esteja estatico
-        let wsl_cmd = "for d in /mnt/c/Users/*/dev/* /mnt/c/dev/* ~/dev/*; do if [ -f \"$d/docker-compose.yml\" ]; then cd \"$d\" && service docker start && docker compose up -d && exit 0; fi; done; service docker start && docker compose up -d";
+        // 2. Se não houver .bat, tentar Docker Compose diretamente no Windows (caso o Docker Desktop esteja instalado)
+        for dev_path in &[
+            format!("{}\\dev\\RAG-LOCAL-REEF", user_profile),
+            format!("{}\\dev\\ACDC", user_profile),
+            "C:\\dev\\RAG-LOCAL-REEF".to_string(),
+            "C:\\dev\\ACDC".to_string(),
+        ] {
+            let dc_path = format!("{}\\docker-compose.yml", dev_path);
+            if std::path::Path::new(&dc_path).exists() {
+                let docker_res = std::process::Command::new("cmd")
+                    .args(&["/c", "docker", "compose", "up", "-d"])
+                    .current_dir(dev_path)
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .spawn();
+                if docker_res.is_ok() {
+                    return Ok("Iniciando containers via Docker Desktop no Windows em segundo plano...".to_string());
+                }
+            }
+        }
+
+        // 3. Tentar invocar wsl docker compose localizando o repositorio silenciosamente sem abrir console
+        let wsl_cmd = "for d in /mnt/c/Users/*/dev/* /mnt/c/dev/* ~/dev/*; do if [ -f \"$d/docker-compose.yml\" ]; then cd \"$d\" && (service docker status >/dev/null 2>&1 || service docker start >/dev/null 2>&1) && docker compose up -d && exit 0; fi; done";
         let wsl_res = std::process::Command::new("wsl")
             .args(&["-d", "Ubuntu", "-u", "root", "--", "bash", "-c", wsl_cmd])
+            .creation_flags(CREATE_NO_WINDOW)
             .spawn();
 
         if wsl_res.is_ok() {
             return Ok("Iniciando containers do Docker via WSL2 em segundo plano...".to_string());
         }
 
-        // Tentar docker compose diretamente no Windows
+        // 4. Tentar docker compose global no Windows sem janela
         let docker_res = std::process::Command::new("cmd")
             .args(&["/c", "docker", "compose", "up", "-d"])
+            .creation_flags(CREATE_NO_WINDOW)
             .spawn();
 
         if docker_res.is_ok() {
-            return Ok("Iniciando containers via Docker Desktop...".to_string());
+            return Ok("Iniciando containers via Docker Desktop em segundo plano...".to_string());
         }
 
         Err("Não foi possível localizar o Docker ou o script iniciar_windows.bat na máquina.".to_string())

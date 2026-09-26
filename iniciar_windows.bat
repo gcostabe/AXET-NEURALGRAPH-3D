@@ -2,53 +2,52 @@
 cd /d "%~dp0"
 set "SCRIPT_DIR=%CD%"
 chcp 65001 >nul
-title NTT DATA - AXET-NEURALGRAPH-3D (:3001)
 
-echo ===============================================================================
-echo   [NTT DATA] - AXET-NEURALGRAPH-3D
-echo   Iniciando a Plataforma Neural 3D e Sistema RAG Local...
-echo ===============================================================================
-echo.
+set "IS_NON_INTERACTIVE=0"
+if "%~1"=="--non-interactive" set "IS_NON_INTERACTIVE=1"
+if "%NON_INTERACTIVE%"=="1" set "IS_NON_INTERACTIVE=1"
 
-:: 1. Converter caminho para o formato WSL
+if "%IS_NON_INTERACTIVE%"=="0" (
+    title NTT DATA - AXET-NEURALGRAPH-3D (:3001)
+    echo ===============================================================================
+    echo   [NTT DATA] - AXET-NEURALGRAPH-3D
+    echo   Iniciando a Plataforma Neural 3D e Sistema RAG Local...
+    echo ===============================================================================
+    echo.
+)
+
+:: 1. Tentar primeiro o Docker Desktop nativo do Windows (se estiver ativo)
+docker compose version >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [INFO] Docker Desktop nativo do Windows detectado. Subindo containers...
+    docker compose up -d >nul 2>&1
+    if %errorlevel% equ 0 goto CONTAINERS_STARTED
+)
+
+:: 2. Fallback: Converter caminho para o formato WSL2 Ubuntu
 set "WSL_PROJECT_DIR="
 for /f "tokens=*" %%a in ('wsl -d Ubuntu wslpath -u "%SCRIPT_DIR%" 2^>nul ^|^| wsl wslpath -u "%SCRIPT_DIR%" 2^>nul') do set "WSL_PROJECT_DIR=%%a"
 set "WSL_PROJECT_DIR=%WSL_PROJECT_DIR:/mnt/host/=/mnt/%"
 
 if "%WSL_PROJECT_DIR%"=="" (
-    echo [ERRO] Nao foi possivel comunicar com o WSL2.
-    echo Certifique-se de que o WSL esta instalado executando 'instalar_windows.bat'.
-    pause
+    echo [ERRO] Nao foi possivel comunicar com o WSL2 ou Docker Desktop.
+    echo Certifique-se de que o Docker Desktop ou WSL2 esta configurado.
+    if "%IS_NON_INTERACTIVE%"=="0" pause
     exit /b 1
-)
-
-:: 2. Testar se o Frontend ja esta rodando na porta 3001
-powershell -Command "$c = New-Object System.Net.Sockets.TcpClient; try { $c.Connect('127.0.0.1', 3001); exit 0 } catch { exit 1 }" >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] O aplicativo ja esta ativo e respondendo na porta 3001!
-    echo Abrindo o navegador...
-    start http://localhost:3001/
-    powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul 2>&1
-    exit /b 0
 )
 
 :: 3. Garantir que o servico do Docker esteja ativo no WSL2
 wsl -d Ubuntu -u root -- service docker status >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [INFO] Iniciando servico do Docker Engine no WSL2...
     wsl -d Ubuntu -u root -- service docker start >nul 2>&1
 )
 
-:: 4. Subir todos os containers via Docker Compose
-echo [INFO] Inicializando os 5 containers da solucao...
-echo        - Frontend Next.js / Three.js 3D (:3001)
-echo        - Backend FastAPI REST ^& SSE (:8000)
-echo        - aXet / Okta API Gateway (:8766)
-echo        - PostgreSQL 16 Relacional (:5432)
-echo        - Qdrant Vector Engine (:6333)
-echo.
-
+:: 4. Subir containers via WSL2
 wsl -d Ubuntu -u root -- bash -c "cd '%WSL_PROJECT_DIR%' && docker compose up -d"
+
+:CONTAINERS_STARTED
+:: Se for execução não-interativa disparada pelo Desktop App, encerra imediatamente com sucesso
+if "%IS_NON_INTERACTIVE%"=="1" exit /b 0
 
 :: 4.1. Verificar se existe pacote de atualizacao pendente da base (Opcao 1)
 if exist "%SCRIPT_DIR%\data\snapshots\auto_import.qpack" (
@@ -58,7 +57,7 @@ if exist "%SCRIPT_DIR%\data\snapshots\auto_import.qpack" (
 )
 
 :: 5. Aguardar inicializacao e abrir o navegador automaticamente
-echo Aguardando o servico web responder na porta 3001...
+echo Aguardando o servico responder na porta 3001...
 set /a ATTEMPTS=0
 
 :WAIT_LOOP
@@ -86,7 +85,6 @@ echo.
 start http://localhost:3001/
 echo.
 echo [STATUS] A solucao esta em execucao ativa.
-echo Mantenha esta janela aberta (ou minimizada) para manter os servicos ativos.
 echo Para parar e encerrar o AXET-NEURALGRAPH-3D, feche esta janela ou aperte CTRL+C.
 echo.
 
