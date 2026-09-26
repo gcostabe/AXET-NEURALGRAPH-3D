@@ -1,0 +1,140 @@
+name: Build and Release Desktop Apps (.dmg & .msi)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versão do release (ex: v1.0.0)'
+        required: false
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: Build macOS Universal (.dmg)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm ci || npm install
+
+      - name: Build Next.js Frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Build macOS DMG (Universal Binary)
+        run: |
+          ./frontend/node_modules/.bin/tauri build --target universal-apple-darwin
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Locate DMG Asset
+        id: dmg_locate
+        run: |
+          DMG_FILE=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -n 1)
+          cp "$DMG_FILE" AXET-NeuralGraph.dmg
+          echo "dmg_path=$DMG_FILE" >> $GITHUB_OUTPUT
+          echo "Found DMG: $DMG_FILE"
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: axet-macos-dmg
+          path: |
+            ${{ steps.dmg_locate.outputs.dmg_path }}
+            AXET-NeuralGraph.dmg
+
+      - name: Attach DMG to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            ${{ steps.dmg_locate.outputs.dmg_path }}
+            AXET-NeuralGraph.dmg
+
+  build-windows:
+    name: Build Windows Corporate (.msi)
+    runs-on: windows-latest
+    steps:
+      - name: Configure Windows Git (Longpaths)
+        run: |
+          git config --system core.longpaths true
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm ci || npm install
+
+      - name: Build Next.js Frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Add WiX to PATH
+        run: echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $GITHUB_PATH
+        shell: bash
+
+      - name: Build Windows MSI (WiX Toolset)
+        run: |
+          ./frontend/node_modules/.bin/tauri build --bundles msi
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Locate MSI Asset
+        id: msi_locate
+        shell: bash
+        run: |
+          MSI_FILE=$(find src-tauri/target/release/bundle/msi -name "*.msi" | head -n 1)
+          cp "$MSI_FILE" AXET-NeuralGraph-Setup.msi
+          echo "msi_path=$MSI_FILE" >> $GITHUB_OUTPUT
+          echo "Found MSI: $MSI_FILE"
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: axet-windows-msi
+          path: |
+            ${{ steps.msi_locate.outputs.msi_path }}
+            AXET-NeuralGraph-Setup.msi
+
+      - name: Attach MSI to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            ${{ steps.msi_locate.outputs.msi_path }}
+            AXET-NeuralGraph-Setup.msi

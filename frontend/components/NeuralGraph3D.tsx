@@ -34,10 +34,12 @@ import {
 
 interface NeuralGraph3DProps {
   data: KnowledgeGraph;
+  initialFocusPath?: string | null;
 }
 
 // Mapeamento de cores por tipo de relação semântica
 const RELATION_COLORS: Record<string, { color: string; hex: number; label: string; rgb: [number, number, number] }> = {
+  RETIFICA_CONCEITO: { color: "#f59e0b", hex: 0xf59e0b, label: "Retifica Conceito (Self-Learned)", rgb: [0.96, 0.62, 0.04] },
   ATUALIZA: { color: "#d946ef", hex: 0xd946ef, label: "Atualiza", rgb: [0.85, 0.27, 0.94] },
   SUBSTITUI: { color: "#ff2d87", hex: 0xff2d87, label: "Substitui", rgb: [1.0, 0.18, 0.53] },
   COMPLEMENTA: { color: "#00f0ff", hex: 0x00f0ff, label: "Complementa", rgb: [0.0, 0.94, 1.0] },
@@ -146,6 +148,9 @@ export const LOBE_KEYS = ["frontal", "parietal", "occipital", "temporal", "cereb
 export function getNodeBrainLobe(node: KnowledgeNode, clusterIdx: number): BrainLobeConfig {
   const text = `${node.source_path} ${node.title} ${(node.topics || []).join(" ")}`.toLowerCase();
 
+  if (text.includes("aprendizado") || text.includes("learning") || text.includes("retifica") || text.includes("self-learned") || text.includes("neuroplasticidade")) {
+    return CYBERPUNK_BRAIN_LOBES.cerebellum;
+  }
   if (text.includes("ia") || text.includes("cogni") || text.includes("vector") || text.includes("cache") || text.includes("embedding") || text.includes("banco")) {
     return CYBERPUNK_BRAIN_LOBES.cerebellum;
   }
@@ -452,7 +457,7 @@ interface NodePositionData {
   lobeId: string;
 }
 
-export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
+export function NeuralGraph3D({ data: rawData, initialFocusPath }: NeuralGraph3DProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [selectedNode, setSelectedNode] = useState<KnowledgeNode | null>(null);
@@ -604,6 +609,15 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
     startCameraTransition(targetPos, new THREE.Vector3(0, -18, 0), 750);
     setSelectedNode(null);
   }, [startCameraTransition]);
+
+  useEffect(() => {
+    if (initialFocusPath && data.nodes.length > 0) {
+      const timer = setTimeout(() => {
+        focusOnNode(initialFocusPath);
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [initialFocusPath, data.nodes, focusOnNode]);
 
   // Inicialização e Renderização com InstancedMesh e LineSegments
   useEffect(() => {
@@ -881,9 +895,19 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
         }
 
         const degree = degreeMap.get(node.source_path) || 1;
-        const scale = isHugeScale
+        const isSelfLearned =
+          node.source_path.startsWith("learning://") ||
+          (node.topics || []).some((t) =>
+            t.toLowerCase().includes("self-learned") ||
+            t.toLowerCase().includes("aprendizado") ||
+            t.toLowerCase().includes("retifica")
+          );
+
+        const baseScale = isHugeScale
           ? Math.min(4.5, Math.max(1.8, 1.8 + Math.log2(1 + degree) * 0.5))
           : Math.min(7.0, Math.max(3.5, 3.2 + degree * 0.4));
+        const scale = isSelfLearned ? (isHugeScale ? 8.5 : 12.0) : baseScale;
+        const colorHex = isSelfLearned ? 0xf59e0b : lobe.hex;
 
         nodePositions[nodeIdx] = {
           index: nodeIdx,
@@ -892,7 +916,7 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
           y: ny,
           z: nz,
           degree,
-          colorHex: lobe.hex,
+          colorHex,
           scale,
           lobeId: lobe.id,
         };
@@ -1206,15 +1230,24 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
       linePositions[baseIdx + 4] = tgt.y;
       linePositions[baseIdx + 5] = tgt.z;
 
-      // Cores por Vértice: gradiente neon dos lobos anatômicos de origem e destino (estilo Cyberpunk)
-      const srcLobe = CYBERPUNK_BRAIN_LOBES[src.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
-      const tgtLobe = CYBERPUNK_BRAIN_LOBES[tgt.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
-      lineColors[baseIdx] = srcLobe.rgb[0];
-      lineColors[baseIdx + 1] = srcLobe.rgb[1];
-      lineColors[baseIdx + 2] = srcLobe.rgb[2];
-      lineColors[baseIdx + 3] = tgtLobe.rgb[0];
-      lineColors[baseIdx + 4] = tgtLobe.rgb[1];
-      lineColors[baseIdx + 5] = tgtLobe.rgb[2];
+      // Cores por Vértice: gradiente neon dos lobos anatômicos ou âmbar se for aprendizado autônomo
+      if (edge.relation_type === "RETIFICA_CONCEITO") {
+        lineColors[baseIdx] = 0.96;
+        lineColors[baseIdx + 1] = 0.62;
+        lineColors[baseIdx + 2] = 0.04;
+        lineColors[baseIdx + 3] = 0.96;
+        lineColors[baseIdx + 4] = 0.62;
+        lineColors[baseIdx + 5] = 0.04;
+      } else {
+        const srcLobe = CYBERPUNK_BRAIN_LOBES[src.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
+        const tgtLobe = CYBERPUNK_BRAIN_LOBES[tgt.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
+        lineColors[baseIdx] = srcLobe.rgb[0];
+        lineColors[baseIdx + 1] = srcLobe.rgb[1];
+        lineColors[baseIdx + 2] = srcLobe.rgb[2];
+        lineColors[baseIdx + 3] = tgtLobe.rgb[0];
+        lineColors[baseIdx + 4] = tgtLobe.rgb[1];
+        lineColors[baseIdx + 5] = tgtLobe.rgb[2];
+      }
     }
 
     const lineGeometry = new THREE.BufferGeometry();
@@ -1566,12 +1599,16 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
         }
 
         if (matchRelation && matchLobe && isHighlighted && src && tgt) {
-          const srcLobe = CYBERPUNK_BRAIN_LOBES[src.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
-          const tgtLobe = CYBERPUNK_BRAIN_LOBES[tgt.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
           const mult = selectedNode ? 1.5 : 1.0;
-
-          lineColorsAttr.setXYZ(e * 2, srcLobe.rgb[0] * mult, srcLobe.rgb[1] * mult, srcLobe.rgb[2] * mult);
-          lineColorsAttr.setXYZ(e * 2 + 1, tgtLobe.rgb[0] * mult, tgtLobe.rgb[1] * mult, tgtLobe.rgb[2] * mult);
+          if (edge.relation_type === "RETIFICA_CONCEITO") {
+            lineColorsAttr.setXYZ(e * 2, 0.96 * mult, 0.62 * mult, 0.04 * mult);
+            lineColorsAttr.setXYZ(e * 2 + 1, 0.96 * mult, 0.62 * mult, 0.04 * mult);
+          } else {
+            const srcLobe = CYBERPUNK_BRAIN_LOBES[src.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
+            const tgtLobe = CYBERPUNK_BRAIN_LOBES[tgt.lobeId] || CYBERPUNK_BRAIN_LOBES.frontal;
+            lineColorsAttr.setXYZ(e * 2, srcLobe.rgb[0] * mult, srcLobe.rgb[1] * mult, srcLobe.rgb[2] * mult);
+            lineColorsAttr.setXYZ(e * 2 + 1, tgtLobe.rgb[0] * mult, tgtLobe.rgb[1] * mult, tgtLobe.rgb[2] * mult);
+          }
         } else {
           // Apaga ou atenua a aresta zerando as cores no buffer
           lineColorsAttr.setXYZ(e * 2, 0.02, 0.03, 0.06);
@@ -1730,22 +1767,40 @@ export function NeuralGraph3D({ data: rawData }: NeuralGraph3DProps) {
                 </button>
                 {Object.entries(RELATION_COLORS).map(([key, info]) => {
                   const count = stats.relationCounts[key] || 0;
-                  if (count === 0) return null;
+                  if (count === 0 && key !== "RETIFICA_CONCEITO") return null;
                   const isSelected = relationFilter === key;
+                  const isLearning = key === "RETIFICA_CONCEITO";
                   return (
                     <button
                       key={key}
                       onClick={() => setRelationFilter(key)}
                       className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition whitespace-nowrap shrink-0 ${
-                        isSelected ? "text-slate-950 font-semibold" : "text-slate-400 hover:text-slate-200"
+                        isSelected
+                          ? "text-slate-950 font-semibold"
+                          : isLearning
+                          ? "text-amber-300 hover:text-amber-100 border border-amber-500/40 bg-amber-500/10 shadow-sm shadow-amber-500/20"
+                          : "text-slate-400 hover:text-slate-200"
                       }`}
-                      style={{ backgroundColor: isSelected ? info.color : "transparent" }}
+                      style={{ backgroundColor: isSelected ? info.color : undefined }}
                     >
                       <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: info.color }} />
-                      {info.label} ({count.toLocaleString()})
+                      {isLearning ? `⚡ ${info.label}` : info.label} ({count.toLocaleString()})
                     </button>
                   );
                 })}
+                {stats.relationCounts["RETIFICA_CONCEITO"] > 0 && (
+                  <button
+                    onClick={() => {
+                      setRelationFilter("RETIFICA_CONCEITO");
+                      const learnNode = data.nodes.find((n) => n.source_path.startsWith("learning://"));
+                      if (learnNode) focusOnNode(learnNode.source_path);
+                    }}
+                    className="flex items-center gap-1 rounded-full border border-amber-400/80 bg-gradient-to-r from-amber-500/30 to-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-200 shadow-md shadow-amber-500/30 hover:scale-105 transition animate-pulse"
+                    title="Focar diretamente na sinapse auto-aprendida"
+                  >
+                    <span>⚡ Focar Aprendizado</span>
+                  </button>
+                )}
               </div>
             </div>
           )}

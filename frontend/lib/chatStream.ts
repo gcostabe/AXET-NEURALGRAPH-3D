@@ -1,11 +1,19 @@
-import { API_URL } from "./api";
+import { getApiUrl, setApiUrl } from "./api";
 import { getToken } from "./auth";
+
+export interface ChatAttachmentPayload {
+  name: string;
+  mime_type: string;
+  data: string;
+}
 
 export interface ChatStreamHandlers {
   onSources?: (sources: string[]) => void;
   onConversation?: (conversationId: string) => void;
   onMessageId?: (messageId: string) => void;
   onToken?: (token: string) => void;
+  onStatus?: (status: { step: string; label: string }) => void;
+  onLearning?: (learningData: any) => void;
   onDone?: () => void;
   onError?: (message: string) => void;
 }
@@ -14,19 +22,53 @@ export async function streamChat(
   message: string,
   conversationId: string | null,
   handlers: ChatStreamHandlers,
+  attachments?: ChatAttachmentPayload[],
 ) {
   const token = getToken();
-  const res = await fetch(`${API_URL}/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({
-      message,
-      conversation_id: conversationId,
-    }),
+  let currentBase = getApiUrl();
+  let res: Response;
+
+  const payload = JSON.stringify({
+    message,
+    conversation_id: conversationId,
+    attachments: attachments && attachments.length > 0 ? attachments : undefined,
   });
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  try {
+    res = await fetch(`${currentBase}/chat`, {
+      method: "POST",
+      headers,
+      body: payload,
+    });
+  } catch (err: any) {
+    const fallbackBase = currentBase.includes("localhost")
+      ? currentBase.replace("localhost", "127.0.0.1")
+      : currentBase.includes("127.0.0.1")
+      ? currentBase.replace("127.0.0.1", "localhost")
+      : null;
+
+    if (fallbackBase) {
+      try {
+        res = await fetch(`${fallbackBase}/chat`, {
+          method: "POST",
+          headers,
+          body: payload,
+        });
+        setApiUrl(fallbackBase);
+      } catch (fbErr: any) {
+        handlers.onError?.(err?.message || "Failed to fetch");
+        return;
+      }
+    } else {
+      handlers.onError?.(err?.message || "Failed to fetch");
+      return;
+    }
+  }
 
   if (!res.ok || !res.body) {
     let detail = res.statusText;
@@ -74,6 +116,22 @@ export async function streamChat(
           case "message_id":
             handlers.onMessageId?.(JSON.parse(data).message_id);
             break;
+          case "learning_occurred": {
+            try {
+              handlers.onLearning?.(JSON.parse(data));
+            } catch (err) {
+              console.warn("Failed to parse learning_occurred data", err);
+            }
+            break;
+          }
+          case "status": {
+            try {
+              handlers.onStatus?.(JSON.parse(data));
+            } catch {
+              handlers.onStatus?.({ step: "general", label: data });
+            }
+            break;
+          }
           case "done":
             handlers.onDone?.();
             break;

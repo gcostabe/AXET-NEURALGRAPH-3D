@@ -38,20 +38,36 @@ def decode_token(token: str) -> dict:
         raise ValueError("Invalid or expired token") from exc
 
 
-# Whitelist autorizada para privilégios de Administrador no sistema.
-# Qualquer usuário diferente deste login é compulsoriamente restrito ao papel comum (USER).
-AUTHORIZED_ADMIN_EMAILS = {
+# Identidade estrita do Master Admin (suporta login Okta curto e e-mail corporativo completo)
+MASTER_ADMIN_EMAIL = "gcostabe@emeal.nttdata.com"
+MASTER_ADMIN_EMAILS = {
     "gcostabe@emeal.nttdata.com",
     "gustavo.costa.berbert@nttdata.com",
+    "gustavo.costa.berbert@emeal.nttdata.com",
+    "gcostabe@nttdata.com",
+}
+
+# Whitelist autorizada de fallback/bootstrap
+AUTHORIZED_ADMIN_EMAILS = {
+    *MASTER_ADMIN_EMAILS,
     "marcio11.ferreiramiguel@nttdata.com",
 }
 
 
+def is_master_admin(identifier: str | None) -> bool:
+    """Verifica se o login ou e-mail pertence ao Master Admin corporativo supremo."""
+    if not identifier:
+        return False
+    return identifier.strip().lower() in MASTER_ADMIN_EMAILS
+
+
 def is_authorized_admin(identifier: str | None) -> bool:
-    """Verifica se o login ou e-mail fornecido pertence à whitelist estrita de administradores."""
+    """Verifica se o login ou e-mail pertence ao Master Admin ou whitelist base."""
     if not identifier:
         return False
     clean = identifier.strip().lower()
+    if is_master_admin(clean):
+        return True
     allowed = set(AUTHORIZED_ADMIN_EMAILS)
     if settings.bootstrap_admin_email:
         allowed.add(settings.bootstrap_admin_email.strip().lower())

@@ -1,0 +1,16 @@
+{
+  "name": "axet-neuralgraph-desktop-suite",
+  "version": "1.0.10",
+  "private": true,
+  "description": "AXET NeuralGraph 3D - Enterprise Knowledge Assistant",
+  "authors": [
+    "Gustavo Costa Berbert <gcostabe@emeal.nttdata.com>",
+    "Marcio Miguel"
+  ],
+  "scripts": {
+    "desktop:build": "node scripts/bump_version.js && npx @tauri-apps/cli build",
+    "desktop:build:nobump": "npx @tauri-apps/cli build",
+    "desktop:dev": "npx @tauri-apps/cli dev",
+    "bump:version": "node scripts/bump_version.js"
+  }
+}

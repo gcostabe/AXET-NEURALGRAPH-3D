@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
 import AppHeader from "@/components/AppHeader";
 import { NeuralGraph3D } from "@/components/NeuralGraph3D";
 import { knowledgeApi, KnowledgeGraph } from "@/lib/api";
 import { Network, RefreshCw, AlertCircle } from "lucide-react";
 
-function GraphVisualPage() {
+function GraphVisualContent() {
+  const searchParams = useSearchParams();
+  const focus = searchParams?.get("focus");
   const [graph, setGraph] = useState<KnowledgeGraph | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +60,7 @@ function GraphVisualPage() {
           </div>
         ) : graph && graph.nodes.length > 0 ? (
           <div className="h-full w-full relative flex-1">
-            <NeuralGraph3D data={graph} />
+            <NeuralGraph3D data={graph} initialFocusPath={focus} />
           </div>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
@@ -76,7 +79,13 @@ function GraphVisualPage() {
 export default function GraphPage() {
   return (
     <RequireAuth>
-      <GraphVisualPage />
+      <Suspense fallback={
+        <div className="flex h-screen items-center justify-center bg-[#040814]">
+          <RefreshCw className="h-8 w-8 text-cyan-400 animate-spin" />
+        </div>
+      }>
+        <GraphVisualContent />
+      </Suspense>
     </RequireAuth>
   );
 }

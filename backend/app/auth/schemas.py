@@ -87,3 +87,27 @@ class GatewayAuthStatusResponse(BaseModel):
     last_sync: str | None = None
     refreshed: bool | None = None
 
+
+class RbacUserItem(BaseModel):
+    email: EmailStr
+    role: str
+    granted_by: str | None = None
+    notes: str | None = None
+    created_at: datetime
+    is_master: bool = False
+
+
+class GrantAdminRequest(BaseModel):
+    email: EmailStr
+    notes: str | None = None
+
+
+class UserProfileOut(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+    status: UserStatus
+    role: UserRole
+    effective_role: str
+    is_master_admin: bool = False
+    created_at: datetime
+

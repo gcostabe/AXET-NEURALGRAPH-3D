@@ -1,0 +1,337 @@
+{
+  "exportedAt": "2026-09-25T12:44:05.780Z",
+  "targetDir": "/Users/gcostabe/dev/RAG-LOCAL-REEF/data/sources/10. ACDC",
+  "totalFiles": 64,
+  "existingDocsIntegrated": 50,
+  "lobeDistribution": {
+    "frontal": 39,
+    "parietal": 6,
+    "occipital": 4,
+    "temporal": 13,
+    "cerebellum": 0,
+    "brainstem": 2
+  },
+  "elapsedMs": 328,
+  "files": [
+    {
+      "file": "01_Arquitetura_e_Tecnica/01_Stack_Tecnologica_e_Arquitetura_Global.md",
+      "size": 2884,
+      "lobe": "frontal"
+    },
+    {
+      "file": "01_Arquitetura_e_Tecnica/02_Catalogo_Completo_APIs_REST.md",
+      "size": 2736,
+      "lobe": "brainstem"
+    },
+    {
+      "file": "01_Arquitetura_e_Tecnica/03_Dicionario_Colecoes_MongoDB_DUP_e_RTE.md",
+      "size": 2261,
+      "lobe": "brainstem"
+    },
+    {
+      "file": "01_Arquitetura_e_Tecnica/04_Componentes_Frontend_e_Interface.md",
+      "size": 1693,
+      "lobe": "frontal"
+    },
+    {
+      "file": "02_Funcional_e_Regras_Negocio/01_Motor_Tarifacao_RTE_Tronador_Guia_Funcional.md",
+      "size": 2141,
+      "lobe": "temporal"
+    },
+    {
+      "file": "02_Funcional_e_Regras_Negocio/02_Subscricao_Dinamica_DUP_e_Selecao_Risco.md",
+      "size": 1125,
+      "lobe": "parietal"
+    },
+    {
+      "file": "02_Funcional_e_Regras_Negocio/03_Antifraude_e_Chaves_Triangulacao.md",
+      "size": 1032,
+      "lobe": "parietal"
+    },
+    {
+      "file": "02_Funcional_e_Regras_Negocio/04_Catalogo_Produtos_e_Pacotes_Coberturas.md",
+      "size": 1006,
+      "lobe": "temporal"
+    },
+    {
+      "file": "03_Auditoria_Governanca_PECA/01_Politica_PECA_e_Controle_Auditoria.md",
+      "size": 1293,
+      "lobe": "occipital"
+    },
+    {
+      "file": "04_Dados_Formulas_Constantes_Catalogo/01_Catalogo_Formulas_Atuariais.md",
+      "size": 31769,
+      "lobe": "temporal"
+    },
+    {
+      "file": "04_Dados_Formulas_Constantes_Catalogo/02_Catalogo_Constantes_Atuariais.md",
+      "size": 12639,
+      "lobe": "temporal"
+    },
+    {
+      "file": "04_Dados_Formulas_Constantes_Catalogo/03_Catalogo_Regras_Subscricao_e_Risco.md",
+      "size": 5489,
+      "lobe": "parietal"
+    },
+    {
+      "file": "04_Dados_Formulas_Constantes_Catalogo/04_Chaves_Triangulacao_Antifraude_Reais.md",
+      "size": 4985,
+      "lobe": "parietal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Manual Export - 21.09/Auditoría (21_9_2026 12：34：51)/Auditoría (21_9_2026 12：34：51)_rag_run_doc_20260922_125104_38975.md",
+      "size": 37768,
+      "lobe": "occipital"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Manual Export - 21.09/Cálculo de Módulos (21_9_2026 12：37：32)/Cálculo de Módulos (21_9_2026 12：37：32)_rag_run_doc_20260922_125104_38976.md",
+      "size": 36939,
+      "lobe": "temporal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Manual Export - 21.09/Clientes externos (21_9_2026 12：34：36)/Clientes externos (21_9_2026 12：34：36)_rag_run_doc_20260922_125104_38977.md",
+      "size": 41588,
+      "lobe": "occipital"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Manual Export - 21.09/Configuración de tarifas (21_9_2026 12：38：21)/Configuración de tarifas (21_9_2026 12：38：21)_rag_run_doc_20260922_125104_38978.md",
+      "size": 31260,
+      "lobe": "temporal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Manual Export - 21.09/Cotizaciones (21_9_2026 12：34：23)/Cotizaciones (21_9_2026 12：34：23)_rag_run_doc_20260922_125104_38979.md",
+      "size": 26687,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Manual Export - 21.09/DUP Engine (21_9_2026 12：37：04)/DUP Engine (21_9_2026 12：37：04)_rag_run_doc_20260922_125245_39767.md",
+      "size": 39703,
+      "lobe": "temporal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Manual Export - 21.09/Endpoints Online (21_9_2026 12：33：32)/Endpoints Online (21_9_2026 12：33：32)_rag_run_doc_20260922_125245_39774.md",
+      "size": 40497,
+      "lobe": "temporal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Manual Export - 21.09/Módulo DUP (21_9_2026 12：37：19)/Módulo DUP (21_9_2026 12：37：19)_rag_run_doc_20260922_125305_40093.md",
+      "size": 24269,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Manual Export - 21.09/Orquestador Batch (21_9_2026 12：34：07)/Orquestador Batch (21_9_2026 12：34：07)_rag_run_doc_20260922_125305_40100.md",
+      "size": 50024,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Manual Export - 21.09/REEF-ACDC — Documentación (21_9_2026 12：28：15)/REEF-ACDC — Documentación (21_9_2026 12：28：15)_rag_run_doc_20260922_125325_40386.md",
+      "size": 25541,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Passo a passo para configuração das profissões/Passo a passo para configuração das profissões_rag_run_doc_20260922_125425_40710.md",
+      "size": 23814,
+      "lobe": "parietal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Chamada com Mari e 1 outra pessoa-20260515_181739-Gravação de Reunião/resumo_run_20260922_164517_53346.md",
+      "size": 25079,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Dados para Emissão - Cotação/Dados para Emissão - Cotação_resumo_run_20260922_164517_53347.md",
+      "size": 33700,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Carga producto RTE/Guia_Carga_Producto_RTE/Guia_Carga_Producto_RTE_rag_run_doc_20260922_125445_41051.md",
+      "size": 17055,
+      "lobe": "parietal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Documentación/ACDC/ACDC_rag_run_doc_20260922_164517_53348.md",
+      "size": 22202,
+      "lobe": "temporal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Documentación/CORE_RTE_MODULOS/CORE_RTE_MODULOS_rag_run_doc_20260922_164517_53349.md",
+      "size": 49380,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Documentación/DUP_RS_ACTIONS_CONDITIONS_DEFINITION/DUP_RS_ACTIONS_CONDITIONS_DEFINITION_rag_run_doc_20260922_164517_53350.md",
+      "size": 32691,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Documentación/REEF_ACDC_GUIA_COMPLETA/REEF_ACDC_GUIA_COMPLETA_rag_run_doc_20260922_164637_60108.md",
+      "size": 53142,
+      "lobe": "occipital"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260323_091446-Grabación de la reunión/Formación ACDC-20260323_091446-Grabación de la reunión_resumo_run_20260922_164657_60468.md",
+      "size": 47685,
+      "lobe": "temporal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260323_104712-Grabación de la reunión/Formación ACDC-20260323_104712-Grabación de la reunión_resumo_run_20260922_182423_34204.md",
+      "size": 56458,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260323_142755-Grabación de la reunión/Formación ACDC-20260323_142755-Grabación de la reunión_resumo_run_20260922_164737_65266.md",
+      "size": 57164,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260324_090723-Grabación de la reunión/Formación ACDC-20260324_090723-Grabación de la reunión_resumo_run_20260922_164737_65270.md",
+      "size": 18747,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260324_142152-Grabación de la reunión/Formación ACDC-20260324_142152-Grabación de la reunión_resumo_run_20260922_164917_84444.md",
+      "size": 22925,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260325_092012-Grabación de la reunión/Formación ACDC-20260325_092012-Grabación de la reunión_resumo_run_20260922_165038_1086.md",
+      "size": 36282,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260325_104510-Grabación de la reunión/Formación ACDC-20260325_104510-Grabación de la reunión_resumo_run_20260922_165159_15282.md",
+      "size": 39267,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260325_122626-Grabación de la reunión/Formación ACDC-20260325_122626-Grabación de la reunión_resumo_run_20260922_182423_34205.md",
+      "size": 45998,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260325_142046-Grabación de la reunión/Formación ACDC-20260325_142046-Grabación de la reunión_resumo_run_20260922_170046_24940.md",
+      "size": 17465,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260325_160829-Grabación de la reunión/Formación ACDC-20260325_160829-Grabación de la reunión_resumo_run_20260922_170126_37852.md",
+      "size": 43405,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260326_092159-Grabación de la reunión/Formación ACDC-20260326_092159-Grabación de la reunión_resumo_run_20260922_170246_59222.md",
+      "size": 39106,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260326_105656-Grabación de la reunión/Formación ACDC-20260326_105656-Grabación de la reunión_resumo_run_20260922_170305_63718.md",
+      "size": 42013,
+      "lobe": "temporal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260326_142052-Grabación de la reunión/Formación ACDC-20260326_142052-Grabación de la reunión_resumo_run_20260922_170446_82955.md",
+      "size": 40453,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260327_091453-Grabación de la reunión/Formación ACDC-20260327_091453-Grabación de la reunión_resumo_run_20260922_170447_83201.md",
+      "size": 25999,
+      "lobe": "temporal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Formación ACDC/Formación ACDC-20260327_103913-Grabación de la reunión/Formación ACDC-20260327_103913-Grabación de la reunión_resumo_run_20260922_170628_338.md",
+      "size": 38091,
+      "lobe": "temporal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/MSV Revisión Calculo Devolución IVA-20260212_110531-Grabación de la reunión/resumo_run_20260922_171152_57122.md",
+      "size": 36823,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/REEF ACDC Seguimiento diario-20260508_134606-Grabación de la reunión/resumo_run_20260922_171912_96291.md",
+      "size": 44186,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260309_110314-Gravação de Reunião/resumo_run_20260922_171933_98734.md",
+      "size": 32666,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260309_171827-Grabación de la reunión/resumo_run_20260922_173436_35871.md",
+      "size": 33654,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260310_103904-Grabación de la reunión/resumo_run_20260922_173552_45319.md",
+      "size": 32346,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260316_093830-Grabación de la reunión/resumo_run_20260922_174021_19840.md",
+      "size": 29616,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260316_143631-Grabación de la reunión/resumo_run_20260922_174042_23839.md",
+      "size": 22282,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260316_143631-Grabación de la reunión 1/resumo_run_20260922_174041_23627.md",
+      "size": 9443,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260317_112616-Grabación de la reunión/resumo_run_20260922_175231_90935.md",
+      "size": 37230,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260317_112616-Grabación de la reunión 1/resumo_run_20260922_174542_47118.md",
+      "size": 38097,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260317_144202-Grabación de la reunión/resumo_run_20260922_175435_9029.md",
+      "size": 21032,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260317_155318-Grabación de la reunión/resumo_run_20260922_175624_26818.md",
+      "size": 32511,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260318_095616-Gravação de Reunião/resumo_run_20260922_180410_10024.md",
+      "size": 6991,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260318_095616-Gravação de Reunião 1/resumo_run_20260922_175937_47318.md",
+      "size": 13922,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260319_175942-Grabación de la reunión/resumo_run_20260922_180502_22104.md",
+      "size": 37074,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260320_101237-Grabación de la reunión/resumo_run_20260922_181254_54597.md",
+      "size": 19320,
+      "lobe": "frontal"
+    },
+    {
+      "file": "05_Acervo_Documental_e_Videos/Videos/Visita Hub Colômbia/Reef Vida  Armado de Produto-20260320_174941-Grabación de la reunión/resumo_run_20260922_181304_57035.md",
+      "size": 33769,
+      "lobe": "frontal"
+    },
+    {
+      "file": "00_INDICE_GERAL_ACDC.md",
+      "size": 2009,
+      "lobe": "frontal"
+    }
+  ]
+}

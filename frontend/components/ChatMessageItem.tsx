@@ -14,9 +14,36 @@ import {
   ThumbsUp,
   ThumbsDown,
   Sparkles,
-  X
+  X,
+  Brain,
+  Zap,
+  GitCommit,
+  CheckCircle2,
+  Presentation,
+  Image as ImageIcon,
+  Paperclip,
 } from "lucide-react";
 import { chatApi, MessageFeedback } from "@/lib/api";
+
+export interface AttachmentMeta {
+  name: string;
+  type: string;
+  data_url?: string;
+  pages?: number;
+  slides_count?: number;
+  total_chars?: number;
+}
+
+export interface CognitiveLearningEvent {
+  detected: boolean;
+  node_id?: string;
+  canonical_id?: string;
+  concept?: string;
+  mistake?: string;
+  correction?: string;
+  synapse_type?: string;
+  created_at?: string;
+}
 
 export interface ChatMessage {
   id?: string;
@@ -25,6 +52,9 @@ export interface ChatMessage {
   sources?: string[];
   created_at?: string;
   feedback?: MessageFeedback | null;
+  learning?: CognitiveLearningEvent | null;
+  attachments?: AttachmentMeta[] | null;
+  statusText?: string;
 }
 
 export function isRefusalOrNotFound(text?: string): boolean {
@@ -179,6 +209,52 @@ export default function ChatMessageItem({
             </div>
           </div>
 
+          {/* Anexos da Mensagem (Imagens e Documentos) */}
+          {message.attachments && message.attachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2 pt-1">
+              {message.attachments.map((att, idx) => {
+                if (att.type === "image" && att.data_url) {
+                  return (
+                    <div
+                      key={idx}
+                      className="group relative overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-md"
+                    >
+                      <img
+                        src={att.data_url}
+                        alt={att.name}
+                        className="h-20 w-24 object-cover transition-transform duration-200 group-hover:scale-105"
+                      />
+                      <span className="absolute bottom-0 inset-x-0 bg-slate-950/85 px-1.5 py-0.5 text-[9px] font-mono text-slate-300 truncate">
+                        {att.name}
+                      </span>
+                    </div>
+                  );
+                }
+                const isPdf = att.name.toLowerCase().endsWith(".pdf") || att.type === "pdf";
+                const isDocx = att.name.toLowerCase().endsWith(".docx") || att.type === "docx";
+                const isPptx = att.name.toLowerCase().endsWith(".pptx") || att.type === "pptx";
+
+                return (
+                  <div
+                    key={idx}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-800/80 px-2.5 py-1.5 text-xs text-slate-200 shadow-sm"
+                  >
+                    {isPdf && <FileText className="h-4 w-4 text-rose-400 flex-shrink-0" />}
+                    {isDocx && <FileText className="h-4 w-4 text-blue-400 flex-shrink-0" />}
+                    {isPptx && <Presentation className="h-4 w-4 text-amber-400 flex-shrink-0" />}
+                    {!isPdf && !isDocx && !isPptx && <FileText className="h-4 w-4 text-sky-400 flex-shrink-0" />}
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-[11px] truncate max-w-[180px]">{att.name}</span>
+                      <span className="text-[9px] text-slate-400 font-mono">
+                        {att.pages ? `${att.pages} pág.` : att.slides_count ? `${att.slides_count} slides` : "Documento"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Corpo da Mensagem com Markdown ou Streaming */}
           <div className="text-sm leading-relaxed text-slate-100 prose-chat pt-1">
             {message.content ? (
@@ -236,16 +312,80 @@ export default function ChatMessageItem({
                 {message.content}
               </ReactMarkdown>
             ) : isStreaming ? (
-              <div className="flex items-center gap-2 py-1 text-xs text-slate-400">
+              <div className="flex items-center gap-2.5 py-1.5 text-xs text-slate-300 animate-in fade-in duration-200">
                 <span className="flex gap-1">
                   <span className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:-0.3s]" />
                   <span className="h-2 w-2 animate-bounce rounded-full bg-sky-400 [animation-delay:-0.15s]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-blue-500" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-indigo-500" />
                 </span>
-                <span>Consultando base de conhecimento local e gerando resposta...</span>
+                <span className="font-medium text-sky-200 animate-pulse">
+                  {message.statusText || "Pensando sobre a solicitação..."}
+                </span>
               </div>
             ) : null}
           </div>
+
+          {/* Card de Aprendizado Ocorrido / Neuroplasticidade Sintética */}
+          {message.learning && message.learning.detected && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-950/40 via-purple-950/30 to-slate-900/60 p-3.5 shadow-lg shadow-amber-950/20 backdrop-blur-sm animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center justify-between gap-2 border-b border-amber-500/20 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400">
+                    <Brain className="h-3.5 w-3.5 animate-pulse" />
+                  </div>
+                  <span className="text-xs font-semibold text-amber-300">
+                    Aprendizado ocorrido • Nova Sinapse no Grafo Neural
+                  </span>
+                </div>
+                <div className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-950/40 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                  <Zap className="h-2.5 w-2.5" />
+                  <span>Prioridade Canônica Ativa</span>
+                </div>
+              </div>
+
+              <div className="mt-2.5 space-y-1.5 text-xs">
+                {message.learning.concept && (
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-semibold text-slate-300">Conceito Retificado:</span>
+                    <span className="font-mono text-amber-200">{message.learning.concept}</span>
+                  </div>
+                )}
+                {message.learning.mistake && (
+                  <div className="text-slate-400">
+                    <span className="font-medium text-rose-300/80">Equívoco Superado: </span>
+                    <span className="line-through opacity-70">{message.learning.mistake}</span>
+                  </div>
+                )}
+                {message.learning.correction && (
+                  <div className="text-slate-200 bg-slate-900/60 border border-slate-800 rounded-lg p-2 mt-1">
+                    <span className="font-semibold text-emerald-400 flex items-center gap-1 mb-0.5">
+                      <CheckCircle2 className="h-3 w-3" /> Regra Canônica Consolidada:
+                    </span>
+                    <span className="text-[11px] leading-relaxed text-slate-300">
+                      {message.learning.correction}
+                    </span>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[10px] text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <GitCommit className="h-3 w-3 text-sky-400" />
+                    Sinapse: <code className="text-sky-300 font-mono">{message.learning.synapse_type || "RETIFICA_CONCEITO"}</code>
+                  </span>
+                  {message.learning.canonical_id && (
+                    <span>ID: <code className="text-slate-400 font-mono">{message.learning.canonical_id}</code></span>
+                  )}
+                  <span className="text-amber-400/90 font-medium">⚡ Próximas perguntas utilizarão esta sinapse imediatamente</span>
+                  <a
+                    href={`/graph?focus=${encodeURIComponent("learning://" + (message.learning.canonical_id || ""))}`}
+                    className="inline-flex items-center gap-1 rounded-md border border-amber-400/50 bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-200 shadow-sm shadow-amber-500/20 hover:bg-amber-500/30 hover:text-white transition"
+                    title="Abrir o Grafo Neural 3D e focar nesta nova sinapse"
+                  >
+                    <span>🧠 Visualizar no Grafo 3D</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Fontes / Citações Consultadas (apenas no Assistente e quando a informação foi encontrada) */}
           {message.sources && message.sources.length > 0 && !isRefusalOrNotFound(message.content) && (

@@ -1,9 +1,9 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import admin, auth, chat, conversations, health, knowledge, snapshots
+from app.api import admin, auth, chat, conversations, health, knowledge, learnings, rbac, snapshots
 from app.auth.database import engine
 from app.auth.models import Base, MessageFeedback  # noqa: F401
 from app.config import settings
@@ -14,7 +14,7 @@ from app.knowledge.models import KnowledgeConflict, KnowledgeDocument, Knowledge
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Garante que as tabelas (incluindo knowledge) existam
+    # Garante que as tabelas (incluindo knowledge e rbac) existam
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         from sqlalchemy import text
@@ -27,6 +27,9 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS completion_tokens INTEGER DEFAULT 0;",
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS total_tokens INTEGER DEFAULT 0;",
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS model VARCHAR(100);",
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS learning_metadata JSONB;",
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments_metadata JSONB;",
+            "CREATE TABLE IF NOT EXISTS app_users_rbac (email VARCHAR(255) PRIMARY KEY, role VARCHAR(50) NOT NULL DEFAULT 'VIEWER', granted_by VARCHAR(255), notes VARCHAR(255), created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());",
         ]:
             await conn.execute(text(sql))
 
@@ -69,9 +72,38 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AXET-NEURALGRAPH-3D", lifespan=lifespan)
 
+cors_origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
+for default_desktop in [
+    "tauri://localhost",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+]:
+    if default_desktop not in cors_origins:
+        cors_origins.append(default_desktop)
+
+@app.middleware("http")
+async def add_private_network_access_headers(request: Request, call_next):
+    if request.method == "OPTIONS":
+        origin = request.headers.get("origin")
+        if origin and (origin in cors_origins or "localhost" in origin):
+            response = Response(status_code=204)
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Methods"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Private-Network"] = "true"
+            return response
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_allowed_origins.split(","),
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -86,3 +118,5 @@ app.include_router(knowledge.router)
 app.include_router(knowledge.user_router)
 app.include_router(snapshots.router)
 app.include_router(snapshots.admin_router)
+app.include_router(rbac.router)
+app.include_router(learnings.router)

@@ -20,8 +20,10 @@ import {
   MessageSquare,
   Sparkles,
   Network,
-  CloudDownload
+  CloudDownload,
+  Info
 } from "lucide-react";
+import packageJson from "../package.json";
 
 export default function AppHeader() {
   const router = useRouter();
@@ -31,6 +33,7 @@ export default function AppHeader() {
   const [showOktaModal, setShowOktaModal] = useState(false);
   const [showCorporateModal, setShowCorporateModal] = useState(false);
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -309,6 +312,17 @@ export default function AppHeader() {
                     <span>Trocar senha</span>
                   </button>
 
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setShowAboutModal(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 transition"
+                  >
+                    <Info className="h-4 w-4 text-blue-400" />
+                    <span>About AXET</span>
+                  </button>
+
                   <div className="my-1 border-t border-slate-800/80"></div>
 
                   <button
@@ -445,6 +459,67 @@ export default function AppHeader() {
         isOpen={showSnapshotModal}
         onClose={() => setShowSnapshotModal(false)}
       />
+
+      {/* Modal About AXET-NeuralGraph */}
+      {showAboutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 p-6 shadow-2xl">
+            {/* Close Button */}
+            <button
+              onClick={() => setShowAboutModal(false)}
+              className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+              title="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {/* About Header */}
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#0072BC] to-sky-400 p-3 shadow-lg shadow-blue-500/20">
+                <NttDataLogo className="h-8 w-8 text-white" />
+              </div>
+              <h3 className="text-base font-bold text-white tracking-tight">
+                AXET-NeuralGraph 3D
+              </h3>
+              
+              <div className="mt-2 flex flex-col items-center justify-center gap-0.5 text-center">
+                <p className="text-xs text-slate-400">
+                  Version {packageJson.version || "1.0.9"} (Desktop Edition)
+                </p>
+                <p className="text-xs text-slate-400">
+                  Application Services - MAPPS
+                </p>
+              </div>
+
+              <p className="mt-3 text-xs text-slate-400 leading-relaxed max-w-xs text-center">
+                Enterprise 3D Neural Knowledge Platform & High-Performance RAG System with Epistemic Sandboxing and Multimodal Analysis.
+              </p>
+            </div>
+
+            {/* Creators & Architects Card - Centralizado e padronizado no mesmo padrão da versão */}
+            <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 p-4 text-center">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5 text-center">
+                Creators & Architects
+              </div>
+              <div className="space-y-1.5 text-center text-xs text-slate-400">
+                <p className="leading-relaxed">
+                  <span className="text-slate-300">Gustavo Costa Berbert:</span>{" "}
+                  <span className="text-slate-400">Solution Architect & Cognitive Intelligence</span>
+                </p>
+                <p className="leading-relaxed">
+                  <span className="text-slate-300">Marcio Miguel:</span>{" "}
+                  <span className="text-slate-400">Executive Leadership & Business Architecture</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Institutional Footer */}
+            <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col items-center justify-center gap-1 text-xs text-slate-400 text-center">
+              <span>© 2026 NTT DATA. All rights reserved.</span>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

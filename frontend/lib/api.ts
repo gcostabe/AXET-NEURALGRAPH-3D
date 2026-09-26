@@ -1,7 +1,47 @@
 import { getToken, clearToken } from "./auth";
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+let activeBaseUrl: string =
+  (typeof window !== "undefined" && window.localStorage?.getItem("axet_api_url")) ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:8000";
+
+export function getApiUrl(): string {
+  return activeBaseUrl;
+}
+
+export function setApiUrl(url: string) {
+  activeBaseUrl = url;
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage?.setItem("axet_api_url", url);
+    } catch {}
+  }
+}
+
+export const API_URL = activeBaseUrl;
+
+export async function checkBackendConnectivity(): Promise<{ ok: boolean; url: string; error?: string }> {
+  const candidates = [
+    activeBaseUrl,
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+  ];
+  const uniqueUrls = Array.from(new Set(candidates));
+  let lastErr = "";
+
+  for (const url of uniqueUrls) {
+    try {
+      const res = await fetch(`${url}/health`, { method: "GET" });
+      if (res.ok) {
+        setApiUrl(url);
+        return { ok: true, url };
+      }
+    } catch (e: any) {
+      lastErr = e?.message || String(e);
+    }
+  }
+  return { ok: false, url: activeBaseUrl, error: lastErr };
+}
 
 export class ApiError extends Error {
   status: number;
@@ -22,7 +62,29 @@ async function request<T>(
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  let res: Response;
+  const currentBase = getApiUrl();
+  try {
+    res = await fetch(`${currentBase}${path}`, { ...options, headers });
+  } catch (fetchErr: any) {
+    // Fallback dinâmico entre localhost e 127.0.0.1 (evita conflito IPv6 ::1 vs IPv4 no Windows WebView2)
+    const fallbackBase = currentBase.includes("localhost")
+      ? currentBase.replace("localhost", "127.0.0.1")
+      : currentBase.includes("127.0.0.1")
+      ? currentBase.replace("127.0.0.1", "localhost")
+      : null;
+
+    if (fallbackBase) {
+      try {
+        res = await fetch(`${fallbackBase}${path}`, { ...options, headers });
+        setApiUrl(fallbackBase);
+      } catch {
+        throw fetchErr;
+      }
+    } else {
+      throw fetchErr;
+    }
+  }
 
   if (!res.ok) {
     let detail = res.statusText;
@@ -233,20 +295,43 @@ export const authApi = {
         new_password: newPassword,
       }),
     }),
-  oktaStart: () =>
-    request<OktaDeviceAuthStartResponse>("/auth/okta/start", {
-      method: "POST",
-    }),
-  oktaPoll: (device_code: string) =>
-    request<OktaPollResponse>("/auth/okta/poll", {
-      method: "POST",
-      body: JSON.stringify({ device_code }),
-    }),
+  oktaStart: async () => {
+    try {
+      return await request<OktaDeviceAuthStartResponse>("/auth/okta/start", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+    } catch (err: any) {
+      if (err?.status === 405) {
+        return await request<OktaDeviceAuthStartResponse>("/auth/okta/start", {
+          method: "GET",
+        });
+      }
+      throw err;
+    }
+  },
+  oktaPoll: async (device_code: string) => {
+    try {
+      return await request<OktaPollResponse>("/auth/okta/poll", {
+        method: "POST",
+        body: JSON.stringify({ device_code }),
+      });
+    } catch (err: any) {
+      if (err?.status === 405) {
+        return await request<OktaPollResponse>(
+          `/auth/okta/poll?device_code=${encodeURIComponent(device_code)}`,
+          { method: "GET" },
+        );
+      }
+      throw err;
+    }
+  },
   oktaStatus: () =>
     request<GatewayAuthStatusResponse>("/auth/okta/status"),
   oktaRefresh: () =>
     request<GatewayAuthStatusResponse>("/auth/okta/refresh", {
       method: "POST",
+      body: JSON.stringify({}),
     }),
 };
 
@@ -815,6 +900,121 @@ export interface SyncOneDriveResponse {
   output?: string;
 }
 
+export interface RbacUserItem {
+  email: string;
+  role: string;
+  granted_by?: string | null;
+  notes?: string | null;
+  created_at: string;
+  is_master: boolean;
+}
 
+export interface GrantAdminRequest {
+  email: string;
+  notes?: string;
+}
 
+export interface UserProfileOut {
+  id: string;
+  email: string;
+  status: string;
+  role: string;
+  effective_role: string;
+  is_master_admin: boolean;
+  created_at: string;
+}
 
+export const rbacApi = {
+  listUsers: () => request<RbacUserItem[]>("/admin/rbac/users"),
+  grantAdmin: (email: string, notes?: string) =>
+    request<RbacUserItem>("/admin/rbac/users", {
+      method: "POST",
+      body: JSON.stringify({ email, notes }),
+    }),
+  revokeAdmin: (email: string) =>
+    request<void>(`/admin/rbac/users/${encodeURIComponent(email)}`, {
+      method: "DELETE",
+    }),
+  getMe: () => request<UserProfileOut>("/auth/me"),
+  triggerDesktopBuild: (version_tag?: string) =>
+    request<{ status: string; method: string; version: string; repo: string; message: string }>(
+      "/admin/rbac/desktop/trigger-build",
+      {
+        method: "POST",
+        body: JSON.stringify({ version_tag: version_tag || "v1.0.0" }),
+      }
+    ),
+  getDesktopBuildStatus: () =>
+    request<{
+      latest_version: string;
+      supported_targets: string[];
+      download_links: { macos_dmg: string; windows_msi: string };
+      releases_page: string;
+      actions_page: string;
+    }>("/admin/rbac/desktop/build-status"),
+};
+
+export interface CognitiveLearningItem {
+  canonical_id: string;
+  concept: string;
+  mistake: string;
+  correction: string;
+  synapse_type: string;
+  created_at: string;
+  status: "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "RESOLVED";
+  reviewed_at?: string;
+  github_issue_number?: number;
+  github_issue_url?: string;
+  github_issue_state?: string;
+}
+
+export const learningsApi = {
+  getIncoming: () =>
+    request<{ items: CognitiveLearningItem[]; count: number }>("/learnings/incoming"),
+  review: (
+    canonical_id: string,
+    action: "approve" | "reject",
+    refined_concept?: string,
+    refined_correction?: string
+  ) =>
+    request<{ status: string; learning: CognitiveLearningItem }>(
+      `/learnings/${canonical_id}/review`,
+      {
+        method: "POST",
+        body: JSON.stringify({ action, refined_concept, refined_correction }),
+      }
+    ),
+  publishPack: () =>
+    request<{
+      status: string;
+      pack: {
+        pack_file: string;
+        filename: string;
+        version: string;
+        synapses_count: number;
+        generated_at: string;
+      };
+    }>("/learnings/publish-pack", {
+      method: "POST",
+    }),
+  syncGlobalPack: () =>
+    request<{
+      status: string;
+      imported_count: number;
+      version: string;
+      synapses_count: number;
+    }>("/learnings/sync-global-pack", {
+      method: "POST",
+    }),
+  importPack: (packData: any) =>
+    request<{
+      status: string;
+      imported_count: number;
+      version: string;
+      synapses_count: number;
+    }>("/learnings/import-pack", {
+      method: "POST",
+      body: JSON.stringify(packData),
+    }),
+  downloadPackUrl: `${API_URL}/learnings/download-pack`,
+};

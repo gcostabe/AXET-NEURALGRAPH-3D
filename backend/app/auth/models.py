@@ -32,6 +32,8 @@ class AuditAction(str, enum.Enum):
     TRIGGER_REINDEX = "TRIGGER_REINDEX"
     CREATE_GOLD_ANSWER = "CREATE_GOLD_ANSWER"
     RESOLVE_CONFLICT = "RESOLVE_CONFLICT"
+    GRANT_ADMIN = "GRANT_ADMIN"
+    REVOKE_ADMIN = "REVOKE_ADMIN"
 
 
 class User(Base):
@@ -85,6 +87,8 @@ class Message(Base):
     completion_tokens: Mapped[int | None] = mapped_column(Integer, default=0, nullable=True)
     total_tokens: Mapped[int | None] = mapped_column(Integer, default=0, nullable=True)
     model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    learning_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    attachments_metadata: Mapped[list | dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
@@ -132,4 +136,25 @@ class MessageFeedback(Base):
 
     message: Mapped["Message"] = relationship()
     user: Mapped["User"] = relationship()
+
+
+class AppUserRole(str, enum.Enum):
+    MASTER_ADMIN = "MASTER_ADMIN"
+    ADMIN = "ADMIN"
+    VIEWER = "VIEWER"
+
+
+class AppUserRbac(Base):
+    """Controle de acesso por papel corporativo (RBAC) com Master Admin imutável."""
+
+    __tablename__ = "app_users_rbac"
+
+    email: Mapped[str] = mapped_column(String(255), primary_key=True)
+    role: Mapped[str] = mapped_column(String(50), default="VIEWER", nullable=False)
+    granted_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 

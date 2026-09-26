@@ -13,6 +13,7 @@ gateway/tokens.json
 gateway/tokens.json.lock
 gateway/user_identity.json
 gateway/logs/
+.build_bump_lock
 
 # ── Python & Backend ─────────────────────────────────────────
 __pycache__/
@@ -67,6 +68,8 @@ dmypy.json
 
 # ── Node.js & Frontend (Next.js) ─────────────────────────────
 node_modules/
+frontend/node_modules
+src-tauri/target/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -130,3 +133,12 @@ Thumbs.db
 .gemini/
 scratch/
 .scratch/
+
+# ── Desktop Build Artifacts ──────────────────────────────────
+*.dmg
+*.msi
+src-tauri/target/
+src-tauri/gen/
+frontend/out/
+worktrees/
+

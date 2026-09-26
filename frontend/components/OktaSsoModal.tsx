@@ -3,10 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import {
   authApi,
+  API_URL,
+  ApiError,
   OktaDeviceAuthStartResponse,
   OktaPollResponse,
+  checkBackendConnectivity,
 } from "@/lib/api";
 import { setToken } from "@/lib/auth";
+import { isDesktopApp, openExternalUrl } from "@/lib/desktop";
 import {
   Check,
   CheckCircle2,
@@ -17,7 +21,22 @@ import {
   ShieldCheck,
   X,
   AlertCircle,
+  Terminal,
+  RefreshCw,
 } from "lucide-react";
+
+interface DiagnosticReport {
+  timestamp: string;
+  step: string;
+  endpoint: string;
+  httpStatus: string;
+  message: string;
+  technicalDetails?: string;
+  platform: string;
+  isDesktop: boolean;
+  apiUrl: string;
+  troubleshootingTip: string;
+}
 
 interface OktaSsoModalProps {
   isOpen: boolean;
@@ -37,11 +56,36 @@ export default function OktaSsoModal({
     useState<OktaDeviceAuthStartResponse | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [diagnostic, setDiagnostic] = useState<DiagnosticReport | null>(null);
+  const [copiedDiagnostic, setCopiedDiagnostic] = useState(false);
   const [success, setSuccess] = useState(false);
   const [pollStatus, setPollStatus] = useState<string>("Iniciando conexão...");
+  const [testingBackend, setTestingBackend] = useState(false);
+  const [backendStatusMsg, setBackendStatusMsg] = useState<string | null>(null);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isCancelledRef = useRef(false);
+
+  async function handleTestBackend() {
+    setTestingBackend(true);
+    setBackendStatusMsg(null);
+    try {
+      const res = await checkBackendConnectivity();
+      if (res.ok) {
+        setBackendStatusMsg(`✅ Backend Online em ${res.url}! Reiniciando conexão com Okta...`);
+        setTimeout(() => {
+          setBackendStatusMsg(null);
+          startFlow();
+        }, 1200);
+      } else {
+        setBackendStatusMsg(`❌ Backend Offline na porta 8000. Inicie os containers com 'iniciar_windows.bat' (ou Docker Desktop).`);
+      }
+    } catch (e: any) {
+      setBackendStatusMsg(`❌ Falha de teste: ${e?.message || "Serviço inacessível"}`);
+    } finally {
+      setTestingBackend(false);
+    }
+  }
 
   function stopPolling() {
     if (pollIntervalRef.current) {
@@ -50,10 +94,104 @@ export default function OktaSsoModal({
     }
   }
 
+  function createDiagnostic(
+    step: string,
+    endpoint: string,
+    err: any,
+    customTip?: string
+  ): DiagnosticReport {
+    const httpStatus =
+      err instanceof ApiError
+        ? `HTTP ${err.status}`
+        : err?.status
+        ? `HTTP ${err.status}`
+        : "Network / Fetch Error";
+
+    const rawMessage = err?.message || String(err);
+    let tip = customTip || "";
+
+    if (!tip) {
+      if (
+        httpStatus.includes("502") ||
+        rawMessage.includes("Falha ao iniciar autorização no Okta") ||
+        rawMessage.includes("ConnectError") ||
+        rawMessage.includes("SSLCertVerificationError")
+      ) {
+        tip =
+          "Falha de conexão entre o backend local e o servidor corporativo da Okta (https://onentt.okta.com). No Windows, verifique se há proxy corporativo (Zscaler, Netskope, BlueCoat), VPN ativa ou bloqueio de firewall para conexões de saída.";
+      } else if (httpStatus.includes("405")) {
+        tip =
+          "Método HTTP não permitido (405). O backend local (FastAPI) na porta 8000 precisa ser reiniciado para carregar os métodos de login SSO.";
+      } else if (
+        rawMessage.includes("Failed to fetch") ||
+        rawMessage.includes("NetworkError")
+      ) {
+        tip =
+          "O aplicativo desktop não conseguiu conectar ao backend local (porta 8000). No Windows:\n" +
+          "1. Certifique-se de executar o script 'iniciar_windows.bat' (ou verifique se os containers do Docker Desktop estão ativos);\n" +
+          "2. Se o Docker já estiver rodando, teste abrir no navegador: http://127.0.0.1:8000/health;\n" +
+          "3. Verifique se o Firewall do Windows não está bloqueando conexões locais na porta 8000.";
+      } else if (rawMessage.includes("expired")) {
+        tip =
+          "O código de ativação expirou no portal Okta. Clique em 'Tentar novamente' para gerar um novo código.";
+      } else if (rawMessage.includes("access_denied")) {
+        tip =
+          "A autorização foi cancelada ou negada no portal OneNTT Okta.";
+      } else {
+        tip =
+          "Verifique os logs do terminal e a conectividade com o backend local na porta 8000.";
+      }
+    }
+
+    const platform =
+      typeof navigator !== "undefined" ? navigator.userAgent : "Unknown";
+
+    const report: DiagnosticReport = {
+      timestamp: new Date().toISOString(),
+      step,
+      endpoint,
+      httpStatus,
+      message: rawMessage,
+      technicalDetails:
+        err?.stack || JSON.stringify(err, Object.getOwnPropertyNames(err)),
+      platform,
+      isDesktop: isDesktopApp(),
+      apiUrl: API_URL,
+      troubleshootingTip: tip,
+    };
+
+    console.error("[OKTA_SSO_DIAGNOSTIC_FAILURE]", report);
+    return report;
+  }
+
+  function handleCopyDiagnostic() {
+    if (!diagnostic) return;
+    const text = [
+      "### 📋 AXET Okta SSO Diagnostic Report",
+      `- **Data/Hora**: ${diagnostic.timestamp} (${new Date(diagnostic.timestamp).toLocaleString("pt-BR")})`,
+      `- **Etapa do Fluxo**: ${diagnostic.step}`,
+      `- **Endpoint Requisitado**: ${diagnostic.endpoint}`,
+      `- **Status HTTP / Conexão**: ${diagnostic.httpStatus}`,
+      `- **Mensagem de Erro**: ${diagnostic.message}`,
+      `- **Dica / Diagnóstico**: ${diagnostic.troubleshootingTip}`,
+      `- **Ambiente**: ${diagnostic.platform}`,
+      `- **Modo Desktop Tauri**: ${diagnostic.isDesktop ? "Sim (Tauri Nativo)" : "Não (Navegador)"}`,
+      `- **Backend Base URL**: ${diagnostic.apiUrl}`,
+      ...(diagnostic.technicalDetails
+        ? [`- **Stack / Detalhes**: \`\`\`\n${diagnostic.technicalDetails.slice(0, 500)}\n\`\`\``]
+        : []),
+    ].join("\n");
+
+    navigator.clipboard.writeText(text);
+    setCopiedDiagnostic(true);
+    setTimeout(() => setCopiedDiagnostic(false), 3000);
+  }
+
   async function startFlow() {
     stopPolling();
     isCancelledRef.current = false;
     setError(null);
+    setDiagnostic(null);
     setSuccess(false);
     setLoading(true);
     setPollStatus("Solicitando código de ativação ao Okta...");
@@ -90,19 +228,65 @@ export default function OktaSsoModal({
             }, 1200);
           } else if (pollRes.status === "expired") {
             stopPolling();
+            const diag = createDiagnostic(
+              "OKTA_POLL_TIMEOUT",
+              `${API_URL}/auth/okta/poll`,
+              new Error("O código de ativação expirou no Okta."),
+              "O tempo limite de autorização do código expirou. Gere um novo código clicando em 'Tentar novamente'."
+            );
+            setDiagnostic(diag);
             setError("O código de ativação expirou. Clique em 'Tentar Novamente'.");
           } else if (pollRes.status === "error") {
             stopPolling();
+            const diag = createDiagnostic(
+              "OKTA_POLL_VALIDATION",
+              `${API_URL}/auth/okta/poll`,
+              new Error(pollRes.detail || "Erro durante a validação no Okta."),
+              pollRes.detail || "O Okta retornou um status de erro durante a autorização."
+            );
+            setDiagnostic(diag);
             setError(pollRes.detail || "Erro durante a validação no Okta.");
           }
         } catch (pollErr: any) {
-          console.warn("Okta poll error:", pollErr);
+          console.warn("[OKTA_POLL_WARN] Erro transitório durante polling:", pollErr);
+          if (pollErr?.message?.includes("Failed to fetch") || pollErr?.message?.includes("NetworkError")) {
+            stopPolling();
+            const diag = createDiagnostic(
+              "OKTA_POLL_NETWORK_FAILURE",
+              `${API_URL}/auth/okta/poll`,
+              pollErr,
+              "A conexão com o backend local foi perdida durante a verificação de autorização do Okta."
+            );
+            setDiagnostic(diag);
+            setError("Conexão com o backend local perdida durante a verificação.");
+          }
         }
       }, intervalMs);
     } catch (err: any) {
       if (!isCancelledRef.current) {
         setLoading(false);
-        setError(err.message || "Não foi possível iniciar o login via Okta.");
+        const diag = createDiagnostic(
+          "OKTA_DEVICE_AUTH_START",
+          `${API_URL}/auth/okta/start`,
+          err
+        );
+        setDiagnostic(diag);
+
+        const errMsg = err?.message || "";
+        if (errMsg.includes("Method Not Allowed") || err?.status === 405) {
+          setError(
+            "Erro 405 (Method Not Allowed): O backend local em http://localhost:8000 precisa ser atualizado ou reiniciado para aceitar o login SSO."
+          );
+        } else if (
+          errMsg.includes("Failed to fetch") ||
+          errMsg.includes("NetworkError")
+        ) {
+          setError(
+            "Não foi possível conectar ao backend local em http://localhost:8000. Certifique-se de que os serviços (iniciar_windows.bat ou Docker) estão em execução."
+          );
+        } else {
+          setError(errMsg || "Não foi possível iniciar o login via Okta.");
+        }
       }
     }
   }
@@ -115,6 +299,7 @@ export default function OktaSsoModal({
       stopPolling();
       setDeviceData(null);
       setError(null);
+      setDiagnostic(null);
       setSuccess(false);
     }
     return () => {
@@ -131,9 +316,13 @@ export default function OktaSsoModal({
     }
   }
 
-  function handleOpenOkta() {
+  async function handleOpenOkta() {
     if (deviceData?.verification_uri_complete) {
-      window.open(deviceData.verification_uri_complete, "_blank", "noopener,noreferrer");
+      try {
+        await openExternalUrl(deviceData.verification_uri_complete);
+      } catch (err: any) {
+        console.error("[OKTA_BROWSER_ERROR] Falha ao abrir navegador:", err);
+      }
     }
   }
 
@@ -141,7 +330,7 @@ export default function OktaSsoModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-[#0c1324] p-6 text-slate-100 shadow-2xl shadow-blue-500/10">
+      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-[#0c1324] p-6 text-slate-100 shadow-2xl shadow-blue-500/10">
         {/* Close button */}
         <button
           onClick={onClose}
@@ -179,9 +368,95 @@ export default function OktaSsoModal({
             <div className="space-y-4">
               <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-300 flex items-start gap-2.5">
                 <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
-                <span>{error}</span>
+                <div className="space-y-1">
+                  <p className="font-semibold text-rose-200">Falha na Autenticação Okta</p>
+                  <p className="leading-relaxed">{error}</p>
+                </div>
               </div>
+
+              {diagnostic && (
+                <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3.5 space-y-3 text-xs">
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <div className="flex items-center gap-1.5 font-semibold text-slate-200">
+                      <Terminal className="h-3.5 w-3.5 text-sky-400" />
+                      <span>Diagnóstico de Erro (Windows / Desktop)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyDiagnostic}
+                      className="flex items-center gap-1 rounded bg-slate-800 hover:bg-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-200 transition"
+                      title="Copiar relatório completo de erro"
+                    >
+                      {copiedDiagnostic ? (
+                        <>
+                          <Check className="h-3 w-3 text-emerald-400" />
+                          <span className="text-emerald-300">Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3 text-slate-400" />
+                          <span>Copiar Log</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="font-mono text-[11px] space-y-1 text-slate-300 bg-black/50 p-2.5 rounded-lg border border-slate-800/60 overflow-x-auto max-h-36">
+                    <div>
+                      <span className="text-sky-400 font-bold">[ETAPA]:</span> {diagnostic.step}
+                    </div>
+                    <div>
+                      <span className="text-sky-400 font-bold">[ENDPOINT]:</span> {diagnostic.endpoint}
+                    </div>
+                    <div>
+                      <span className="text-amber-400 font-bold">[STATUS]:</span> {diagnostic.httpStatus}
+                    </div>
+                    <div>
+                      <span className="text-rose-400 font-bold">[DETALHE]:</span> {diagnostic.message}
+                    </div>
+                  </div>
+
+                  {diagnostic.troubleshootingTip && (
+                    <div className="rounded-lg bg-sky-950/30 border border-sky-800/30 p-2.5 text-[11px] text-sky-300/90 leading-relaxed whitespace-pre-line">
+                      <span className="font-semibold text-sky-200">💡 Ponto de atenção:</span> {diagnostic.troubleshootingTip}
+                    </div>
+                  )}
+
+                  <div className="pt-1 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTestBackend}
+                      disabled={testingBackend}
+                      className="flex items-center justify-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 px-3 py-1.5 text-[11px] font-medium text-sky-200 transition disabled:opacity-50"
+                    >
+                      {testingBackend ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin text-sky-400" />
+                          <span>Testando portas 8000 (localhost e 127.0.0.1)...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-3 w-3 text-sky-400" />
+                          <span>Testar Conexão com o Backend Local</span>
+                        </>
+                      )}
+                    </button>
+
+                    {backendStatusMsg && (
+                      <div className={`p-2 rounded-lg text-[11px] leading-relaxed border ${
+                        backendStatusMsg.startsWith("✅")
+                          ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-300"
+                          : "bg-rose-950/40 border-rose-500/30 text-rose-300"
+                      }`}>
+                        {backendStatusMsg}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <button
+                type="button"
                 onClick={startFlow}
                 className="w-full rounded-xl bg-slate-800 py-2.5 text-xs font-semibold text-white hover:bg-slate-700 transition"
               >
@@ -250,6 +525,19 @@ export default function OktaSsoModal({
                 <span>Abrir página do Okta</span>
                 <ExternalLink className="h-4 w-4" />
               </button>
+
+              <div className="text-center">
+                <p className="text-[11px] text-slate-400">
+                  Ou acesse no seu navegador:{" "}
+                  <button
+                    type="button"
+                    onClick={handleOpenOkta}
+                    className="text-sky-400 hover:underline font-mono"
+                  >
+                    {deviceData.verification_uri}
+                  </button>
+                </p>
+              </div>
 
               {/* Polling Indicator */}
               <div className="flex items-center justify-center gap-2 pt-2 text-[11px] text-slate-400">
