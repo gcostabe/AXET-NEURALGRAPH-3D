@@ -1,7 +1,47 @@
 import { getToken, clearToken } from "./auth";
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+let activeBaseUrl: string =
+  (typeof window !== "undefined" && window.localStorage?.getItem("axet_api_url")) ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:8000";
+
+export function getApiUrl(): string {
+  return activeBaseUrl;
+}
+
+export function setApiUrl(url: string) {
+  activeBaseUrl = url;
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage?.setItem("axet_api_url", url);
+    } catch {}
+  }
+}
+
+export const API_URL = activeBaseUrl;
+
+export async function checkBackendConnectivity(): Promise<{ ok: boolean; url: string; error?: string }> {
+  const candidates = [
+    activeBaseUrl,
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+  ];
+  const uniqueUrls = Array.from(new Set(candidates));
+  let lastErr = "";
+
+  for (const url of uniqueUrls) {
+    try {
+      const res = await fetch(`${url}/health`, { method: "GET" });
+      if (res.ok) {
+        setApiUrl(url);
+        return { ok: true, url };
+      }
+    } catch (e: any) {
+      lastErr = e?.message || String(e);
+    }
+  }
+  return { ok: false, url: activeBaseUrl, error: lastErr };
+}
 
 export class ApiError extends Error {
   status: number;
@@ -22,7 +62,29 @@ async function request<T>(
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  let res: Response;
+  const currentBase = getApiUrl();
+  try {
+    res = await fetch(`${currentBase}${path}`, { ...options, headers });
+  } catch (fetchErr: any) {
+    // Fallback dinâmico entre localhost e 127.0.0.1 (evita conflito IPv6 ::1 vs IPv4 no Windows WebView2)
+    const fallbackBase = currentBase.includes("localhost")
+      ? currentBase.replace("localhost", "127.0.0.1")
+      : currentBase.includes("127.0.0.1")
+      ? currentBase.replace("127.0.0.1", "localhost")
+      : null;
+
+    if (fallbackBase) {
+      try {
+        res = await fetch(`${fallbackBase}${path}`, { ...options, headers });
+        setApiUrl(fallbackBase);
+      } catch {
+        throw fetchErr;
+      }
+    } else {
+      throw fetchErr;
+    }
+  }
 
   if (!res.ok) {
     let detail = res.statusText;

@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import admin, auth, chat, conversations, health, knowledge, learnings, rbac, snapshots
@@ -73,9 +73,33 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="AXET-NEURALGRAPH-3D", lifespan=lifespan)
 
 cors_origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
-for default_desktop in ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost", "http://localhost:3000", "http://localhost:3001"]:
+for default_desktop in [
+    "tauri://localhost",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+]:
     if default_desktop not in cors_origins:
         cors_origins.append(default_desktop)
+
+@app.middleware("http")
+async def add_private_network_access_headers(request: Request, call_next):
+    if request.method == "OPTIONS":
+        origin = request.headers.get("origin")
+        if origin and (origin in cors_origins or "localhost" in origin):
+            response = Response(status_code=204)
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Methods"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Private-Network"] = "true"
+            return response
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,4 +1,4 @@
-import { API_URL } from "./api";
+import { getApiUrl, setApiUrl } from "./api";
 import { getToken } from "./auth";
 
 export interface ChatAttachmentPayload {
@@ -25,18 +25,50 @@ export async function streamChat(
   attachments?: ChatAttachmentPayload[],
 ) {
   const token = getToken();
-  const res = await fetch(`${API_URL}/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({
-      message,
-      conversation_id: conversationId,
-      attachments: attachments && attachments.length > 0 ? attachments : undefined,
-    }),
+  let currentBase = getApiUrl();
+  let res: Response;
+
+  const payload = JSON.stringify({
+    message,
+    conversation_id: conversationId,
+    attachments: attachments && attachments.length > 0 ? attachments : undefined,
   });
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  try {
+    res = await fetch(`${currentBase}/chat`, {
+      method: "POST",
+      headers,
+      body: payload,
+    });
+  } catch (err: any) {
+    const fallbackBase = currentBase.includes("localhost")
+      ? currentBase.replace("localhost", "127.0.0.1")
+      : currentBase.includes("127.0.0.1")
+      ? currentBase.replace("127.0.0.1", "localhost")
+      : null;
+
+    if (fallbackBase) {
+      try {
+        res = await fetch(`${fallbackBase}/chat`, {
+          method: "POST",
+          headers,
+          body: payload,
+        });
+        setApiUrl(fallbackBase);
+      } catch (fbErr: any) {
+        handlers.onError?.(err?.message || "Failed to fetch");
+        return;
+      }
+    } else {
+      handlers.onError?.(err?.message || "Failed to fetch");
+      return;
+    }
+  }
 
   if (!res.ok || !res.body) {
     let detail = res.statusText;

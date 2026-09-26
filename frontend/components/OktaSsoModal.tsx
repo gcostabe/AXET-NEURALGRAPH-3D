@@ -7,6 +7,7 @@ import {
   ApiError,
   OktaDeviceAuthStartResponse,
   OktaPollResponse,
+  checkBackendConnectivity,
 } from "@/lib/api";
 import { setToken } from "@/lib/auth";
 import { isDesktopApp, openExternalUrl } from "@/lib/desktop";
@@ -21,6 +22,7 @@ import {
   X,
   AlertCircle,
   Terminal,
+  RefreshCw,
 } from "lucide-react";
 
 interface DiagnosticReport {
@@ -58,9 +60,32 @@ export default function OktaSsoModal({
   const [copiedDiagnostic, setCopiedDiagnostic] = useState(false);
   const [success, setSuccess] = useState(false);
   const [pollStatus, setPollStatus] = useState<string>("Iniciando conexão...");
+  const [testingBackend, setTestingBackend] = useState(false);
+  const [backendStatusMsg, setBackendStatusMsg] = useState<string | null>(null);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isCancelledRef = useRef(false);
+
+  async function handleTestBackend() {
+    setTestingBackend(true);
+    setBackendStatusMsg(null);
+    try {
+      const res = await checkBackendConnectivity();
+      if (res.ok) {
+        setBackendStatusMsg(`✅ Backend Online em ${res.url}! Reiniciando conexão com Okta...`);
+        setTimeout(() => {
+          setBackendStatusMsg(null);
+          startFlow();
+        }, 1200);
+      } else {
+        setBackendStatusMsg(`❌ Backend Offline na porta 8000. Inicie os containers com 'iniciar_windows.bat' (ou Docker Desktop).`);
+      }
+    } catch (e: any) {
+      setBackendStatusMsg(`❌ Falha de teste: ${e?.message || "Serviço inacessível"}`);
+    } finally {
+      setTestingBackend(false);
+    }
+  }
 
   function stopPolling() {
     if (pollIntervalRef.current) {
@@ -102,7 +127,10 @@ export default function OktaSsoModal({
         rawMessage.includes("NetworkError")
       ) {
         tip =
-          "O aplicativo desktop não conseguiu conectar ao backend em http://localhost:8000. Certifique-se de que os serviços foram iniciados no Windows ('iniciar_windows.bat' ou Docker).";
+          "O aplicativo desktop não conseguiu conectar ao backend local (porta 8000). No Windows:\n" +
+          "1. Certifique-se de executar o script 'iniciar_windows.bat' (ou verifique se os containers do Docker Desktop estão ativos);\n" +
+          "2. Se o Docker já estiver rodando, teste abrir no navegador: http://127.0.0.1:8000/health;\n" +
+          "3. Verifique se o Firewall do Windows não está bloqueando conexões locais na porta 8000.";
       } else if (rawMessage.includes("expired")) {
         tip =
           "O código de ativação expirou no portal Okta. Clique em 'Tentar novamente' para gerar um novo código.";
@@ -389,10 +417,41 @@ export default function OktaSsoModal({
                   </div>
 
                   {diagnostic.troubleshootingTip && (
-                    <div className="rounded-lg bg-sky-950/30 border border-sky-800/30 p-2.5 text-[11px] text-sky-300/90 leading-relaxed">
+                    <div className="rounded-lg bg-sky-950/30 border border-sky-800/30 p-2.5 text-[11px] text-sky-300/90 leading-relaxed whitespace-pre-line">
                       <span className="font-semibold text-sky-200">💡 Ponto de atenção:</span> {diagnostic.troubleshootingTip}
                     </div>
                   )}
+
+                  <div className="pt-1 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTestBackend}
+                      disabled={testingBackend}
+                      className="flex items-center justify-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 px-3 py-1.5 text-[11px] font-medium text-sky-200 transition disabled:opacity-50"
+                    >
+                      {testingBackend ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin text-sky-400" />
+                          <span>Testando portas 8000 (localhost e 127.0.0.1)...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-3 w-3 text-sky-400" />
+                          <span>Testar Conexão com o Backend Local</span>
+                        </>
+                      )}
+                    </button>
+
+                    {backendStatusMsg && (
+                      <div className={`p-2 rounded-lg text-[11px] leading-relaxed border ${
+                        backendStatusMsg.startsWith("✅")
+                          ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-300"
+                          : "bg-rose-950/40 border-rose-500/30 text-rose-300"
+                      }`}>
+                        {backendStatusMsg}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
