@@ -79,7 +79,7 @@ console.log(`======================================================\n`);
 // 3. Atualizar tauri.conf.json
 tauriConf.version = newVersion;
 if (!tauriConf.bundle) tauriConf.bundle = {};
-tauriConf.bundle.copyright = "Criadores: Gustavo Costa Berbert & Marcio Miguel\\n© 2026 NTT DATA / MAPFRE";
+tauriConf.bundle.copyright = "© 2026 NTT DATA / MAPFRE. All rights reserved.";
 if (!tauriConf.bundle.macOS) tauriConf.bundle.macOS = {};
 tauriConf.bundle.macOS.infoPlist = "Info.plist";
 

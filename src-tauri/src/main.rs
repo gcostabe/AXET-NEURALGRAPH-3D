@@ -78,15 +78,12 @@ fn main() {
                     name: Some("AXET-NeuralGraph".into()),
                     version: Some(env!("CARGO_PKG_VERSION").into()),
                     short_version: Some(env!("CARGO_PKG_VERSION").into()),
-                    authors: Some(vec![
-                        "Gustavo Costa Berbert".into(),
-                        "Marcio Miguel".into(),
-                    ]),
-                    comments: Some("Plataforma Neural 3D & Sistema de RAG Corporativo de Alta Performance\n\nCriadores:\n• Gustavo Costa Berbert\n• Marcio Miguel".into()),
-                    copyright: Some("Criadores: Gustavo Costa Berbert & Marcio Miguel\n© 2026 NTT DATA / MAPFRE".into()),
-                    credits: Some("Criadores e Arquitetos:\nGustavo Costa Berbert\nMarcio Miguel".into()),
+                    authors: None,
+                    comments: None,
+                    credits: Some("Created by:\nGustavo Costa Berbert\nMarcio Miguel\n\nApplication Services - MAPPS".into()),
+                    copyright: Some("© 2026 NTT DATA / MAPFRE. All rights reserved.".into()),
                     website: Some("https://github.com/gcostabe/AXET-NEURALGRAPH-3D".into()),
-                    website_label: Some("Repositório Oficial".into()),
+                    website_label: Some("Official Repository".into()),
                     ..Default::default()
                 };
 
@@ -95,7 +92,7 @@ fn main() {
                     "AXET-NeuralGraph",
                     true,
                     &[
-                        &PredefinedMenuItem::about(app, Some("Sobre o AXET-NeuralGraph"), Some(about_metadata))?,
+                        &PredefinedMenuItem::about(app, Some("About AXET-NeuralGraph"), Some(about_metadata))?,
                         &PredefinedMenuItem::separator(app)?,
                         &PredefinedMenuItem::services(app, None)?,
                         &PredefinedMenuItem::separator(app)?,
@@ -109,7 +106,7 @@ fn main() {
 
                 let edit_submenu = Submenu::with_items(
                     app,
-                    "Editar",
+                    "Edit",
                     true,
                     &[
                         &PredefinedMenuItem::undo(app, None)?,
@@ -124,7 +121,7 @@ fn main() {
 
                 let window_submenu = Submenu::with_items(
                     app,
-                    "Janela",
+                    "Window",
                     true,
                     &[
                         &PredefinedMenuItem::minimize(app, None)?,
@@ -141,8 +138,8 @@ fn main() {
                 app.set_menu(app_menu)?;
             }
 
-            let quit_i = MenuItem::with_id(app, "quit", "Encerrar AXET", true, None::<&str>)?;
-            let show_i = MenuItem::with_id(app, "show", "Abrir Dashboard", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Quit AXET", true, None::<&str>)?;
+            let show_i = MenuItem::with_id(app, "show", "Open Dashboard", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
             let _tray = TrayIconBuilder::new()
